@@ -1,0 +1,13 @@
+{
+  "animation_source": "NLA action with BEZIER source keys; exporter must resample to LINEAR or STEP",
+  "collection": "BlendLibExport",
+  "expected_animation_names": [
+    "rigid_pulse"
+  ],
+  "expected_base_color": "blendlib_showcase:textures/blendlib/fixtures_rigid_model__rigidsurface.png",
+  "fixture": "rigid",
+  "model_id": "fixtures/rigid_model",
+  "namespace": "blendlib_showcase",
+  "profile": "blendlib:rigid_v1",
+  "source_texture": "textures/rigid_surface.png"
+}

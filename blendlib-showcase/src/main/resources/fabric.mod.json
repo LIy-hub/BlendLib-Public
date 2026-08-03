@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "id": "blendlib_showcase",
+  "version": "${version}",
+  "name": "BlendLib Showcase",
+  "description": "BlendLib 1.0.0-alpha.1 Showcase consumer for Minecraft 26.1.2.",
+  "license": "Apache-2.0",
+  "authors": ["LIy-hub"],
+  "contact": {
+    "homepage": "https://www.curseforge.com/minecraft/mc-mods/blendlib",
+    "sources": "https://github.com/LIy-hub/BlendLib-Public",
+    "issues": "https://github.com/LIy-hub/BlendLib-Public/issues",
+    "email": "2734855720@qq.com"
+  },
+  "environment": "*",
+  "entrypoints": {
+    "main": [
+      "com.liy.blendlib.showcase.BlendLibShowcaseEntrypoint"
+    ],
+    "client": [
+      "com.liy.blendlib.showcase.client.BlendLibShowcaseClientEntrypoint"
+    ]
+  },
+  "depends": {
+    "fabricloader": "0.19.3",
+    "minecraft": "26.1.2",
+    "java": "25",
+    "fabric-api": "0.154.2+26.1.2",
+    "blendlib": "1.0.0-alpha.1+26.1.2"
+  }
+}

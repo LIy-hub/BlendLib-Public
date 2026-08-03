@@ -1,0 +1,18 @@
+{
+  "extensions": {},
+  "extensions_required": [],
+  "extensions_used": [],
+  "format_version": 1,
+  "materials": {
+    "RigidSurface": {
+      "base_color": "blendlib_showcase:textures/blendlib/fixtures_rigid_model__rigidsurface.png",
+      "cutout_threshold": 0.1,
+      "double_sided": false,
+      "emissive": false,
+      "mode": "cutout"
+    }
+  },
+  "mesh": "blendlib_showcase:models3d/fixtures/rigid_model.glb",
+  "profile": "blendlib:rigid_v1",
+  "units_per_block": 1
+}

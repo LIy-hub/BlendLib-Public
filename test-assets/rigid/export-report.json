@@ -1,0 +1,167 @@
+{
+  "blend": "test-assets/rigid/source.blend",
+  "collection": "BlendLibExport",
+  "descriptor_path": "blendlib-showcase/src/main/resources/assets/blendlib_showcase/blend_models/fixtures/rigid_model.json",
+  "format": "blendlib-p2-export-report-v1",
+  "mesh_path": "blendlib-showcase/src/main/resources/assets/blendlib_showcase/models3d/fixtures/rigid_model.glb",
+  "model_id": "fixtures/rigid_model",
+  "namespace": "blendlib_showcase",
+  "normalized_structure": {
+    "descriptor": {
+      "animation": {
+        "initial_state": "blendlib_showcase:rigid_pulse",
+        "states": {
+          "blendlib_showcase:rigid_pulse": {
+            "clip": "rigid_pulse",
+            "loop": true,
+            "speed": 1.0
+          }
+        }
+      },
+      "extensions": {},
+      "extensions_required": [],
+      "extensions_used": [],
+      "format_version": 1,
+      "materials": {
+        "RigidSurface": {
+          "base_color": "blendlib_showcase:textures/blendlib/fixtures_rigid_model__rigidsurface.png",
+          "double_sided": false,
+          "emissive": false,
+          "mode": "opaque"
+        }
+      },
+      "mesh": "blendlib_showcase:models3d/fixtures/rigid_model.glb",
+      "profile": "blendlib:rigid_v1",
+      "units_per_block": 1.0
+    },
+    "format": "blendlib-p2-normalized-structure-v1",
+    "glb": {
+      "animation": [
+        {
+          "interpolations": [
+            "LINEAR"
+          ],
+          "name": "rigid_pulse",
+          "paths": [
+            "translation"
+          ]
+        }
+      ],
+      "asset_version": "2.0",
+      "embedded_runtime_images": false,
+      "material_names": [
+        "RigidSurface"
+      ],
+      "node_count": 3,
+      "nodes": [
+        {
+          "children": [],
+          "mesh": "RigidArm",
+          "name": "RigidArm",
+          "skin": false
+        },
+        {
+          "children": [],
+          "mesh": "RigidBase",
+          "name": "RigidBase",
+          "skin": false
+        },
+        {
+          "children": [
+            "RigidArm",
+            "RigidBase"
+          ],
+          "mesh": null,
+          "name": "RigidRoot",
+          "skin": false
+        }
+      ],
+      "primitives": [
+        {
+          "attributes": [
+            "NORMAL",
+            "POSITION",
+            "TEXCOORD_0"
+          ],
+          "material": 0,
+          "mesh": "RigidArm",
+          "mode": 4
+        },
+        {
+          "attributes": [
+            "NORMAL",
+            "POSITION",
+            "TEXCOORD_0"
+          ],
+          "material": 0,
+          "mesh": "RigidBase",
+          "mode": 4
+        }
+      ],
+      "profile": "blendlib:rigid_v1",
+      "world_bounds": {
+        "max": [
+          0.5,
+          1.6,
+          1.0
+        ],
+        "min": [
+          -0.5,
+          0.0,
+          0.0
+        ]
+      }
+    }
+  },
+  "profile": "blendlib:rigid_v1",
+  "sha256": {
+    "descriptor": "d5ef584999ed54ce17b798e85d0e31b62b85db89bc4ee5f820c46806a5a8852d",
+    "mesh_glb": "a2b7f063c8806f3e3eceec2533ed8fe84c91f967ac71c25ca59faf4349a21764",
+    "normalized_structure": "adcac8f7c0ffed179708d68344ac094959c022be66ebffa93f64531fd7367dc8",
+    "source_blend": "3fc31f2445e0652ecfb43bbb4ed9949260415bf930825f4303c8a369941c82c8"
+  },
+  "source_bounds": {
+    "max": [
+      0.5,
+      1.600000023841858,
+      1.0
+    ],
+    "min": [
+      -0.5,
+      0.0,
+      -0.0
+    ]
+  },
+  "texture_paths": {
+    "RigidSurface": "blendlib-showcase/src/main/resources/assets/blendlib_showcase/textures/blendlib/fixtures_rigid_model__rigidsurface.png"
+  },
+  "validation": {
+    "animation_names": [
+      "rigid_pulse"
+    ],
+    "embedded_runtime_images": false,
+    "index_count": 6,
+    "material_names": [
+      "RigidSurface"
+    ],
+    "node_count": 3,
+    "profile": "blendlib:rigid_v1",
+    "vertex_count": 6,
+    "world_bounds": {
+      "max": [
+        0.5,
+        1.600000023841858,
+        1.0
+      ],
+      "min": [
+        -0.5,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  "warnings": [
+    "Filtered non-runtime camera 'RigidCamera'.",
+    "Filtered non-runtime light 'RigidLight'."
+  ]
+}

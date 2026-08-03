@@ -1,0 +1,111 @@
+{
+  "descriptor": {
+    "animation": {
+      "initial_state": "blendlib_showcase:skinned_wave",
+      "states": {
+        "blendlib_showcase:skinned_wave": {
+          "clip": "skinned_wave",
+          "loop": true,
+          "speed": 1.0
+        }
+      }
+    },
+    "extensions": {},
+    "extensions_required": [],
+    "extensions_used": [],
+    "format_version": 1,
+    "materials": {
+      "SkinnedSurface": {
+        "base_color": "blendlib_showcase:textures/blendlib/fixtures_skinned_model__skinnedsurface.png",
+        "double_sided": false,
+        "emissive": false,
+        "mode": "opaque"
+      }
+    },
+    "mesh": "blendlib_showcase:models3d/fixtures/skinned_model.glb",
+    "profile": "blendlib:skinned_v1",
+    "units_per_block": 1.0
+  },
+  "format": "blendlib-p2-normalized-structure-v1",
+  "glb": {
+    "animation": [
+      {
+        "interpolations": [
+          "LINEAR",
+          "STEP",
+          "STEP"
+        ],
+        "name": "skinned_wave",
+        "paths": [
+          "rotation",
+          "scale",
+          "translation"
+        ]
+      }
+    ],
+    "asset_version": "2.0",
+    "embedded_runtime_images": false,
+    "material_names": [
+      "SkinnedSurface"
+    ],
+    "node_count": 4,
+    "nodes": [
+      {
+        "children": [
+          "SkinnedBone",
+          "SkinnedMesh"
+        ],
+        "mesh": null,
+        "name": "SkinnedArmature",
+        "skin": false
+      },
+      {
+        "children": [],
+        "mesh": null,
+        "name": "SkinnedBone",
+        "skin": false
+      },
+      {
+        "children": [],
+        "mesh": "SkinnedMesh",
+        "name": "SkinnedMesh",
+        "skin": true
+      },
+      {
+        "children": [
+          "SkinnedArmature"
+        ],
+        "mesh": null,
+        "name": "SkinnedRoot",
+        "skin": false
+      }
+    ],
+    "primitives": [
+      {
+        "attributes": [
+          "JOINTS_0",
+          "NORMAL",
+          "POSITION",
+          "TEXCOORD_0",
+          "WEIGHTS_0"
+        ],
+        "material": 0,
+        "mesh": "SkinnedMesh",
+        "mode": 4
+      }
+    ],
+    "profile": "blendlib:skinned_v1",
+    "world_bounds": {
+      "max": [
+        0.4,
+        1.0,
+        1.0
+      ],
+      "min": [
+        -0.4,
+        0.0,
+        0.0
+      ]
+    }
+  }
+}

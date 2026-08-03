@@ -1,0 +1,78 @@
+{
+  "collections": [
+    {
+      "name": "Hero Variant",
+      "objects": ["HeroRoot", "HeroMesh"],
+      "triangle_count": 1
+    },
+    {
+      "name": "LOD_1",
+      "objects": ["HeroMesh"],
+      "triangle_count": 1
+    },
+    {
+      "name": "Collision",
+      "objects": ["HeroCollider"],
+      "triangle_count": 0
+    }
+  ],
+  "coordinate_transform": "minecraft_x=blender_x;minecraft_y=blender_z;minecraft_z=-blender_y",
+  "markers": [
+    {
+      "frame": 6,
+      "name": "event:flash"
+    }
+  ],
+  "materials": [
+    {
+      "external": true,
+      "mode": "opaque",
+      "name": "HeroMaterial",
+      "packed": false,
+      "source": "textures/hero.png",
+      "source_exists": true,
+      "source_regular": true,
+      "source_within_allowed_root": true,
+      "suffix": ".png"
+    }
+  ],
+  "model_id": "hero/model",
+  "namespace": "blendlib",
+  "objects": [
+    {
+      "custom_properties": {
+        "blendlib_display_name": "Hero"
+      },
+      "name": "HeroRoot",
+      "scale": [1, 1, 1],
+      "type": "EMPTY"
+    },
+    {
+      "custom_properties": {
+        "blendlib_tint": "blue"
+      },
+      "face_vertex_counts": [3],
+      "material_names": ["HeroMaterial"],
+      "name": "HeroMesh",
+      "normals": [[0, 0, 1], [0, 0, 1], [0, 0, 1]],
+      "scale": [1, 1, 1],
+      "type": "MESH",
+      "uv0": true,
+      "weights": [[], [], []]
+    },
+    {
+      "bones": [
+        {"name": "root", "parent": null},
+        {"name": "hand", "parent": "root"}
+      ],
+      "custom_properties": {},
+      "name": "HeroRig",
+      "scale": [1, 1, 1],
+      "type": "ARMATURE"
+    }
+  ],
+  "output_resource_root": "src/main/resources",
+  "profile": "blendlib:rigid_v1",
+  "root_count": 1,
+  "units_per_block": 1
+}

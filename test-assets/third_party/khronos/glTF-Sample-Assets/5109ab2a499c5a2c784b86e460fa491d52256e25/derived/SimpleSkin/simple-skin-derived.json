@@ -1,0 +1,14 @@
+{
+  "format_version": 1,
+  "materials": {
+    "SimpleSkinDerived": {
+      "base_color": "blendlib_khronos_fixture:textures/khronos/simple-skin-derived.png",
+      "double_sided": false,
+      "emissive": false,
+      "mode": "opaque"
+    }
+  },
+  "mesh": "blendlib_khronos_fixture:models3d/khronos/simple-skin-derived.glb",
+  "profile": "blendlib:skinned_v1",
+  "units_per_block": 1.0
+}

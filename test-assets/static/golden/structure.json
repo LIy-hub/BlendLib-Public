@@ -1,0 +1,70 @@
+{
+  "descriptor": {
+    "extensions": {},
+    "extensions_required": [],
+    "extensions_used": [],
+    "format_version": 1,
+    "materials": {
+      "StaticSurface": {
+        "base_color": "blendlib_showcase:textures/blendlib/fixtures_static_model__staticsurface.png",
+        "double_sided": false,
+        "emissive": false,
+        "mode": "opaque"
+      }
+    },
+    "mesh": "blendlib_showcase:models3d/fixtures/static_model.glb",
+    "profile": "blendlib:rigid_v1",
+    "units_per_block": 1.0
+  },
+  "format": "blendlib-p2-normalized-structure-v1",
+  "glb": {
+    "animation": [],
+    "asset_version": "2.0",
+    "embedded_runtime_images": false,
+    "material_names": [
+      "StaticSurface"
+    ],
+    "node_count": 2,
+    "nodes": [
+      {
+        "children": [],
+        "mesh": "StaticMesh",
+        "name": "StaticMesh",
+        "skin": false
+      },
+      {
+        "children": [
+          "StaticMesh"
+        ],
+        "mesh": null,
+        "name": "StaticRoot",
+        "skin": false
+      }
+    ],
+    "primitives": [
+      {
+        "attributes": [
+          "NORMAL",
+          "POSITION",
+          "TEXCOORD_0"
+        ],
+        "material": 0,
+        "mesh": "StaticMesh",
+        "mode": 4
+      }
+    ],
+    "profile": "blendlib:rigid_v1",
+    "world_bounds": {
+      "max": [
+        0.5,
+        1.0,
+        2.0
+      ],
+      "min": [
+        -0.5,
+        0.0,
+        0.0
+      ]
+    }
+  }
+}

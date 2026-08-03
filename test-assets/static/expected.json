@@ -1,0 +1,34 @@
+{
+  "collection": "BlendLibExport",
+  "coordinate_probe": {
+    "blender": [
+      0.0,
+      -2.0,
+      0.0
+    ],
+    "canonical": [
+      0.0,
+      0.0,
+      2.0
+    ]
+  },
+  "expected_animation_names": [],
+  "expected_base_color": "blendlib_showcase:textures/blendlib/fixtures_static_model__staticsurface.png",
+  "expected_canonical_bounds": {
+    "max": [
+      0.5,
+      1.0,
+      2.0
+    ],
+    "min": [
+      -0.5,
+      0.0,
+      0.0
+    ]
+  },
+  "fixture": "static",
+  "model_id": "fixtures/static_model",
+  "namespace": "blendlib_showcase",
+  "profile": "blendlib:rigid_v1",
+  "source_texture": "textures/static_surface.png"
+}

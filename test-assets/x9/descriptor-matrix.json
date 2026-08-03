@@ -1,0 +1,15 @@
+{
+  "status": "Experimental; compatibility may change",
+  "profiles": ["blendlib:skinned_v2", "blendlib:morph_v1"],
+  "positive": ["skinned-v2-all-features", "morph-v1-all-features"],
+  "negative": [
+    "unknown-required-capability",
+    "unknown-optional-without-metadata-fallback",
+    "disabled-draco",
+    "unsafe-texture-path",
+    "cubic-output-cardinality",
+    "morph-target-bound",
+    "non-finite-accessor"
+  ],
+  "v1_regression": ["rigid_v1-remains-v1-only", "skinned_v1-remains-v1-only"]
+}

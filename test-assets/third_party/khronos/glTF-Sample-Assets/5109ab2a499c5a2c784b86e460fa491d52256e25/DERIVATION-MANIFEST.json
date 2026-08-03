@@ -1,0 +1,114 @@
+{
+  "derived_outputs": [
+    {
+      "byte_length": 2632,
+      "path": "blendlib-core/src/test/resources/p3/fixtures/khronos/animated-cube-derived.glb",
+      "sha256": "7a15f0f3e90e748bdb38ec4b36bdcf6a741faf4ee90f628ddc1868330778b7d5"
+    },
+    {
+      "byte_length": 392,
+      "path": "blendlib-core/src/test/resources/p3/fixtures/khronos/animated-cube-derived.json",
+      "sha256": "c51b5e84904a9fc92d3587254d2bbd7dbbb12af6735e63842adb446242ae9eba"
+    },
+    {
+      "byte_length": 2876,
+      "path": "blendlib-core/src/test/resources/p3/fixtures/khronos/simple-skin-derived.glb",
+      "sha256": "051b36110442d893472bbdc23ab59e04904008b1c2ea181d26eaeca2fbcfbced"
+    },
+    {
+      "byte_length": 388,
+      "path": "blendlib-core/src/test/resources/p3/fixtures/khronos/simple-skin-derived.json",
+      "sha256": "f50f28d501cb03e7490356bde249fa5433a0f221bd6580af4b7ee273cde2be13"
+    },
+    {
+      "byte_length": 68,
+      "path": "blendlib-core/src/test/resources/p3/fixtures/khronos/textures/khronos/animated-cube-derived.png",
+      "sha256": "36c907715b80d7cdad0e196256966a3353b771387aefb1116d8769dacc81b675"
+    },
+    {
+      "byte_length": 68,
+      "path": "blendlib-core/src/test/resources/p3/fixtures/khronos/textures/khronos/simple-skin-derived.png",
+      "sha256": "36c907715b80d7cdad0e196256966a3353b771387aefb1116d8769dacc81b675"
+    },
+    {
+      "byte_length": 2632,
+      "path": "test-assets/third_party/khronos/glTF-Sample-Assets/5109ab2a499c5a2c784b86e460fa491d52256e25/derived/AnimatedCube/animated-cube-derived.glb",
+      "sha256": "7a15f0f3e90e748bdb38ec4b36bdcf6a741faf4ee90f628ddc1868330778b7d5"
+    },
+    {
+      "byte_length": 392,
+      "path": "test-assets/third_party/khronos/glTF-Sample-Assets/5109ab2a499c5a2c784b86e460fa491d52256e25/derived/AnimatedCube/animated-cube-derived.json",
+      "sha256": "c51b5e84904a9fc92d3587254d2bbd7dbbb12af6735e63842adb446242ae9eba"
+    },
+    {
+      "byte_length": 2876,
+      "path": "test-assets/third_party/khronos/glTF-Sample-Assets/5109ab2a499c5a2c784b86e460fa491d52256e25/derived/SimpleSkin/simple-skin-derived.glb",
+      "sha256": "051b36110442d893472bbdc23ab59e04904008b1c2ea181d26eaeca2fbcfbced"
+    },
+    {
+      "byte_length": 388,
+      "path": "test-assets/third_party/khronos/glTF-Sample-Assets/5109ab2a499c5a2c784b86e460fa491d52256e25/derived/SimpleSkin/simple-skin-derived.json",
+      "sha256": "f50f28d501cb03e7490356bde249fa5433a0f221bd6580af4b7ee273cde2be13"
+    },
+    {
+      "byte_length": 68,
+      "path": "test-assets/third_party/khronos/glTF-Sample-Assets/5109ab2a499c5a2c784b86e460fa491d52256e25/derived/textures/khronos/animated-cube-derived.png",
+      "sha256": "36c907715b80d7cdad0e196256966a3353b771387aefb1116d8769dacc81b675"
+    },
+    {
+      "byte_length": 68,
+      "path": "test-assets/third_party/khronos/glTF-Sample-Assets/5109ab2a499c5a2c784b86e460fa491d52256e25/derived/textures/khronos/simple-skin-derived.png",
+      "sha256": "36c907715b80d7cdad0e196256966a3353b771387aefb1116d8769dacc81b675"
+    }
+  ],
+  "format_version": 1,
+  "raw_inputs": [
+    {
+      "byte_length": 2386,
+      "path": "SimpleSkin/glTF/SimpleSkin.gltf",
+      "sha256": "8d92e9888340eb98e82a65a1f8b037d9a1d9f09e5fd0b6ba6d40fd93700b3239",
+      "source_url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/5109ab2a499c5a2c784b86e460fa491d52256e25/Models/SimpleSkin/glTF/SimpleSkin.gltf"
+    },
+    {
+      "byte_length": 168,
+      "path": "SimpleSkin/glTF/SimpleSkin_geometry.bin",
+      "sha256": "35f0ca6bc07976c0aadc163d4737758989cfcc9870a99800004c4478fe698b63",
+      "source_url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/5109ab2a499c5a2c784b86e460fa491d52256e25/Models/SimpleSkin/glTF/SimpleSkin_geometry.bin"
+    },
+    {
+      "byte_length": 320,
+      "path": "SimpleSkin/glTF/SimpleSkin_skinningData.bin",
+      "sha256": "413bc8a8c0da673df767874e6f05f0b00c9261756a08586b9d555bd5535414b5",
+      "source_url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/5109ab2a499c5a2c784b86e460fa491d52256e25/Models/SimpleSkin/glTF/SimpleSkin_skinningData.bin"
+    },
+    {
+      "byte_length": 128,
+      "path": "SimpleSkin/glTF/SimpleSkin_inverseBindMatrices.bin",
+      "sha256": "5844ab221cd2ad367420a248f6387b46e5f8498604427730a37ee96b4d4ec599",
+      "source_url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/5109ab2a499c5a2c784b86e460fa491d52256e25/Models/SimpleSkin/glTF/SimpleSkin_inverseBindMatrices.bin"
+    },
+    {
+      "byte_length": 240,
+      "path": "SimpleSkin/glTF/SimpleSkin_animation.bin",
+      "sha256": "ff21b1bc3d0abbe53f7665060ec6c22d873b6e85a7669171a2b6b8ae01c39347",
+      "source_url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/5109ab2a499c5a2c784b86e460fa491d52256e25/Models/SimpleSkin/glTF/SimpleSkin_animation.bin"
+    },
+    {
+      "byte_length": 4991,
+      "path": "AnimatedCube/glTF/AnimatedCube.gltf",
+      "sha256": "59a3c451a5167b8ac4b59d61d4b94b2b7a215ee827efaed75629677a1217b552",
+      "source_url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/5109ab2a499c5a2c784b86e460fa491d52256e25/Models/AnimatedCube/glTF/AnimatedCube.gltf"
+    },
+    {
+      "byte_length": 1860,
+      "path": "AnimatedCube/glTF/AnimatedCube.bin",
+      "sha256": "82de770fc82b48a77a33bb26abd4d7e75620491b36ddf98e8dca69fa73dd798c",
+      "source_url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/5109ab2a499c5a2c784b86e460fa491d52256e25/Models/AnimatedCube/glTF/AnimatedCube.bin"
+    }
+  ],
+  "upstream": {
+    "raw_base_url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/5109ab2a499c5a2c784b86e460fa491d52256e25/Models",
+    "repository": "KhronosGroup/glTF-Sample-Assets",
+    "revision": "5109ab2a499c5a2c784b86e460fa491d52256e25"
+  }
+}

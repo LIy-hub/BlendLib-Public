@@ -1,0 +1,144 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://local.blendlib/schema/experimental/blendlib-model-x9.schema.json",
+  "title": "BlendLib X9 Experimental Descriptor Schema",
+  "description": "Proposed validation-only descriptor shape. Semantic version ordering and capability availability remain fail-closed decoder checks.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["format_version", "profile", "mesh", "materials", "capabilities"],
+  "properties": {
+    "format_version": { "const": 2 },
+    "profile": { "enum": ["blendlib:skinned_v2", "blendlib:morph_v1"] },
+    "mesh": { "$ref": "#/$defs/modelResourceId" },
+    "units_per_block": {
+      "type": "number",
+      "exclusiveMinimum": 0,
+      "maximum": 64,
+      "default": 1.0
+    },
+    "materials": {
+      "type": "object",
+      "minProperties": 1,
+      "maxProperties": 256,
+      "propertyNames": { "pattern": "^[A-Za-z0-9._-]{1,128}$" },
+      "additionalProperties": { "$ref": "#/$defs/material" }
+    },
+    "capabilities": {
+      "type": "object",
+      "maxProperties": 32,
+      "propertyNames": { "$ref": "#/$defs/resourceId" },
+      "additionalProperties": { "$ref": "#/$defs/capabilityRequirement" }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": { "profile": { "const": "blendlib:skinned_v2" } },
+        "required": ["profile"]
+      },
+      "then": {
+        "properties": {
+          "capabilities": {
+            "required": [
+              "blendlib:cubic-spline",
+              "blendlib:vertex-color",
+              "blendlib:multiple-uv",
+              "blendlib:richer-material-metadata"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": { "profile": { "const": "blendlib:morph_v1" } },
+        "required": ["profile"]
+      },
+      "then": {
+        "properties": {
+          "capabilities": {
+            "required": [
+              "blendlib:cubic-spline",
+              "blendlib:vertex-color",
+              "blendlib:multiple-uv",
+              "blendlib:richer-material-metadata",
+              "blendlib:morph-targets"
+            ]
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "resourceId": {
+      "type": "string",
+      "pattern": "^[a-z0-9._-]+:(?!\\.{1,2}(?:/|$))[a-z0-9._-]+(?:/(?!\\.{1,2}(?:/|$))[a-z0-9._-]+)*$"
+    },
+    "modelResourceId": {
+      "type": "string",
+      "pattern": "^[a-z0-9._-]+:models3d/(?!\\.glb$)(?!\\.{1,2}(?:/|$))[a-z0-9._-]+(?:/(?!\\.{1,2}(?:/|$))[a-z0-9._-]+)*\\.glb$"
+    },
+    "textureResourceId": {
+      "type": "string",
+      "pattern": "^[a-z0-9._-]+:textures/(?!\\.png$)(?!\\.{1,2}(?:/|$))[a-z0-9._-]+(?:/(?!\\.{1,2}(?:/|$))[a-z0-9._-]+)*\\.png$"
+    },
+    "semVer": {
+      "type": "string",
+      "pattern": "^(0|[1-9][0-9]{0,4})\\.(0|[1-9][0-9]{0,4})\\.(0|[1-9][0-9]{0,4})$"
+    },
+    "material": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["base_color"],
+      "properties": {
+        "base_color": { "$ref": "#/$defs/textureResourceId" },
+        "mode": { "enum": ["opaque", "cutout", "translucent"], "default": "opaque" },
+        "double_sided": { "type": "boolean", "default": false },
+        "metallic_factor": { "type": "number", "minimum": 0, "maximum": 1, "default": 0 },
+        "roughness_factor": { "type": "number", "minimum": 0, "maximum": 1, "default": 1 },
+        "normal_texture": { "$ref": "#/$defs/textureResourceId" },
+        "occlusion_texture": { "$ref": "#/$defs/textureResourceId" },
+        "emissive_texture": { "$ref": "#/$defs/textureResourceId" },
+        "emissive_factor": {
+          "type": "array",
+          "items": { "type": "number", "minimum": 0, "maximum": 1 },
+          "minItems": 3,
+          "maxItems": 3,
+          "default": [0, 0, 0]
+        },
+        "alpha_cutoff": { "type": "number", "minimum": 0, "maximum": 1 }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "mode": { "const": "cutout" } },
+            "required": ["mode"]
+          },
+          "then": {},
+          "else": { "not": { "required": ["alpha_cutoff"] } }
+        }
+      ]
+    },
+    "capabilityRequirement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["requirement", "min_version", "max_version"],
+      "properties": {
+        "requirement": { "enum": ["required", "optional"] },
+        "min_version": { "$ref": "#/$defs/semVer" },
+        "max_version": { "$ref": "#/$defs/semVer" },
+        "fallback": { "enum": ["metadata_ignore", "missing_model"] }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "requirement": { "const": "optional" } },
+            "required": ["requirement"]
+          },
+          "then": { "required": ["fallback"] },
+          "else": { "not": { "required": ["fallback"] } }
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,59 @@
+{
+  "collection": "BlendLibShowcaseAnimation",
+  "descriptor_animation": {
+    "initial_state": "blendlib_showcase:idle",
+    "states": {
+      "blendlib_showcase:attack": {
+        "blend_seconds": 0.08,
+        "clip": "attack",
+        "events": [
+          {
+            "event": "blendlib_showcase:attack_whoosh",
+            "time_seconds": 0.25
+          }
+        ],
+        "loop": false,
+        "next": "blendlib_showcase:idle",
+        "speed": 1.0
+      },
+      "blendlib_showcase:idle": {
+        "blend_seconds": 0.12,
+        "clip": "idle",
+        "loop": true,
+        "speed": 1.0
+      },
+      "blendlib_showcase:walk": {
+        "blend_seconds": 0.12,
+        "clip": "walk",
+        "loop": true,
+        "speed": 1.0
+      }
+    }
+  },
+  "descriptor_sockets": {
+    "blendlib_showcase:tip": {
+      "node": "ShowcaseAnimationRoot/ShowcaseAnimationArmature/ShowcaseRootBone/ShowcaseTipBone"
+    }
+  },
+  "expected_animation_names": [
+    "attack",
+    "idle",
+    "walk"
+  ],
+  "expected_base_color": "blendlib_showcase:textures/blendlib/showcase_animation/showcase_actor__showcaseanimationsurface.png",
+  "expected_default_scene_roots": [
+    "ShowcaseAnimationRoot"
+  ],
+  "expected_nodes": [
+    "ShowcaseAnimationRoot",
+    "ShowcaseAnimationArmature",
+    "ShowcaseRootBone",
+    "ShowcaseTipBone",
+    "ShowcaseAnimatedMesh"
+  ],
+  "format": "blendlib-p5-showcase-animation-source-v1",
+  "model_id": "showcase_animation/showcase_actor",
+  "namespace": "blendlib_showcase",
+  "profile": "blendlib:skinned_v1",
+  "source_texture": "textures/showcase_animation_surface.png"
+}

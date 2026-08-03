@@ -1,0 +1,52 @@
+{
+  "animation": {
+    "initial_state": "blendlib_showcase:idle",
+    "states": {
+      "blendlib_showcase:attack": {
+        "blend_seconds": 0.08,
+        "clip": "attack",
+        "events": [
+          {
+            "event": "blendlib_showcase:attack_whoosh",
+            "time_seconds": 0.25
+          }
+        ],
+        "loop": false,
+        "next": "blendlib_showcase:idle",
+        "speed": 1.0
+      },
+      "blendlib_showcase:idle": {
+        "blend_seconds": 0.12,
+        "clip": "idle",
+        "loop": true,
+        "speed": 1.0
+      },
+      "blendlib_showcase:walk": {
+        "blend_seconds": 0.12,
+        "clip": "walk",
+        "loop": true,
+        "speed": 1.0
+      }
+    }
+  },
+  "extensions": {},
+  "extensions_required": [],
+  "extensions_used": [],
+  "format_version": 1,
+  "materials": {
+    "ShowcaseAnimationSurface": {
+      "base_color": "blendlib_showcase:textures/blendlib/showcase_animation/showcase_actor__showcaseanimationsurface.png",
+      "double_sided": false,
+      "emissive": false,
+      "mode": "opaque"
+    }
+  },
+  "mesh": "blendlib_showcase:models3d/showcase_animation/showcase_actor.glb",
+  "profile": "blendlib:skinned_v1",
+  "sockets": {
+    "blendlib_showcase:tip": {
+      "node": "ShowcaseAnimationRoot/ShowcaseAnimationArmature/ShowcaseRootBone/ShowcaseTipBone"
+    }
+  },
+  "units_per_block": 1.0
+}

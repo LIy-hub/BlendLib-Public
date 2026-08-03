@@ -1,0 +1,85 @@
+{
+  "format": "blendlib-showcase-p7-reference-scene-v1",
+  "dormant_by_default": true,
+  "activation": {
+    "automatic_registration": false,
+    "requires_isolated_client_run": true,
+    "requires_real_client_jfr_or_profiler": true
+  },
+  "camera": {
+    "x": 0.0,
+    "y": 67.0,
+    "z": 24.0,
+    "yaw_degrees": 180.0,
+    "pitch_degrees": 0.0,
+    "teleport_command": "/tp @s 0 67 24 180 0",
+    "player_center_x": 0.5,
+    "player_center_z": 24.5
+  },
+  "client_conditions": {
+    "framebuffer_width": 1920,
+    "framebuffer_height": 1080,
+    "aspect_ratio": "16:9",
+    "fov_degrees": 90,
+    "dynamic_fov_disabled": true,
+    "fov_effect_scale": 0.0,
+    "minimum_render_distance_chunks": 8
+  },
+  "measurement": {
+    "warmup_frames": 600,
+    "sample_frames": 1800,
+    "target_fps": 60,
+    "records": [
+      "p50_frame_time",
+      "p95_frame_time",
+      "animation_preparation",
+      "submit_cpu",
+      "live_allocation",
+      "cache_observation",
+      "handle_observation"
+    ]
+  },
+  "assets": [
+    {
+      "kind": "rigid",
+      "model_key": "blendlib_showcase:p7/rigid_10k",
+      "profile": "blendlib:rigid_v1",
+      "instances": 100,
+      "triangles_per_instance": 10000,
+      "joints_per_instance": 0,
+      "generated_glb": "models3d/p7/rigid_10k.glb"
+    },
+    {
+      "kind": "skinned",
+      "model_key": "blendlib_showcase:p7/skinned_20k_64j",
+      "profile": "blendlib:skinned_v1",
+      "instances": 25,
+      "triangles_per_instance": 20000,
+      "joints_per_instance": 64,
+      "generated_glb": "models3d/p7/skinned_20k_64j.glb"
+    }
+  ],
+  "layout": {
+    "rigid": {
+      "rows": 4,
+      "columns": 25,
+      "ordinal": "25*r+c",
+      "r_range": "0..3",
+      "c_range": "0..24",
+      "x": "-18+1.5*c",
+      "y": "64+2*r",
+      "z": 0
+    },
+    "skinned": {
+      "rows": 1,
+      "columns": 25,
+      "ordinal": "c",
+      "c_range": "0..24",
+      "x": "-18+1.5*c",
+      "y": 72,
+      "z": 0
+    },
+    "all_target_instances_must_be_visible_before_sampling": true
+  },
+  "total_target_triangles": 1500000
+}

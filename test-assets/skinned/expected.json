@@ -1,0 +1,13 @@
+{
+  "collection": "BlendLibExport",
+  "expected_animation_names": [
+    "skinned_wave"
+  ],
+  "expected_base_color": "blendlib_showcase:textures/blendlib/fixtures_skinned_model__skinnedsurface.png",
+  "fixture": "skinned",
+  "model_id": "fixtures/skinned_model",
+  "namespace": "blendlib_showcase",
+  "profile": "blendlib:skinned_v1",
+  "skin": "one armature bone with exactly one normalized weight per vertex",
+  "source_texture": "textures/skinned_surface.png"
+}

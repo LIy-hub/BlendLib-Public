@@ -1,0 +1,27 @@
+{
+  "animation": {
+    "initial_state": "blendlib_showcase:skinned_wave",
+    "states": {
+      "blendlib_showcase:skinned_wave": {
+        "clip": "skinned_wave",
+        "loop": true,
+        "speed": 1.0
+      }
+    }
+  },
+  "extensions": {},
+  "extensions_required": [],
+  "extensions_used": [],
+  "format_version": 1,
+  "materials": {
+    "SkinnedSurface": {
+      "base_color": "blendlib_showcase:textures/blendlib/fixtures_skinned_model__skinnedsurface.png",
+      "double_sided": false,
+      "emissive": false,
+      "mode": "opaque"
+    }
+  },
+  "mesh": "blendlib_showcase:models3d/fixtures/skinned_model.glb",
+  "profile": "blendlib:skinned_v1",
+  "units_per_block": 1.0
+}

@@ -1,0 +1,107 @@
+{
+  "descriptor": {
+    "animation": {
+      "initial_state": "blendlib_showcase:rigid_pulse",
+      "states": {
+        "blendlib_showcase:rigid_pulse": {
+          "clip": "rigid_pulse",
+          "loop": true,
+          "speed": 1.0
+        }
+      }
+    },
+    "extensions": {},
+    "extensions_required": [],
+    "extensions_used": [],
+    "format_version": 1,
+    "materials": {
+      "RigidSurface": {
+        "base_color": "blendlib_showcase:textures/blendlib/fixtures_rigid_model__rigidsurface.png",
+        "double_sided": false,
+        "emissive": false,
+        "mode": "opaque"
+      }
+    },
+    "mesh": "blendlib_showcase:models3d/fixtures/rigid_model.glb",
+    "profile": "blendlib:rigid_v1",
+    "units_per_block": 1.0
+  },
+  "format": "blendlib-p2-normalized-structure-v1",
+  "glb": {
+    "animation": [
+      {
+        "interpolations": [
+          "LINEAR"
+        ],
+        "name": "rigid_pulse",
+        "paths": [
+          "translation"
+        ]
+      }
+    ],
+    "asset_version": "2.0",
+    "embedded_runtime_images": false,
+    "material_names": [
+      "RigidSurface"
+    ],
+    "node_count": 3,
+    "nodes": [
+      {
+        "children": [],
+        "mesh": "RigidArm",
+        "name": "RigidArm",
+        "skin": false
+      },
+      {
+        "children": [],
+        "mesh": "RigidBase",
+        "name": "RigidBase",
+        "skin": false
+      },
+      {
+        "children": [
+          "RigidArm",
+          "RigidBase"
+        ],
+        "mesh": null,
+        "name": "RigidRoot",
+        "skin": false
+      }
+    ],
+    "primitives": [
+      {
+        "attributes": [
+          "NORMAL",
+          "POSITION",
+          "TEXCOORD_0"
+        ],
+        "material": 0,
+        "mesh": "RigidArm",
+        "mode": 4
+      },
+      {
+        "attributes": [
+          "NORMAL",
+          "POSITION",
+          "TEXCOORD_0"
+        ],
+        "material": 0,
+        "mesh": "RigidBase",
+        "mode": 4
+      }
+    ],
+    "profile": "blendlib:rigid_v1",
+    "world_bounds": {
+      "max": [
+        0.5,
+        1.6,
+        1.0
+      ],
+      "min": [
+        -0.5,
+        0.0,
+        0.0
+      ]
+    }
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "descriptor": "1a2b5c3b38218df1d5f95e1d65efe90ec89edccfe399fd6ce5ac2415fc42d012",
+  "exported_glb": "fe780ca51db01961bf492279ccd46cebc55688cc1ad64e67ce98a87596948db9",
+  "external_runtime_png": "f897760bd5211bececa9d5ee48046856d53b1726663c9ed4d85688fafe26dfb8",
+  "fixture": "skinned",
+  "format": "blendlib-p2-golden-sha256-v1",
+  "normalized_structure": "837f3fc4088e4666df00dfae4478c823923d45bc17944fab3071eb02cc310869",
+  "source_blend": "6ff7a9cd92c2506277e0d956b734cdd3443e12a88368f5e1a14e42504b84690b",
+  "source_png": "f897760bd5211bececa9d5ee48046856d53b1726663c9ed4d85688fafe26dfb8"
+}

@@ -1,0 +1,166 @@
+{
+  "format": "blendlib-p5-fixture-manifest-v1",
+  "phase": "P5",
+  "purpose": "Strict provenance and source-observation bindings for future pure-core controller, palette, skinning, socket, cache, and visual-event tests.",
+  "phase_gate_status": "NOT_EVALUATED",
+  "canonical_asset_policy": {
+    "reuse_only": true,
+    "no_copied_glb_or_gltf": true,
+    "forbidden_provenance_roots": [
+      "test-assets/third_party",
+      "D:/FabricMod26.1",
+      "LiyMod"
+    ]
+  },
+  "fixtures": [
+    {
+      "id": "rigid-two-node-palette",
+      "profile": "blendlib:rigid_v1",
+      "references": {
+        "expected": "../rigid/expected.json",
+        "export_report": "../rigid/export-report.json",
+        "golden_structure": "../rigid/golden/structure.json",
+        "golden_sha256": "../rigid/golden/sha256.json",
+        "source_blend": "../rigid/source.blend",
+        "source_png": "../rigid/textures/rigid_surface.png",
+        "runtime_descriptor": "../../blendlib-showcase/src/main/resources/assets/blendlib_showcase/blend_models/fixtures/rigid_model.json",
+        "runtime_glb": "../../blendlib-showcase/src/main/resources/assets/blendlib_showcase/models3d/fixtures/rigid_model.glb",
+        "runtime_png": "../../blendlib-showcase/src/main/resources/assets/blendlib_showcase/textures/blendlib/fixtures_rigid_model__rigidsurface.png"
+      },
+      "sha256": {
+        "source_blend": "3fc31f2445e0652ecfb43bbb4ed9949260415bf930825f4303c8a369941c82c8",
+        "source_png": "851035d6863e6aea6a03c7a93d8734872e16918938c6f8b962392c24b25502e1",
+        "runtime_descriptor": "d5ef584999ed54ce17b798e85d0e31b62b85db89bc4ee5f820c46806a5a8852d",
+        "runtime_glb": "a2b7f063c8806f3e3eceec2533ed8fe84c91f967ac71c25ca59faf4349a21764",
+        "runtime_png": "851035d6863e6aea6a03c7a93d8734872e16918938c6f8b962392c24b25502e1",
+        "normalized_structure": "adcac8f7c0ffed179708d68344ac094959c022be66ebffa93f64531fd7367dc8"
+      },
+      "source_observation": {
+        "node_names": [
+          "RigidArm",
+          "RigidBase",
+          "RigidRoot"
+        ],
+        "palette_node_names": [
+          "RigidArm",
+          "RigidBase"
+        ],
+        "skin_joint_node_names": [],
+        "clip_observations": [
+          {
+            "name": "rigid_pulse",
+            "channels": [
+              {
+                "target_node": "RigidArm",
+                "path": "translation",
+                "interpolation": "LINEAR",
+                "sample_count": 20,
+                "first_sample_seconds": 0.0416666679084301,
+                "last_sample_seconds": 0.8333333134651184
+              }
+            ]
+          }
+        ]
+      },
+      "p5_readiness": {
+        "rigid_palette": "READY_SOURCE_IDENTITY",
+        "idle_source_identity": {
+          "status": "READY_SOURCE_IDENTITY",
+          "canonical_clip": "rigid_pulse"
+        },
+        "attack_source_identity": {
+          "status": "MISSING_CANONICAL_SOURCE",
+          "reason": "The frozen rigid descriptor and GLB expose only the looped rigid_pulse clip; no attack clip is present."
+        },
+        "pose_matrix_and_vertex_golden": {
+          "status": "PENDING_CORE_SAMPLING",
+          "reason": "P2 records structure and source animation timing, not sampled node matrices or transformed vertex values."
+        }
+      }
+    },
+    {
+      "id": "skinned-single-joint-source",
+      "profile": "blendlib:skinned_v1",
+      "references": {
+        "expected": "../skinned/expected.json",
+        "export_report": "../skinned/export-report.json",
+        "golden_structure": "../skinned/golden/structure.json",
+        "golden_sha256": "../skinned/golden/sha256.json",
+        "source_blend": "../skinned/source.blend",
+        "source_png": "../skinned/textures/skinned_surface.png",
+        "runtime_descriptor": "../../blendlib-showcase/src/main/resources/assets/blendlib_showcase/blend_models/fixtures/skinned_model.json",
+        "runtime_glb": "../../blendlib-showcase/src/main/resources/assets/blendlib_showcase/models3d/fixtures/skinned_model.glb",
+        "runtime_png": "../../blendlib-showcase/src/main/resources/assets/blendlib_showcase/textures/blendlib/fixtures_skinned_model__skinnedsurface.png"
+      },
+      "sha256": {
+        "source_blend": "6ff7a9cd92c2506277e0d956b734cdd3443e12a88368f5e1a14e42504b84690b",
+        "source_png": "f897760bd5211bececa9d5ee48046856d53b1726663c9ed4d85688fafe26dfb8",
+        "runtime_descriptor": "1a2b5c3b38218df1d5f95e1d65efe90ec89edccfe399fd6ce5ac2415fc42d012",
+        "runtime_glb": "fe780ca51db01961bf492279ccd46cebc55688cc1ad64e67ce98a87596948db9",
+        "runtime_png": "f897760bd5211bececa9d5ee48046856d53b1726663c9ed4d85688fafe26dfb8",
+        "normalized_structure": "837f3fc4088e4666df00dfae4478c823923d45bc17944fab3071eb02cc310869"
+      },
+      "source_observation": {
+        "node_names": [
+          "SkinnedBone",
+          "SkinnedMesh",
+          "SkinnedArmature",
+          "SkinnedRoot"
+        ],
+        "palette_node_names": [
+          "SkinnedBone"
+        ],
+        "skin_joint_node_names": [
+          [
+            "SkinnedBone"
+          ]
+        ],
+        "clip_observations": [
+          {
+            "name": "skinned_wave",
+            "channels": [
+              {
+                "target_node": "SkinnedBone",
+                "path": "translation",
+                "interpolation": "STEP",
+                "sample_count": 2,
+                "first_sample_seconds": 0.0416666679084301,
+                "last_sample_seconds": 0.8333333134651184
+              },
+              {
+                "target_node": "SkinnedBone",
+                "path": "rotation",
+                "interpolation": "LINEAR",
+                "sample_count": 20,
+                "first_sample_seconds": 0.0416666679084301,
+                "last_sample_seconds": 0.8333333134651184
+              },
+              {
+                "target_node": "SkinnedBone",
+                "path": "scale",
+                "interpolation": "STEP",
+                "sample_count": 2,
+                "first_sample_seconds": 0.0416666679084301,
+                "last_sample_seconds": 0.8333333134651184
+              }
+            ]
+          }
+        ]
+      },
+      "p5_readiness": {
+        "single_joint_skinning": "READY_SOURCE_IDENTITY",
+        "two_joint_skinning_source_identity": {
+          "status": "MISSING_CANONICAL_SOURCE",
+          "required_joint_count": 2,
+          "observed_joint_count": 1,
+          "reason": "The frozen skinned fixture has exactly one normalized-weight joint, as recorded by P2 expected.json and the GLB skin table."
+        },
+        "pose_matrix_and_vertex_golden": {
+          "status": "PENDING_CORE_SAMPLING",
+          "reason": "P2 does not record post-skin vertex positions or sampled bone matrices."
+        }
+      }
+    }
+  ],
+  "scenario_golden": "golden-scenarios.json"
+}

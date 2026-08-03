@@ -1,0 +1,190 @@
+{
+  "format": "blendlib-p5-scenario-golden-v1",
+  "manifest": "manifest.json",
+  "phase_gate_status": "NOT_EVALUATED",
+  "scenarios": [
+    {
+      "id": "rigid-two-node-palette",
+      "status": "READY_SOURCE_IDENTITY",
+      "fixture_ids": [
+        "rigid-two-node-palette"
+      ],
+      "inputs": {
+        "clip": "rigid_pulse",
+        "sample_seconds": [
+          0.0416666679084301,
+          0.8333333134651184
+        ]
+      },
+      "expected": {
+        "palette_node_names": [
+          "RigidArm",
+          "RigidBase"
+        ],
+        "palette_node_count": 2,
+        "source_channel": "RigidArm.translation"
+      },
+      "pose_matrix_and_vertex_golden": {
+        "status": "PENDING_CORE_SAMPLING",
+        "reason": "No P2 matrix or transformed-vertex samples exist; a P5 pure-core test must generate them from the frozen source bytes."
+      }
+    },
+    {
+      "id": "controller-state-timing",
+      "status": "READY_SOURCE_TIMING_ONLY",
+      "fixture_ids": [
+        "rigid-two-node-palette",
+        "skinned-single-joint-source"
+      ],
+      "expected": {
+        "rigid_pulse_sample_window_seconds": [
+          0.0416666679084301,
+          0.8333333134651184
+        ],
+        "skinned_wave_sample_window_seconds": [
+          0.0416666679084301,
+          0.8333333134651184
+        ],
+        "rigid_interpolation": "LINEAR",
+        "skinned_interpolations": [
+          "STEP",
+          "LINEAR",
+          "STEP"
+        ]
+      },
+      "controller_semantic_golden": {
+        "status": "PENDING_CORE_IMPLEMENTATION",
+        "reason": "The frozen assets establish source clip timing only. Initial-state advancement, speed, looping, non-loop completion, next-state, smoothstep cross-fade, and sequence-correction outcomes belong to the P5 pure-core contract tests."
+      }
+    },
+    {
+      "id": "controller-idle-attack-source-identity",
+      "status": "BLOCKED_CANONICAL_ATTACK_CLIP",
+      "fixture_ids": [
+        "rigid-two-node-palette"
+      ],
+      "expected": {
+        "reason": "The frozen rigid source has no attack clip.",
+        "idle": {
+          "canonical_clip": "rigid_pulse",
+          "status": "READY_SOURCE_IDENTITY"
+        },
+        "attack": {
+          "status": "MISSING_CANONICAL_SOURCE",
+          "reason": "No canonical rigid attack clip exists. Do not alias rigid_pulse as attack or invent an attack duration."
+        }
+      }
+    },
+    {
+      "id": "skinned-single-joint-source-identity",
+      "status": "READY_SOURCE_IDENTITY",
+      "fixture_ids": [
+        "skinned-single-joint-source"
+      ],
+      "expected": {
+        "skin_count": 1,
+        "joint_node_names": [
+          "SkinnedBone"
+        ],
+        "source_clip": "skinned_wave"
+      },
+      "post_skin_vertex_golden": {
+        "status": "PENDING_CORE_SAMPLING",
+        "reason": "The P2 fixture proves JOINTS_0 and WEIGHTS_0 structure, not a sampled CPU-skinning output vector."
+      }
+    },
+    {
+      "id": "skinned-two-joint-source-identity",
+      "status": "BLOCKED_CANONICAL_SECOND_JOINT",
+      "fixture_ids": [
+        "skinned-single-joint-source"
+      ],
+      "expected": {
+        "reason": "The frozen skinned source has exactly one joint, not two.",
+        "required_joint_count": 2,
+        "observed_canonical_joint_count": 1,
+        "action": "Add a future strict BlendLib-owned two-joint canonical fixture before asserting two-joint palette, inverse-bind, or post-skin vertex goldens."
+      }
+    },
+    {
+      "id": "socket-samples",
+      "status": "BLOCKED_CANONICAL_SOCKET_DECLARATION",
+      "fixture_ids": [
+        "rigid-two-node-palette",
+        "skinned-single-joint-source"
+      ],
+      "expected": {
+        "descriptor_socket_tables": [],
+        "reason": "Neither frozen descriptor declares a sockets table. A logical socket-to-node path and its sampled world transform must be added by a future strict BlendLib fixture; no transform is guessed here."
+      }
+    },
+    {
+      "id": "two-instance-isolation",
+      "status": "READY_CONTRACT_SCENARIO",
+      "fixture_ids": [
+        "rigid-two-node-palette"
+      ],
+      "inputs": {
+        "same_model_asset": true,
+        "entity_id": 42,
+        "session_ids": [
+          "p5-session-a",
+          "p5-session-b"
+        ],
+        "sample_seconds": {
+          "p5-session-a": 0.0416666679084301,
+          "p5-session-b": 0.8333333134651184
+        }
+      },
+      "expected": {
+        "immutable_model_asset_may_be_shared": true,
+        "mutable_controller_state_must_be_shared": false,
+        "instance_key_must_include_session": true,
+        "bare_entity_id_is_not_a_cross_session_key": true
+      }
+    },
+    {
+      "id": "generation-cache-lifecycle",
+      "status": "READY_CONTRACT_SCENARIO",
+      "fixture_ids": [
+        "rigid-two-node-palette",
+        "skinned-single-joint-source"
+      ],
+      "inputs": {
+        "old_generation": 41,
+        "replacement_generation": 42,
+        "world_disconnect": true
+      },
+      "expected": {
+        "old_generation_pose_cache_cleared": true,
+        "old_generation_backend_cache_cleared": true,
+        "world_disconnect_instance_and_controller_cache_empty": true,
+        "hot_paths_must_not_parse_json_or_glb": true
+      }
+    },
+    {
+      "id": "visual-event-dispatch",
+      "status": "BLOCKED_CANONICAL_EVENT_DECLARATION",
+      "fixture_ids": [
+        "rigid-two-node-palette",
+        "skinned-single-joint-source"
+      ],
+      "expected": {
+        "canonical_event_declarations": [],
+        "allowed_effects": [
+          "client_sound",
+          "client_particle",
+          "client_trail",
+          "client_socket_callback"
+        ],
+        "forbidden_authoritative_effects": [
+          "damage",
+          "collision",
+          "item_consumption",
+          "drops"
+        ],
+        "reason": "No frozen descriptor or GLB event declaration exists. A future strict BlendLib-owned event source is required before dispatch time/value goldens are asserted."
+      }
+    }
+  ]
+}

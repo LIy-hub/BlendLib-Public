@@ -1,0 +1,171 @@
+{
+  "blend": "test-assets/skinned/source.blend",
+  "collection": "BlendLibExport",
+  "descriptor_path": "blendlib-showcase/src/main/resources/assets/blendlib_showcase/blend_models/fixtures/skinned_model.json",
+  "format": "blendlib-p2-export-report-v1",
+  "mesh_path": "blendlib-showcase/src/main/resources/assets/blendlib_showcase/models3d/fixtures/skinned_model.glb",
+  "model_id": "fixtures/skinned_model",
+  "namespace": "blendlib_showcase",
+  "normalized_structure": {
+    "descriptor": {
+      "animation": {
+        "initial_state": "blendlib_showcase:skinned_wave",
+        "states": {
+          "blendlib_showcase:skinned_wave": {
+            "clip": "skinned_wave",
+            "loop": true,
+            "speed": 1.0
+          }
+        }
+      },
+      "extensions": {},
+      "extensions_required": [],
+      "extensions_used": [],
+      "format_version": 1,
+      "materials": {
+        "SkinnedSurface": {
+          "base_color": "blendlib_showcase:textures/blendlib/fixtures_skinned_model__skinnedsurface.png",
+          "double_sided": false,
+          "emissive": false,
+          "mode": "opaque"
+        }
+      },
+      "mesh": "blendlib_showcase:models3d/fixtures/skinned_model.glb",
+      "profile": "blendlib:skinned_v1",
+      "units_per_block": 1.0
+    },
+    "format": "blendlib-p2-normalized-structure-v1",
+    "glb": {
+      "animation": [
+        {
+          "interpolations": [
+            "LINEAR",
+            "STEP",
+            "STEP"
+          ],
+          "name": "skinned_wave",
+          "paths": [
+            "rotation",
+            "scale",
+            "translation"
+          ]
+        }
+      ],
+      "asset_version": "2.0",
+      "embedded_runtime_images": false,
+      "material_names": [
+        "SkinnedSurface"
+      ],
+      "node_count": 4,
+      "nodes": [
+        {
+          "children": [
+            "SkinnedBone",
+            "SkinnedMesh"
+          ],
+          "mesh": null,
+          "name": "SkinnedArmature",
+          "skin": false
+        },
+        {
+          "children": [],
+          "mesh": null,
+          "name": "SkinnedBone",
+          "skin": false
+        },
+        {
+          "children": [],
+          "mesh": "SkinnedMesh",
+          "name": "SkinnedMesh",
+          "skin": true
+        },
+        {
+          "children": [
+            "SkinnedArmature"
+          ],
+          "mesh": null,
+          "name": "SkinnedRoot",
+          "skin": false
+        }
+      ],
+      "primitives": [
+        {
+          "attributes": [
+            "JOINTS_0",
+            "NORMAL",
+            "POSITION",
+            "TEXCOORD_0",
+            "WEIGHTS_0"
+          ],
+          "material": 0,
+          "mesh": "SkinnedMesh",
+          "mode": 4
+        }
+      ],
+      "profile": "blendlib:skinned_v1",
+      "world_bounds": {
+        "max": [
+          0.4,
+          1.0,
+          1.0
+        ],
+        "min": [
+          -0.4,
+          0.0,
+          0.0
+        ]
+      }
+    }
+  },
+  "profile": "blendlib:skinned_v1",
+  "sha256": {
+    "descriptor": "1a2b5c3b38218df1d5f95e1d65efe90ec89edccfe399fd6ce5ac2415fc42d012",
+    "mesh_glb": "fe780ca51db01961bf492279ccd46cebc55688cc1ad64e67ce98a87596948db9",
+    "normalized_structure": "837f3fc4088e4666df00dfae4478c823923d45bc17944fab3071eb02cc310869",
+    "source_blend": "6ff7a9cd92c2506277e0d956b734cdd3443e12a88368f5e1a14e42504b84690b"
+  },
+  "source_bounds": {
+    "max": [
+      0.4000000059604645,
+      1.0,
+      1.0
+    ],
+    "min": [
+      -0.4000000059604645,
+      0.0,
+      -0.0
+    ]
+  },
+  "texture_paths": {
+    "SkinnedSurface": "blendlib-showcase/src/main/resources/assets/blendlib_showcase/textures/blendlib/fixtures_skinned_model__skinnedsurface.png"
+  },
+  "validation": {
+    "animation_names": [
+      "skinned_wave"
+    ],
+    "embedded_runtime_images": false,
+    "index_count": 3,
+    "material_names": [
+      "SkinnedSurface"
+    ],
+    "node_count": 4,
+    "profile": "blendlib:skinned_v1",
+    "vertex_count": 3,
+    "world_bounds": {
+      "max": [
+        0.4000000059604645,
+        1.0,
+        1.0
+      ],
+      "min": [
+        -0.4000000059604645,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  "warnings": [
+    "Filtered non-runtime camera 'SkinnedCamera'.",
+    "Filtered non-runtime light 'SkinnedLight'."
+  ]
+}

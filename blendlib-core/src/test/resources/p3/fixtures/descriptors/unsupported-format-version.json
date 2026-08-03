@@ -1,0 +1,11 @@
+{
+  "format_version": 2,
+  "profile": "blendlib:rigid_v1",
+  "mesh": "fixture:models3d/triangle.glb",
+  "units_per_block": 1.0,
+  "materials": {
+    "FixtureMaterial": {
+      "base_color": "fixture:textures/fixture.png"
+    }
+  }
+}

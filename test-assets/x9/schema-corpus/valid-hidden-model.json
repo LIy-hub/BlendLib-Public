@@ -1,0 +1,12 @@
+{
+  "format_version": 2,
+  "profile": "blendlib:skinned_v2",
+  "mesh": "x9:models3d/.hidden.glb",
+  "materials": { "Surface_0": { "base_color": "x9:textures/.hidden.png" } },
+  "capabilities": {
+    "blendlib:cubic-spline": { "requirement": "required", "min_version": "1.0.0", "max_version": "2.0.0" },
+    "blendlib:multiple-uv": { "requirement": "required", "min_version": "1.0.0", "max_version": "2.0.0" },
+    "blendlib:richer-material-metadata": { "requirement": "required", "min_version": "1.0.0", "max_version": "2.0.0" },
+    "blendlib:vertex-color": { "requirement": "required", "min_version": "1.0.0", "max_version": "2.0.0" }
+  }
+}

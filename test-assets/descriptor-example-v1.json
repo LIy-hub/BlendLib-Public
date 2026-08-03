@@ -1,0 +1,57 @@
+{
+  "format_version": 1,
+  "profile": "blendlib:skinned_v1",
+  "mesh": "example:models3d/dragon.glb",
+  "units_per_block": 1.0,
+  "materials": {
+    "Body": {
+      "base_color": "example:textures/entity/dragon.png",
+      "mode": "opaque",
+      "emissive": false,
+      "double_sided": false
+    },
+    "Eyes": {
+      "base_color": "example:textures/entity/dragon_eyes.png",
+      "mode": "translucent",
+      "emissive": true,
+      "double_sided": false
+    }
+  },
+  "animation": {
+    "initial_state": "example:idle",
+    "states": {
+      "example:idle": {
+        "clip": "Idle",
+        "loop": true,
+        "speed": 1.0
+      },
+      "example:walk": {
+        "clip": "Walk",
+        "loop": true,
+        "speed": 1.0,
+        "blend_seconds": 0.15
+      },
+      "example:attack": {
+        "clip": "Attack",
+        "loop": false,
+        "speed": 1.0,
+        "next": "example:idle",
+        "blend_seconds": 0.08,
+        "events": [
+          {
+            "time_seconds": 0.22,
+            "event": "example:attack_whoosh"
+          }
+        ]
+      }
+    }
+  },
+  "sockets": {
+    "example:mouth": {
+      "node": "Armature/Root/Spine/Neck/Head/Mouth"
+    }
+  },
+  "extensions_used": [],
+  "extensions_required": [],
+  "extensions": {}
+}

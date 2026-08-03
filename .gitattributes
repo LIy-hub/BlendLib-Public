@@ -1,0 +1,32 @@
+# Keep copied source documents and repository text deterministic across Windows checkouts.
+* text=auto eol=lf
+
+# Preserve vendored Khronos source fixtures byte-for-byte, including upstream
+# whitespace that Git would otherwise report during diff checks.
+test-assets/third_party/** -whitespace
+
+# X0 checkpoint byte-preservation overrides. These copied capture fixtures and
+# goldens retain their recorded CRLF/mixed bytes; do not normalize them during
+# Git add or checkout. The explicit path list is verified in the X0 evidence.
+blender-addon/LICENSE -text -eol -whitespace
+blendlib-showcase/src/main/resources/assets/blendlib_showcase/blend_models/fixtures/rigid_model.json -text -eol -whitespace
+blendlib-showcase/src/main/resources/assets/blendlib_showcase/blend_models/fixtures/skinned_model.json -text -eol -whitespace
+blendlib-showcase/src/main/resources/assets/blendlib_showcase/blend_models/fixtures/static_model.json -text -eol -whitespace
+blendlib-showcase/src/main/resources/assets/blendlib_showcase/blend_models/showcase_animation/showcase_actor.json -text -eol -whitespace
+gradlew.bat -text -eol -whitespace
+test-assets/rigid/expected.json -text -eol -whitespace
+test-assets/rigid/export-report.json -text -eol -whitespace
+test-assets/rigid/golden/sha256.json -text -eol -whitespace
+test-assets/rigid/golden/structure.json -text -eol -whitespace
+test-assets/showcase-animation/expected.json -text -eol -whitespace
+test-assets/showcase-animation/export-report.json -text -eol -whitespace
+test-assets/showcase-animation/golden/sha256.json -text -eol -whitespace
+test-assets/showcase-animation/golden/structure.json -text -eol -whitespace
+test-assets/skinned/expected.json -text -eol -whitespace
+test-assets/skinned/export-report.json -text -eol -whitespace
+test-assets/skinned/golden/sha256.json -text -eol -whitespace
+test-assets/skinned/golden/structure.json -text -eol -whitespace
+test-assets/static/expected.json -text -eol -whitespace
+test-assets/static/export-report.json -text -eol -whitespace
+test-assets/static/golden/sha256.json -text -eol -whitespace
+test-assets/static/golden/structure.json -text -eol -whitespace

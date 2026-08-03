@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "id": "blendlib_local_maven_consumer",
+  "version": "1.0.0-alpha.1+26.1.2",
+  "name": "BlendLib Local Maven Consumer Fixture",
+  "description": "Blank consumer fixture for the BlendLib Fabric public alpha.",
+  "license": "Apache-2.0",
+  "authors": ["LIy-hub"],
+  "contact": {
+    "homepage": "https://www.curseforge.com/minecraft/mc-mods/blendlib",
+    "sources": "https://github.com/LIy-hub/BlendLib-Public",
+    "issues": "https://github.com/LIy-hub/BlendLib-Public/issues",
+    "email": "2734855720@qq.com"
+  },
+  "environment": "*",
+  "entrypoints": {
+    "main": [
+      "com.liy.blendlib.fixture.localmaven.LocalMavenRcConsumerEntrypoint"
+    ]
+  },
+  "depends": {
+    "fabricloader": "0.19.3",
+    "minecraft": "26.1.2",
+    "java": "25",
+    "fabric-api": "0.154.2+26.1.2",
+    "blendlib": "1.0.0-alpha.1+26.1.2"
+  }
+}

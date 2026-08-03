@@ -1,0 +1,17 @@
+{
+  "format": "blendlib-x5-batch-manifest-v1",
+  "items": [
+    {
+      "collection_name": "BlendLibExport",
+      "model_id": "fixtures/static_beta",
+      "namespace": "blendlib_showcase",
+      "profile": "blendlib:rigid_v1"
+    },
+    {
+      "collection_name": "BlendLibExport",
+      "model_id": "fixtures/static_alpha",
+      "namespace": "blendlib_showcase",
+      "profile": "blendlib:rigid_v1"
+    }
+  ]
+}

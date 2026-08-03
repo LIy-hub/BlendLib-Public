@@ -1,0 +1,230 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://local.blendlib/schema/blendlib-model-v1.schema.json",
+  "title": "BlendLib Descriptor Schema v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "format_version",
+    "profile",
+    "mesh",
+    "materials"
+  ],
+  "properties": {
+    "format_version": {
+      "const": 1
+    },
+    "profile": {
+      "enum": [
+        "blendlib:rigid_v1",
+        "blendlib:skinned_v1"
+      ]
+    },
+    "mesh": {
+      "$ref": "#/$defs/resourceId"
+    },
+    "units_per_block": {
+      "type": "number",
+      "exclusiveMinimum": 0,
+      "default": 1.0
+    },
+    "materials": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {
+        "$ref": "#/$defs/material"
+      }
+    },
+    "animation": {
+      "$ref": "#/$defs/animation"
+    },
+    "sockets": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/socket"
+      }
+    },
+    "extensions_used": {
+      "$ref": "#/$defs/extensionsList"
+    },
+    "extensions_required": {
+      "$ref": "#/$defs/extensionsList"
+    },
+    "extensions": {
+      "type": "object"
+    }
+  },
+  "$defs": {
+    "resourceId": {
+      "type": "string",
+      "pattern": "^[a-z0-9._/-]+:[a-z0-9._/-]+$"
+    },
+    "textureResourceId": {
+      "description": "A concrete external Minecraft PNG under textures/ with non-empty, non-dot path segments.",
+      "allOf": [
+        {
+          "$ref": "#/$defs/resourceId"
+        },
+        {
+          "pattern": "^[a-z0-9._-]+:textures/(?:[a-z0-9_-][a-z0-9._-]*/)*[a-z0-9_-][a-z0-9._-]*\\.png$(?![\\s\\S])"
+        }
+      ]
+    },
+    "extensionName": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9._-]+$"
+    },
+    "extensionsList": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/extensionName"
+      },
+      "default": []
+    },
+    "material": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "base_color"
+      ],
+      "properties": {
+        "base_color": {
+          "$ref": "#/$defs/textureResourceId"
+        },
+        "mode": {
+          "enum": [
+            "opaque",
+            "cutout",
+            "translucent",
+            "additive"
+          ],
+          "default": "opaque"
+        },
+        "emissive": {
+          "type": "boolean",
+          "default": false
+        },
+        "double_sided": {
+          "type": "boolean",
+          "default": false
+        },
+        "cutout_threshold": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "mode": {
+                "const": "cutout"
+              }
+            },
+            "required": [
+              "mode"
+            ]
+          },
+          "then": {},
+          "else": {
+            "not": {
+              "required": [
+                "cutout_threshold"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "animation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "initial_state",
+        "states"
+      ],
+      "properties": {
+        "initial_state": {
+          "$ref": "#/$defs/resourceId"
+        },
+        "states": {
+          "type": "object",
+          "minProperties": 1,
+          "maxProperties": 256,
+          "additionalProperties": {
+            "$ref": "#/$defs/animationState"
+          }
+        }
+      }
+    },
+    "animationState": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "clip",
+        "loop",
+        "speed"
+      ],
+      "properties": {
+        "clip": {
+          "type": "string",
+          "minLength": 1
+        },
+        "loop": {
+          "type": "boolean"
+        },
+        "speed": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 64
+        },
+        "next": {
+          "$ref": "#/$defs/resourceId"
+        },
+        "blend_seconds": {
+          "type": "number",
+          "minimum": 0
+        },
+        "events": {
+          "type": "array",
+          "maxItems": 4096,
+          "items": {
+            "$ref": "#/$defs/animationEvent"
+          }
+        }
+      }
+    },
+    "animationEvent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "time_seconds",
+        "event"
+      ],
+      "properties": {
+        "time_seconds": {
+          "type": "number",
+          "minimum": 0
+        },
+        "event": {
+          "$ref": "#/$defs/resourceId"
+        }
+      }
+    },
+    "socket": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "node"
+      ],
+      "properties": {
+        "node": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    }
+  }
+}

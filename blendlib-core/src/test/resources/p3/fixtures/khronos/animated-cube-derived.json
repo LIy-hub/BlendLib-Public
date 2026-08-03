@@ -1,0 +1,14 @@
+{
+  "format_version": 1,
+  "materials": {
+    "AnimatedCubeDerived": {
+      "base_color": "blendlib_khronos_fixture:textures/khronos/animated-cube-derived.png",
+      "double_sided": false,
+      "emissive": false,
+      "mode": "opaque"
+    }
+  },
+  "mesh": "blendlib_khronos_fixture:models3d/khronos/animated-cube-derived.glb",
+  "profile": "blendlib:rigid_v1",
+  "units_per_block": 1.0
+}

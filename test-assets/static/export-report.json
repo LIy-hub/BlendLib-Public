@@ -1,0 +1,128 @@
+{
+  "blend": "test-assets/static/source.blend",
+  "collection": "BlendLibExport",
+  "descriptor_path": "blendlib-showcase/src/main/resources/assets/blendlib_showcase/blend_models/fixtures/static_model.json",
+  "format": "blendlib-p2-export-report-v1",
+  "mesh_path": "blendlib-showcase/src/main/resources/assets/blendlib_showcase/models3d/fixtures/static_model.glb",
+  "model_id": "fixtures/static_model",
+  "namespace": "blendlib_showcase",
+  "normalized_structure": {
+    "descriptor": {
+      "extensions": {},
+      "extensions_required": [],
+      "extensions_used": [],
+      "format_version": 1,
+      "materials": {
+        "StaticSurface": {
+          "base_color": "blendlib_showcase:textures/blendlib/fixtures_static_model__staticsurface.png",
+          "double_sided": false,
+          "emissive": false,
+          "mode": "opaque"
+        }
+      },
+      "mesh": "blendlib_showcase:models3d/fixtures/static_model.glb",
+      "profile": "blendlib:rigid_v1",
+      "units_per_block": 1.0
+    },
+    "format": "blendlib-p2-normalized-structure-v1",
+    "glb": {
+      "animation": [],
+      "asset_version": "2.0",
+      "embedded_runtime_images": false,
+      "material_names": [
+        "StaticSurface"
+      ],
+      "node_count": 2,
+      "nodes": [
+        {
+          "children": [],
+          "mesh": "StaticMesh",
+          "name": "StaticMesh",
+          "skin": false
+        },
+        {
+          "children": [
+            "StaticMesh"
+          ],
+          "mesh": null,
+          "name": "StaticRoot",
+          "skin": false
+        }
+      ],
+      "primitives": [
+        {
+          "attributes": [
+            "NORMAL",
+            "POSITION",
+            "TEXCOORD_0"
+          ],
+          "material": 0,
+          "mesh": "StaticMesh",
+          "mode": 4
+        }
+      ],
+      "profile": "blendlib:rigid_v1",
+      "world_bounds": {
+        "max": [
+          0.5,
+          1.0,
+          2.0
+        ],
+        "min": [
+          -0.5,
+          0.0,
+          0.0
+        ]
+      }
+    }
+  },
+  "profile": "blendlib:rigid_v1",
+  "sha256": {
+    "descriptor": "613a53d799af75d2e5223ae8b601f67ad12ebe13105e1c3ad234858dbb50696a",
+    "mesh_glb": "68747b5c6076728dc1ad367608e9fe5e95c621a2da5ed02271e0fb021a4a365c",
+    "normalized_structure": "3197d881fd10cad5de7d67c9fec48d392aef0343ecd4b8bc02a424bf799b6047",
+    "source_blend": "2fdb932168a8ed3af41e7d05614da63ee86947f6db6aa771b8bd653877f71106"
+  },
+  "source_bounds": {
+    "max": [
+      0.5,
+      1.0,
+      2.0
+    ],
+    "min": [
+      -0.5,
+      0.0,
+      -0.0
+    ]
+  },
+  "texture_paths": {
+    "StaticSurface": "blendlib-showcase/src/main/resources/assets/blendlib_showcase/textures/blendlib/fixtures_static_model__staticsurface.png"
+  },
+  "validation": {
+    "animation_names": [],
+    "embedded_runtime_images": false,
+    "index_count": 3,
+    "material_names": [
+      "StaticSurface"
+    ],
+    "node_count": 2,
+    "profile": "blendlib:rigid_v1",
+    "vertex_count": 3,
+    "world_bounds": {
+      "max": [
+        0.5,
+        1.0,
+        2.0
+      ],
+      "min": [
+        -0.5,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  "warnings": [
+    "Filtered non-runtime camera 'StaticCamera'.",
+    "Filtered non-runtime light 'StaticLight'."
+  ]
+}

@@ -1,0 +1,176 @@
+{
+  "format": "blendlib-p4-material-matrix-v1",
+  "pack_format": 84,
+  "descriptor_resource_id": "blendlib_showcase:fixtures/static_model",
+  "descriptor_relative_path": "assets/blendlib_showcase/blend_models/fixtures/static_model.json",
+  "shared_mesh": "blendlib_showcase:models3d/fixtures/rigid_model.glb",
+  "shared_texture": "blendlib_showcase:textures/blendlib/fixtures_rigid_model__rigidsurface.png",
+  "shared_assets": {
+    "rigid_glb_sha256": "a2b7f063c8806f3e3eceec2533ed8fe84c91f967ac71c25ca59faf4349a21764",
+    "texture_sha256": "851035d6863e6aea6a03c7a93d8734872e16918938c6f8b962392c24b25502e1"
+  },
+  "rows": [
+    {
+      "pack": "supported-opaque-single-sided-lit",
+      "status": "supported",
+      "mode": "opaque",
+      "double_sided": false,
+      "emissive": false,
+      "cutout_threshold": null,
+      "manual_expected": "loads without missing model or BLENDLIB-MAT-004; RigidArm is visible from its +Z front and culled from its -Z back in the controlled culling view"
+    },
+    {
+      "pack": "supported-opaque-single-sided-emissive",
+      "status": "supported",
+      "mode": "opaque",
+      "double_sided": false,
+      "emissive": true,
+      "cutout_threshold": null,
+      "manual_expected": "loads without missing model or BLENDLIB-MAT-004; keeps the single-sided culling result and is fullbright relative to the lit pair in the controlled dark view"
+    },
+    {
+      "pack": "supported-cutout-double-sided-threshold-010-lit",
+      "status": "supported",
+      "mode": "cutout",
+      "double_sided": true,
+      "emissive": false,
+      "cutout_threshold": 0.1,
+      "manual_expected": "loads without missing model or BLENDLIB-MAT-004; RigidArm remains visible from both +Z and -Z in the controlled culling view"
+    },
+    {
+      "pack": "supported-cutout-double-sided-threshold-010-emissive",
+      "status": "supported",
+      "mode": "cutout",
+      "double_sided": true,
+      "emissive": true,
+      "cutout_threshold": 0.1,
+      "manual_expected": "loads without missing model or BLENDLIB-MAT-004; remains double-sided and is fullbright relative to the lit cutout pair in the controlled dark view"
+    },
+    {
+      "pack": "supported-translucent-double-sided-lit",
+      "status": "supported",
+      "mode": "translucent",
+      "double_sided": true,
+      "emissive": false,
+      "cutout_threshold": null,
+      "manual_expected": "loads without missing model or BLENDLIB-MAT-004; RigidArm remains visible from both +Z and -Z in the controlled culling view"
+    },
+    {
+      "pack": "supported-translucent-double-sided-emissive",
+      "status": "supported",
+      "mode": "translucent",
+      "double_sided": true,
+      "emissive": true,
+      "cutout_threshold": null,
+      "manual_expected": "loads without missing model or BLENDLIB-MAT-004; remains double-sided and is fullbright relative to the lit translucent pair in the controlled dark view"
+    },
+    {
+      "pack": "rejected-opaque-double-sided-lit",
+      "status": "rejected",
+      "mode": "opaque",
+      "double_sided": true,
+      "emissive": false,
+      "cutout_threshold": null,
+      "manual_expected": "missing model plus BLENDLIB-MAT-004 in the current reload generation; do not infer a culling fallback"
+    },
+    {
+      "pack": "rejected-opaque-double-sided-emissive",
+      "status": "rejected",
+      "mode": "opaque",
+      "double_sided": true,
+      "emissive": true,
+      "cutout_threshold": null,
+      "manual_expected": "missing model plus BLENDLIB-MAT-004 in the current reload generation; emissive must not bypass the rejection"
+    },
+    {
+      "pack": "supported-cutout-single-sided-threshold-010-lit",
+      "status": "supported",
+      "mode": "cutout",
+      "double_sided": false,
+      "emissive": false,
+      "cutout_threshold": 0.1,
+      "manual_expected": "loads without missing model or BLENDLIB-MAT-004; RigidArm is visible from its +Z front and culled from its -Z back in the controlled culling view"
+    },
+    {
+      "pack": "supported-cutout-single-sided-threshold-010-emissive",
+      "status": "supported",
+      "mode": "cutout",
+      "double_sided": false,
+      "emissive": true,
+      "cutout_threshold": 0.1,
+      "manual_expected": "loads without missing model or BLENDLIB-MAT-004; keeps the single-sided culling result and is fullbright relative to the lit cutout pair in the controlled dark view"
+    },
+    {
+      "pack": "rejected-cutout-double-sided-threshold-025-lit",
+      "status": "rejected",
+      "mode": "cutout",
+      "double_sided": true,
+      "emissive": false,
+      "cutout_threshold": 0.25,
+      "manual_expected": "missing model plus BLENDLIB-MAT-004 in the current reload generation; no threshold substitution is permitted"
+    },
+    {
+      "pack": "rejected-cutout-double-sided-threshold-025-emissive",
+      "status": "rejected",
+      "mode": "cutout",
+      "double_sided": true,
+      "emissive": true,
+      "cutout_threshold": 0.25,
+      "manual_expected": "missing model plus BLENDLIB-MAT-004 in the current reload generation; emissive must not bypass the threshold rejection"
+    },
+    {
+      "pack": "rejected-translucent-single-sided-lit",
+      "status": "rejected",
+      "mode": "translucent",
+      "double_sided": false,
+      "emissive": false,
+      "cutout_threshold": null,
+      "manual_expected": "missing model plus BLENDLIB-MAT-004 in the current reload generation; do not infer a no-cull fallback"
+    },
+    {
+      "pack": "rejected-translucent-single-sided-emissive",
+      "status": "rejected",
+      "mode": "translucent",
+      "double_sided": false,
+      "emissive": true,
+      "cutout_threshold": null,
+      "manual_expected": "missing model plus BLENDLIB-MAT-004 in the current reload generation; emissive must not bypass the rejection"
+    },
+    {
+      "pack": "rejected-additive-single-sided-lit",
+      "status": "rejected",
+      "mode": "additive",
+      "double_sided": false,
+      "emissive": false,
+      "cutout_threshold": null,
+      "manual_expected": "missing model plus BLENDLIB-MAT-004 in the current reload generation; additive has no P4 fallback"
+    },
+    {
+      "pack": "rejected-additive-single-sided-emissive",
+      "status": "rejected",
+      "mode": "additive",
+      "double_sided": false,
+      "emissive": true,
+      "cutout_threshold": null,
+      "manual_expected": "missing model plus BLENDLIB-MAT-004 in the current reload generation; emissive must not bypass additive rejection"
+    },
+    {
+      "pack": "rejected-additive-double-sided-lit",
+      "status": "rejected",
+      "mode": "additive",
+      "double_sided": true,
+      "emissive": false,
+      "cutout_threshold": null,
+      "manual_expected": "missing model plus BLENDLIB-MAT-004 in the current reload generation; double_sided does not create an additive P4 path"
+    },
+    {
+      "pack": "rejected-additive-double-sided-emissive",
+      "status": "rejected",
+      "mode": "additive",
+      "double_sided": true,
+      "emissive": true,
+      "cutout_threshold": null,
+      "manual_expected": "missing model plus BLENDLIB-MAT-004 in the current reload generation; neither double_sided nor emissive creates an additive P4 path"
+    }
+  ]
+}

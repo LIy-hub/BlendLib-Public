@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "id": "blendlib",
+  "version": "${version}",
+  "name": "BlendLib",
+  "description": "BlendLib 1.0.0-alpha.1 public Fabric adapter for Minecraft 26.1.2.",
+  "license": "Apache-2.0",
+  "authors": ["LIy-hub"],
+  "contact": {
+    "homepage": "https://www.curseforge.com/minecraft/mc-mods/blendlib",
+    "sources": "https://github.com/LIy-hub/BlendLib-Public",
+    "issues": "https://github.com/LIy-hub/BlendLib-Public/issues",
+    "email": "2734855720@qq.com"
+  },
+  "icon": "assets/blendlib/icon.png",
+  "environment": "*",
+  "entrypoints": {
+    "main": [
+      "com.liy.blendlib.fabric.common.BlendLibCommonEntrypoint"
+    ],
+    "client": [
+      "com.liy.blendlib.fabric.client.BlendLibClientEntrypoint"
+    ]
+  },
+  "depends": {
+    "fabricloader": "0.19.3",
+    "minecraft": "26.1.2",
+    "java": "25",
+    "fabric-api": "0.154.2+26.1.2"
+  }
+}

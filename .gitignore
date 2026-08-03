@@ -1,0 +1,28 @@
+# Gradle and build outputs
+.gradle/
+**/build/
+
+# Isolated development run directories and logs
+run/
+**/run/
+logs/
+**/logs/
+
+# IDE and editor metadata
+.idea/
+*.iml
+*.ipr
+*.iws
+.project
+.classpath
+.settings/
+.vscode/
+out/
+
+# Local JVM crash diagnostics
+hs_err_pid*.log
+replay_pid*.log
+
+# Python bytecode and cache directories
+__pycache__/
+*.py[cod]
