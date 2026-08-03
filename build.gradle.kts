@@ -825,14 +825,19 @@ fun staticReleaseInventoryRows(
     check(showcaseEntries.none { it.startsWith("META-INF/jars/") }) {
         "Showcase archive must not bundle a hidden third-party nested JAR"
     }
-    val expectedJavadocLegal = setOf(
-        "legal/COPYRIGHT",
+    val requiredJavadocLegal = setOf(
         "legal/LICENSE",
         "legal/jquery.md",
         "legal/jqueryUI.md",
         "legal/dejavufonts.md",
     )
-    check(expectedJavadocLegal.all(javadocEntries::contains)) {
+    val hasLegacyJavadocCopyright = "legal/COPYRIGHT" in javadocEntries
+    val hasCurrentJavadocLicensePair = setOf(
+        "legal/ADDITIONAL_LICENSE_INFO",
+        "legal/ASSEMBLY_EXCEPTION",
+    ).all(javadocEntries::contains)
+    check(requiredJavadocLegal.all(javadocEntries::contains) &&
+            (hasLegacyJavadocCopyright || hasCurrentJavadocLicensePair)) {
         "Aggregate Javadoc is missing required legal entries; actual=$javadocEntries"
     }
     check("LICENSE" in addonEntries && "scripts/verify_p2_descriptor_schema.py" !in addonEntries) {
