@@ -782,6 +782,7 @@ fun staticReleaseInventoryRows(
     runtimeFile: java.io.File,
     runtimeEntries: Set<String>,
     showcaseEntries: Set<String>,
+    javadocFile: java.io.File,
     javadocEntries: Set<String>,
     addonEntries: Set<String>,
 ): List<ReleaseInventoryRow> {
@@ -832,13 +833,67 @@ fun staticReleaseInventoryRows(
         "legal/dejavufonts.md",
     )
     val hasLegacyJavadocCopyright = "legal/COPYRIGHT" in javadocEntries
-    val hasCurrentJavadocLicensePair = setOf(
+    val currentJavadocLicenseFiles = setOf(
         "legal/ADDITIONAL_LICENSE_INFO",
         "legal/ASSEMBLY_EXCEPTION",
-    ).all(javadocEntries::contains)
+    )
+    val presentCurrentJavadocLicenseFiles = currentJavadocLicenseFiles.intersect(javadocEntries)
+    val hasCurrentJavadocLicensePair = presentCurrentJavadocLicenseFiles == currentJavadocLicenseFiles
     check(requiredJavadocLegal.all(javadocEntries::contains) &&
-            (hasLegacyJavadocCopyright || hasCurrentJavadocLicensePair)) {
+            presentCurrentJavadocLicenseFiles.size != 1 &&
+            hasLegacyJavadocCopyright.xor(hasCurrentJavadocLicensePair)) {
         "Aggregate Javadoc is missing required legal entries; actual=$javadocEntries"
+    }
+    val javadocLicenseText = archiveEntryText(javadocFile, "legal/LICENSE")
+    val javadocLegalRow = if (hasLegacyJavadocCopyright) {
+        check("Oracle No-Fee Terms and Conditions" in javadocLicenseText) {
+            "Legacy Javadoc legal/LICENSE no longer identifies Oracle NFTC"
+        }
+        check("Copyright" in archiveEntryText(javadocFile, "legal/COPYRIGHT")) {
+            "Legacy Javadoc legal/COPYRIGHT no longer contains copyright attribution"
+        }
+        ReleaseInventoryRow(
+            "packaged-javadoc", "jdk-doclet:oracle-javadoc-assets", "25",
+            "bundled:aggregate Javadoc", "Javadoc legal/LICENSE + legal/COPYRIGHT",
+            "Oracle No-Fee Terms and Conditions", "Javadoc:legal/LICENSE",
+            "PRESENT", "Javadoc:legal/LICENSE,legal/COPYRIGHT",
+            "none",
+        )
+    } else {
+        check(listOf(
+            "The GNU General Public License (GPL)",
+            "Version 2, June 1991",
+            "\"CLASSPATH\" EXCEPTION TO THE GPL",
+        ).all(javadocLicenseText::contains)) {
+            "Current Javadoc legal/LICENSE must identify GPL v2 with the Classpath Exception"
+        }
+        val additionalLicenseInfo = archiveEntryText(javadocFile, "legal/ADDITIONAL_LICENSE_INFO")
+        check(listOf(
+            "ADDITIONAL INFORMATION ABOUT LICENSING",
+            "GPLv2",
+            "GNU Classpath Exception",
+        ).all(additionalLicenseInfo::contains)) {
+            "Current Javadoc ADDITIONAL_LICENSE_INFO no longer identifies GPLv2 and the GNU Classpath Exception"
+        }
+        val assemblyException = archiveEntryText(javadocFile, "legal/ASSEMBLY_EXCEPTION")
+        val normalizedAssemblyException = assemblyException.replace(Regex("\\s+"), " ").trim()
+        check(listOf(
+            "OPENJDK ASSEMBLY EXCEPTION",
+            "version 2 only (\"GPL2\")",
+            "Designated Exception Modules",
+        ).all(normalizedAssemblyException::contains)) {
+            "Current Javadoc ASSEMBLY_EXCEPTION no longer identifies the OpenJDK Assembly Exception"
+        }
+        ReleaseInventoryRow(
+            "packaged-javadoc", "jdk-doclet:openjdk-javadoc-assets", "25",
+            "bundled:aggregate Javadoc",
+            "Javadoc legal/LICENSE + legal/ADDITIONAL_LICENSE_INFO + legal/ASSEMBLY_EXCEPTION",
+            "GPL-2.0-only WITH Classpath-exception-2.0 / OpenJDK Assembly Exception",
+            "Javadoc:legal/LICENSE,legal/ADDITIONAL_LICENSE_INFO,legal/ASSEMBLY_EXCEPTION",
+            "PRESENT",
+            "Javadoc:legal/LICENSE,legal/ADDITIONAL_LICENSE_INFO,legal/ASSEMBLY_EXCEPTION",
+            "none",
+        )
     }
     check("LICENSE" in addonEntries && "scripts/verify_p2_descriptor_schema.py" !in addonEntries) {
         "Add-on package must include its GPL text and exclude the jsonschema fixture helper"
@@ -915,13 +970,7 @@ fun staticReleaseInventoryRows(
             "ABSENT", "not copied into the alpha archive",
             "bounded:host JDK requirement; the alpha does not redistribute a JDK",
         ),
-        ReleaseInventoryRow(
-            "packaged-javadoc", "jdk-doclet:oracle-javadoc-assets", "25",
-            "bundled:aggregate Javadoc", "Javadoc legal/LICENSE + legal/COPYRIGHT",
-            "Oracle No-Fee Terms and Conditions", "Javadoc:legal/LICENSE",
-            "PRESENT", "Javadoc:legal/LICENSE,legal/COPYRIGHT",
-            "none",
-        ),
+        javadocLegalRow,
         ReleaseInventoryRow(
             "packaged-javadoc", "jdk-doclet:jquery", "3.7.1",
             "bundled:aggregate Javadoc", "Javadoc legal/jquery.md",
@@ -1006,7 +1055,7 @@ fun hostRuntimeInventoryRows(): List<ReleaseInventoryRow> {
     }
 }
 
-fun expectedStaticInventoryKeys(): Set<String> = setOf(
+fun expectedStaticInventoryKeys(javadocLegalCoordinate: String): Set<String> = setOf(
     "packaged-local\t$group:$releaseArtifactId\t$releaseVersion",
     "packaged-local\t$group:blendlib-api\t$releaseVersion",
     "packaged-local\t$group:blendlib-core\t$releaseVersion",
@@ -1015,16 +1064,49 @@ fun expectedStaticInventoryKeys(): Set<String> = setOf(
     "packaged-addon\t$group:blendlib-exporter\t1.0.0",
     "host-provided\tcom.mojang:minecraft\t26.1.2",
     "host-provided\torg.openjdk:java\t25",
-    "packaged-javadoc\tjdk-doclet:oracle-javadoc-assets\t25",
+    "packaged-javadoc\t$javadocLegalCoordinate\t25",
     "packaged-javadoc\tjdk-doclet:jquery\t3.7.1",
     "packaged-javadoc\tjdk-doclet:jquery-ui\t1.14.1",
     "packaged-javadoc\tjdk-doclet:dejavu-fonts\t2.37",
 )
 
-fun expectedReleaseInventoryKeys(): Set<String> = expectedStaticInventoryKeys() +
+fun expectedReleaseInventoryKeys(javadocLegalCoordinate: String): Set<String> =
+        expectedStaticInventoryKeys(javadocLegalCoordinate) +
         resolvedRuntimeModuleComponents().map { component ->
             "host-runtime\t${component.group}:${component.module}\t${component.version}"
         }
+
+fun validatedJavadocLegalCoordinate(rows: List<ReleaseInventoryRow>): String {
+    val allowedCoordinates = setOf(
+        "jdk-doclet:oracle-javadoc-assets",
+        "jdk-doclet:openjdk-javadoc-assets",
+    )
+    val row = rows.singleOrNull { it.scope == "packaged-javadoc" && it.coordinate in allowedCoordinates }
+        ?: error("Inventory must contain exactly one recognized Javadoc legal layout")
+    when (row.coordinate) {
+        "jdk-doclet:oracle-javadoc-assets" -> check(
+            row.inclusion == "bundled:aggregate Javadoc" &&
+                    row.source == "Javadoc legal/LICENSE + legal/COPYRIGHT" &&
+                    row.license == "Oracle No-Fee Terms and Conditions" &&
+                    row.licenseEvidence == "Javadoc:legal/LICENSE" &&
+                    row.notice == "PRESENT" &&
+                    row.noticeEvidence == "Javadoc:legal/LICENSE,legal/COPYRIGHT" &&
+                    row.boundedAbsence == "none",
+        ) { "Oracle Javadoc legal inventory row does not match the verified legacy layout: $row" }
+        "jdk-doclet:openjdk-javadoc-assets" -> check(
+            row.inclusion == "bundled:aggregate Javadoc" &&
+                    row.source == "Javadoc legal/LICENSE + legal/ADDITIONAL_LICENSE_INFO + legal/ASSEMBLY_EXCEPTION" &&
+                    row.license == "GPL-2.0-only WITH Classpath-exception-2.0 / OpenJDK Assembly Exception" &&
+                    row.licenseEvidence ==
+                    "Javadoc:legal/LICENSE,legal/ADDITIONAL_LICENSE_INFO,legal/ASSEMBLY_EXCEPTION" &&
+                    row.notice == "PRESENT" &&
+                    row.noticeEvidence ==
+                    "Javadoc:legal/LICENSE,legal/ADDITIONAL_LICENSE_INFO,legal/ASSEMBLY_EXCEPTION" &&
+                    row.boundedAbsence == "none",
+        ) { "OpenJDK Javadoc legal inventory row does not match the verified current layout: $row" }
+    }
+    return row.coordinate
+}
 
 fun renderLicenseInventory(rows: List<ReleaseInventoryRow>): String = buildString {
     appendLine("format=$licenseInventoryFormat")
@@ -1115,10 +1197,12 @@ fun verifyReleaseInventoryFiles(licenseFile: java.io.File, dependencyFile: java.
     val licenseRows = parseLicenseInventory(licenseFile)
     val licenseKeys = licenseRows.map(ReleaseInventoryRow::key)
     check(licenseKeys.toSet().size == licenseRows.size) { "Duplicate license inventory component record" }
-    check(licenseKeys.toSet() == expectedReleaseInventoryKeys()) {
+    val javadocLegalCoordinate = validatedJavadocLegalCoordinate(licenseRows)
+    val expectedInventoryKeys = expectedReleaseInventoryKeys(javadocLegalCoordinate)
+    check(licenseKeys.toSet() == expectedInventoryKeys) {
         "License inventory is incomplete or contains unexpected components; " +
-                "missing=${expectedReleaseInventoryKeys() - licenseKeys.toSet()} " +
-                "extra=${licenseKeys.toSet() - expectedReleaseInventoryKeys()}"
+                "missing=${expectedInventoryKeys - licenseKeys.toSet()} " +
+                "extra=${licenseKeys.toSet() - expectedInventoryKeys}"
     }
     licenseRows.forEach { row ->
         check(row.license != "ABSENT" || row.boundedAbsence.startsWith("bounded:")) {
@@ -1183,12 +1267,10 @@ val generateReleaseInventories = tasks.register("generateReleaseInventories") {
             runtimeFile,
             archiveEntryNames(runtimeFile),
             archiveEntryNames(showcaseFile),
+            javadocFile,
             archiveEntryNames(javadocFile),
             archiveEntryNames(addonFile),
         )
-        check("Oracle No-Fee Terms and Conditions" in archiveEntryText(javadocFile, "legal/LICENSE")) {
-            "Javadoc legal/LICENSE no longer identifies the documented Oracle terms"
-        }
         check("jQuery v3.7.1" in archiveEntryText(javadocFile, "legal/jquery.md") &&
                 "jQuery UI v1.14.1" in archiveEntryText(javadocFile, "legal/jqueryUI.md") &&
                 "DejaVu fonts v2.37" in archiveEntryText(javadocFile, "legal/dejavufonts.md")) {
@@ -1207,7 +1289,8 @@ val generateReleaseInventories = tasks.register("generateReleaseInventories") {
         check(rows.map(ReleaseInventoryRow::key).toSet().size == rows.size) {
             "Release license inventory would contain duplicate component records: $rows"
         }
-        check(rows.map(ReleaseInventoryRow::key).toSet() == expectedReleaseInventoryKeys()) {
+        val javadocLegalCoordinate = validatedJavadocLegalCoordinate(rows)
+        check(rows.map(ReleaseInventoryRow::key).toSet() == expectedReleaseInventoryKeys(javadocLegalCoordinate)) {
             "Release license inventory does not cover exactly the static and resolved host components"
         }
         dependencyInventoryFile.get().asFile.apply {
