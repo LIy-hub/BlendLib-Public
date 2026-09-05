@@ -1,0 +1,93 @@
+{
+  "artifact": "docs/expansion/manifest/eligible-files.tsv",
+  "generated_at_utc": "2026-07-31T20:04:24.3595096Z",
+  "verdict": "VALIDATION_COMPLETE_AWAITING_FRESH_REVIEW",
+  "parsers": {
+    "powershell_import_csv": "Import-Csv -LiteralPath 'docs/expansion/manifest/eligible-files.tsv' -Delimiter \"`t\"",
+    "independent_tab_split": "[System.IO.File]::ReadAllLines('docs/expansion/manifest/eligible-files.tsv'); each data line.Split(\"`t\") has exactly five fields"
+  },
+  "expected_headers": [
+    "relative_path",
+    "source",
+    "category",
+    "size_bytes",
+    "sha256"
+  ],
+  "import_csv": {
+    "headers": [
+      "relative_path",
+      "source",
+      "category",
+      "size_bytes",
+      "sha256"
+    ],
+    "row_count": 577
+  },
+  "tab_split": {
+    "headers": [
+      "relative_path",
+      "source",
+      "category",
+      "size_bytes",
+      "sha256"
+    ],
+    "total_lines": 578,
+    "data_row_count": 577,
+    "field_count_failures": 0
+  },
+  "source_counts": {
+    "tracked_total": 108,
+    "included_untracked_after_two_crash_exclusions": 469,
+    "actual_tracked": 108,
+    "actual_untracked": 469
+  },
+  "totals": {
+    "bytes_expected": 2890219,
+    "bytes_actual": 2890219,
+    "category_counts": {
+      "evidence": {
+        "files": 37,
+        "bytes": 259380
+      },
+      "production": {
+        "files": 236,
+        "bytes": 800429
+      },
+      "tool": {
+        "files": 17,
+        "bytes": 137556
+      },
+      "resource": {
+        "files": 115,
+        "bytes": 617948
+      },
+      "schema": {
+        "files": 1,
+        "bytes": 4919
+      },
+      "test": {
+        "files": 109,
+        "bytes": 618647
+      },
+      "docs": {
+        "files": 45,
+        "bytes": 270731
+      },
+      "build": {
+        "files": 17,
+        "bytes": 180609
+      }
+    }
+  },
+  "canonical_comparison": {
+    "artifact": "docs/expansion/manifest/canonical-path-size-sha256.tsv",
+    "canonical_row_count": 577,
+    "canonical_rows_matched": 577,
+    "missing": 0,
+    "extra": 0,
+    "value_mismatch": 0,
+    "duplicate_paths": 0,
+    "order_mismatch": 0
+  },
+  "fixed_tsv_sha256": "24D2BC819D876E5349D598A6622C672E7328208308CF1C43CFC90865D58083FE"
+}

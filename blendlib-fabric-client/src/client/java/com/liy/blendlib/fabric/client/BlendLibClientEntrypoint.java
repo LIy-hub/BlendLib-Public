@@ -13,9 +13,11 @@ import com.liy.blendlib.fabric.client.network.ClientAnimationPayloadReceivers;
 import com.liy.blendlib.fabric.client.reload.ClientModelRegistry;
 import com.liy.blendlib.fabric.client.reload.ClientModelReloadListener;
 import com.liy.blendlib.fabric.client.render.Minecraft2612StaticRigidRenderBackend;
+import com.liy.blendlib.fabric.client.render.X7DeferredSubmissionEndpoint;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientBlockEntityEvents;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientEntityEvents;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 import net.fabricmc.fabric.api.resource.v1.ResourceLoader;
@@ -28,7 +30,11 @@ import net.minecraft.server.packs.PackType;
 public final class BlendLibClientEntrypoint implements ClientModInitializer {
     private static final System.Logger LOGGER = System.getLogger("BlendLib");
     private static final Identifier MODEL_RELOAD_LISTENER_ID = Identifier.fromNamespaceAndPath("blendlib", "model_registry");
-    private static final ClientModelRegistry MODEL_REGISTRY = new ClientModelRegistry();
+    private static final ClientModelRegistry MODEL_REGISTRY = ClientModelRegistry.createMinecraft2612Client();
+    private static final X7DeferredSubmissionEndpoint X7_DEFERRED_SUBMISSION_ENDPOINT =
+            X7DeferredSubmissionEndpoint.bootstrap();
+    private static final X7Minecraft2612PassOwnerHost X7_PASS_OWNER_HOST =
+            X7Minecraft2612PassOwnerHost.production(X7_DEFERRED_SUBMISSION_ENDPOINT);
     private static final ClientAnimationLifecycleBridge ANIMATION_LIFECYCLE = new ClientAnimationLifecycleBridge(256);
     private static final SkinnedAnimationRuntime SKINNED_ANIMATION_RUNTIME =
             new SkinnedAnimationRuntime(MODEL_REGISTRY, ANIMATION_LIFECYCLE);
@@ -36,6 +42,7 @@ public final class BlendLibClientEntrypoint implements ClientModInitializer {
 
     @Override
     public void onInitializeClient() {
+        X7_PASS_OWNER_HOST.install();
         ResourceLoader.get(PackType.CLIENT_RESOURCES)
                 .registerReloadListener(MODEL_RELOAD_LISTENER_ID, new ClientModelReloadListener(
                         MODEL_REGISTRY, SKINNED_ANIMATION_RUNTIME::onActiveGeneration));
@@ -45,8 +52,24 @@ public final class BlendLibClientEntrypoint implements ClientModInitializer {
             ANIMATION_SYNC.onPlayInit();
         });
         ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> {
+            X7_DEFERRED_SUBMISSION_ENDPOINT.onReloadOrWorldLeave();
             SKINNED_ANIMATION_RUNTIME.onWorldDisconnect();
             ANIMATION_SYNC.onDisconnect();
+        });
+        ClientLifecycleEvents.CLIENT_STOPPING.register(client -> {
+            X7_DEFERRED_SUBMISSION_ENDPOINT.onReloadOrWorldLeave();
+            try {
+                MODEL_REGISTRY.close();
+            } catch (Throwable failure) {
+                try {
+                    LOGGER.log(
+                            System.Logger.Level.ERROR,
+                            "BlendLib shutdown fallback failed; vanilla teardown will continue",
+                            failure);
+                } catch (Throwable ignored) {
+                    // No BlendLib diagnostic failure may interrupt vanilla client teardown.
+                }
+            }
         });
         ClientTickEvents.END_CLIENT_TICK.register(ANIMATION_SYNC::onClientEndTick);
         ClientEntityEvents.ENTITY_UNLOAD.register((entity, level) -> {

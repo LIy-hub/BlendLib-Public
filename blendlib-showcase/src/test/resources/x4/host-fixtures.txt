@@ -1,0 +1,13 @@
+# Formal X4 fixtures
+armor
+projectile
+held-item
+first-person-hand
+gui-preview
+world-object
+persistent-vfx
+
+# Explicit Experimental X4 fixtures
+player-replacement-experimental
+mount-composite-experimental
+multi-entity-composite-experimental

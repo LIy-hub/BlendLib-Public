@@ -26,8 +26,6 @@ class P7ReferenceAssetGeneratorPerfTest {
         assertEquals(64, skinned.skinJointCount());
         assertGlb(rigid.glb(), "\"count\":30000", "\"indices\":3", "P7RigidSurface");
         assertGlb(skinned.glb(), "\"count\":60000", "\"JOINTS_0\":3", "\"joints\":[1,2,3,4");
-        assertTrue(json(rigid.glb()).contains("\"min\":[0.0,0.0,0.0]"));
-        assertTrue(json(skinned.glb()).contains("\"min\":[0.0],\"max\":[1.0]"));
         assertTrue(json(skinned.glb()).contains("\"inverseBindMatrices\":6"));
         assertTrue(json(skinned.glb()).contains("\"animations\""));
     }

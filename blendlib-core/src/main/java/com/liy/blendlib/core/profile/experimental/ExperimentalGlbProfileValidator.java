@@ -27,12 +27,15 @@ final class ExperimentalGlbProfileValidator {
     private static final int FLOAT = 5126;
     private static final int UNSIGNED_BYTE = 5121;
     private static final int UNSIGNED_SHORT = 5123;
+    private static final int UNSIGNED_INT = 5125;
+    /** Absolute tolerance applied to squared lengths of base NORMAL and TANGENT XYZ vectors. */
+    private static final double UNIT_VECTOR_LENGTH_SQUARED_TOLERANCE = 1.0e-4;
     private static final Set<String> MATERIAL_FIELDS = Set.of("name", "extensions");
     private static final Set<String> MESH_FIELDS = Set.of("name", "primitives", "weights", "extensions");
     private static final Set<String> PRIMITIVE_FIELDS =
             Set.of("attributes", "indices", "material", "mode", "targets", "extensions");
     private static final Set<String> PRIMITIVE_ATTRIBUTES = Set.of(
-            "POSITION", "NORMAL", "TEXCOORD_0", "TEXCOORD_1", "COLOR_0", "JOINTS_0", "WEIGHTS_0");
+            "POSITION", "NORMAL", "TANGENT", "COLOR_0", "JOINTS_0", "WEIGHTS_0");
     private static final Set<String> MORPH_TARGET_ATTRIBUTES = Set.of("POSITION", "NORMAL", "TANGENT");
     private static final Set<String> ANIMATION_FIELDS = Set.of("name", "samplers", "channels", "extensions");
     private static final Set<String> SAMPLER_FIELDS = Set.of("input", "output", "interpolation", "extensions");
@@ -55,12 +58,15 @@ final class ExperimentalGlbProfileValidator {
         Objects.requireNonNull(structure, "structure");
         Objects.requireNonNull(negotiatedCapabilities, "negotiatedCapabilities");
 
+        BufferViewUsageGraph usages = new BufferViewUsageGraph(root, structure.accessors().accessorCount());
         int materialCount = validateMaterials(root, descriptor, negotiatedCapabilities);
         MeshResult meshResult = validateMeshes(
-                root, descriptor.profile(), structure.accessors(), materialCount, negotiatedCapabilities);
+                root, descriptor.profile(), structure, materialCount, negotiatedCapabilities, usages);
         validateBindings(descriptor.profile(), structure, meshResult.meshes());
+        markInverseBindMatrixUsages(root, usages);
         int cubicSplineSamplers = validateAnimations(
-                root, descriptor.profile(), structure, meshResult.meshes(), negotiatedCapabilities);
+                root, descriptor.profile(), structure, meshResult.meshes(), negotiatedCapabilities, usages);
+        usages.validate(structure.accessors());
 
         requireFeatureCount(negotiatedCapabilities, "blendlib:vertex-color",
                 meshResult.vertexColorPrimitives(), meshResult.primitives(), "/meshes");
@@ -131,9 +137,11 @@ final class ExperimentalGlbProfileValidator {
     private MeshResult validateMeshes(
             JsonObject root,
             ExperimentalProfile profile,
-            GlbAccessorReader accessors,
+            ExperimentalGlbStructureValidator.Result structure,
             int materialCount,
-            Set<BlendResourceId> capabilities) {
+            Set<BlendResourceId> capabilities,
+            BufferViewUsageGraph usages) {
+        GlbAccessorReader accessors = structure.accessors();
         JsonArray meshes = array(required(root, "meshes", "/meshes"), "/meshes");
         long totalVertices = 0;
         long totalIndices = 0;
@@ -154,11 +162,12 @@ final class ExperimentalGlbProfileValidator {
                 throw error("BLENDLIB-X9-GLB-015", meshPointer + "/primitives",
                         "Every X9 mesh requires at least one primitive");
             }
-            primitiveCount = boundedSum(primitiveCount, primitives.size(), limits.baseGlbLimits().maxNodes(),
+            primitiveCount = boundedSum(primitiveCount, primitives.size(), limits.glbLimits().maxNodes(),
                     meshPointer + "/primitives", "Primitive count exceeds the X9 structural bound");
 
             Integer meshTargetCount = null;
             int meshMaxJointIndex = -1;
+            int meshMorphTargetEntries = 0;
             for (int primitiveIndex = 0; primitiveIndex < primitives.size(); primitiveIndex++) {
                 String primitivePointer = meshPointer + "/primitives/" + primitiveIndex;
                 JsonObject primitive = object(primitives.get(primitiveIndex), primitivePointer);
@@ -186,6 +195,12 @@ final class ExperimentalGlbProfileValidator {
                 int weightAccessor = accessorIndex(attributes, "WEIGHTS_0", primitivePointer + "/attributes/WEIGHTS_0");
                 int indexAccessor = integer(required(primitive, "indices", primitivePointer + "/indices"),
                         primitivePointer + "/indices");
+                usages.markVertexAttribute(positionAccessor, primitivePointer + "/attributes/POSITION");
+                usages.markVertexAttribute(normalAccessor, primitivePointer + "/attributes/NORMAL");
+                usages.markVertexAttribute(uv0Accessor, primitivePointer + "/attributes/TEXCOORD_0");
+                usages.markVertexAttribute(jointAccessor, primitivePointer + "/attributes/JOINTS_0");
+                usages.markVertexAttribute(weightAccessor, primitivePointer + "/attributes/WEIGHTS_0");
+                usages.markPrimitiveIndices(indexAccessor, primitivePointer + "/indices");
 
                 AccessorInfo position = requireFloat(accessors, positionAccessor, "VEC3",
                         primitivePointer + "/attributes/POSITION");
@@ -196,31 +211,35 @@ final class ExperimentalGlbProfileValidator {
                     throw error("BLENDLIB-X9-GLB-015", primitivePointer,
                             "Position, normal, and UV0 counts must match and be non-zero");
                 }
-                AccessorInfo indexInfo = accessors.info(indexAccessor);
-                if (indexInfo.normalized()) {
-                    throw error("BLENDLIB-X9-GLB-015", primitivePointer + "/indices",
-                            "Index accessors must not be normalized");
-                }
-                int[] indices = accessors.readIndexElements(indexAccessor);
-                if (indices.length == 0 || indices.length % 3 != 0) {
+                int indexCount = structure.validatePrimitiveIndices(
+                        indexAccessor, position.count(), primitivePointer + "/indices");
+                if (indexCount == 0 || indexCount % 3 != 0) {
                     throw error("BLENDLIB-X9-GLB-015", primitivePointer + "/indices",
                             "Triangle index count is invalid");
                 }
-                for (int value : indices) {
-                    if (value < 0 || value >= position.count()) {
-                        throw error("BLENDLIB-X9-GLB-015", primitivePointer + "/indices",
-                                "Triangle index references a missing vertex");
-                    }
-                }
-                totalVertices = addBounded(totalVertices, position.count(), limits.baseGlbLimits().maxVertices(),
+                totalVertices = addBounded(totalVertices, position.count(), limits.glbLimits().maxVertices(),
                         primitivePointer + "/attributes/POSITION", "Vertex limit exceeded");
-                totalIndices = addBounded(totalIndices, indices.length, limits.baseGlbLimits().maxIndices(),
+                totalIndices = addBounded(totalIndices, indexCount, limits.glbLimits().maxIndices(),
                         primitivePointer + "/indices", "Index limit exceeded");
                 float[] positionValues = accessors.readFloatElements(positionAccessor, "VEC3");
-                validateExactFloatBounds(root, positionAccessor, positionValues, position.componentCount(),
-                        primitivePointer + "/attributes/POSITION");
-                accessors.readFloatElements(normalAccessor, "VEC3");
+                requireAccessorBounds(root, positionAccessor, primitivePointer + "/attributes/POSITION");
+                validateUnitVectors(accessors.readFloatElements(normalAccessor, "VEC3"), 3,
+                        primitivePointer + "/attributes/NORMAL", "Base NORMAL vectors must have unit length");
                 readUv(accessors, uv0Accessor, uv0);
+
+                if (attributes.containsKey("TANGENT")) {
+                    int tangentAccessor = accessorIndex(attributes, "TANGENT",
+                            primitivePointer + "/attributes/TANGENT");
+                    usages.markVertexAttribute(tangentAccessor, primitivePointer + "/attributes/TANGENT");
+                    AccessorInfo tangent = requireFloat(accessors, tangentAccessor, "VEC4",
+                            primitivePointer + "/attributes/TANGENT");
+                    if (tangent.count() != position.count()) {
+                        throw error("BLENDLIB-X9-GLB-015", primitivePointer + "/attributes/TANGENT",
+                                "Base TANGENT count must match POSITION");
+                    }
+                    validateBaseTangents(accessors.readFloatElements(tangentAccessor, "VEC4"),
+                            primitivePointer + "/attributes/TANGENT");
+                }
 
                 int maxJoint = validateSkinAttributes(
                         accessors, jointAccessor, weightAccessor, position.count(), primitivePointer);
@@ -229,8 +248,10 @@ final class ExperimentalGlbProfileValidator {
                 if (attributes.containsKey("COLOR_0")) {
                     requireCapability(capabilities, "blendlib:vertex-color",
                             primitivePointer + "/attributes/COLOR_0");
-                    AccessorInfo color = requireColor(accessors,
-                            accessorIndex(attributes, "COLOR_0", primitivePointer + "/attributes/COLOR_0"),
+                    int colorAccessor = accessorIndex(attributes, "COLOR_0",
+                            primitivePointer + "/attributes/COLOR_0");
+                    usages.markVertexAttribute(colorAccessor, primitivePointer + "/attributes/COLOR_0");
+                    AccessorInfo color = requireColor(accessors, colorAccessor,
                             primitivePointer + "/attributes/COLOR_0");
                     if (color.count() != position.count()) {
                         throw error("BLENDLIB-X9-GLB-015", primitivePointer + "/attributes/COLOR_0",
@@ -242,8 +263,10 @@ final class ExperimentalGlbProfileValidator {
                 if (attributes.containsKey("TEXCOORD_1")) {
                     requireCapability(capabilities, "blendlib:multiple-uv",
                             primitivePointer + "/attributes/TEXCOORD_1");
-                    AccessorInfo uv1 = requireUv(accessors,
-                            accessorIndex(attributes, "TEXCOORD_1", primitivePointer + "/attributes/TEXCOORD_1"),
+                    int uv1Accessor = accessorIndex(attributes, "TEXCOORD_1",
+                            primitivePointer + "/attributes/TEXCOORD_1");
+                    usages.markVertexAttribute(uv1Accessor, primitivePointer + "/attributes/TEXCOORD_1");
+                    AccessorInfo uv1 = requireUv(accessors, uv1Accessor,
                             primitivePointer + "/attributes/TEXCOORD_1");
                     if (uv1.count() != position.count()) {
                         throw error("BLENDLIB-X9-GLB-015", primitivePointer + "/attributes/TEXCOORD_1",
@@ -254,7 +277,8 @@ final class ExperimentalGlbProfileValidator {
                 }
 
                 int targets = validateMorphTargets(
-                        primitive, profile, accessors, position.count(), primitivePointer, capabilities);
+                        root, primitive, attributes, profile, accessors, position.count(), primitivePointer,
+                        capabilities, usages);
                 if (meshTargetCount == null) {
                     meshTargetCount = targets;
                 } else if (meshTargetCount != targets) {
@@ -262,9 +286,12 @@ final class ExperimentalGlbProfileValidator {
                             "All primitives in one mesh must declare the same morph-target count");
                 }
                 int totalMorphLimit = (int) Math.min(Integer.MAX_VALUE,
-                        (long) limits.maxMorphTargetsPerPrimitive() * limits.baseGlbLimits().maxNodes());
+                        (long) limits.maxMorphTargetsPerMesh() * limits.glbLimits().maxNodes());
                 morphTargetCount = boundedSum(morphTargetCount, targets, totalMorphLimit,
                         primitivePointer + "/targets", "Total morph-target count exceeds the X9 bound");
+                meshMorphTargetEntries = boundedSum(meshMorphTargetEntries, targets,
+                        limits.maxMorphTargetsPerMesh(), primitivePointer + "/targets",
+                        "Morph-target entries in one mesh exceed the X9 bound");
             }
 
             int targetCount = meshTargetCount == null ? 0 : meshTargetCount;
@@ -330,12 +357,15 @@ final class ExperimentalGlbProfileValidator {
     }
 
     private int validateMorphTargets(
+            JsonObject root,
             JsonObject primitive,
+            JsonObject baseAttributes,
             ExperimentalProfile profile,
             GlbAccessorReader accessors,
             int vertexCount,
             String primitivePointer,
-            Set<BlendResourceId> capabilities) {
+            Set<BlendResourceId> capabilities,
+            BufferViewUsageGraph usages) {
         JsonValue targetValue = primitive.get("targets");
         if (targetValue == null) {
             if (profile == ExperimentalProfile.MORPH_V1) {
@@ -366,13 +396,21 @@ final class ExperimentalGlbProfileValidator {
                     throw error("BLENDLIB-X9-GLB-015", targetPointer + "/" + attribute,
                             "Unsupported X9 morph target attribute");
                 }
+                if (!baseAttributes.containsKey(attribute)) {
+                    throw error("BLENDLIB-X9-GLB-015", targetPointer + "/" + attribute,
+                            "Morph target attributes require the corresponding base primitive attribute");
+                }
                 int accessor = integer(target.get(attribute), targetPointer + "/" + attribute);
+                usages.markMorphAttribute(accessor, targetPointer + "/" + attribute);
                 AccessorInfo info = requireFloat(accessors, accessor, "VEC3", targetPointer + "/" + attribute);
                 if (info.count() != vertexCount) {
                     throw error("BLENDLIB-X9-GLB-015", targetPointer + "/" + attribute,
                             "Morph target count must match POSITION");
                 }
-                accessors.readFloatElements(accessor, "VEC3");
+                float[] values = accessors.readFloatElements(accessor, "VEC3");
+                if ("POSITION".equals(attribute)) {
+                    requireAccessorBounds(root, accessor, targetPointer + "/POSITION");
+                }
             }
         }
         return targets.size();
@@ -418,11 +456,12 @@ final class ExperimentalGlbProfileValidator {
                         "Vertex JOINTS_0 index is outside the bound skin joint list");
             }
             if (profile == ExperimentalProfile.MORPH_V1) {
-                if (!node.weights().isEmpty() && node.weights().size() != mesh.targetCount()) {
+                if (node.weightsDeclared()
+                        && (node.weights().isEmpty() || node.weights().size() != mesh.targetCount())) {
                     throw error("BLENDLIB-X9-GLB-015", "/nodes/" + node.index() + "/weights",
-                            "Node morph weights must match the bound mesh target count");
+                            "Declared node morph weights must be non-empty and match the bound mesh target count");
                 }
-            } else if (!node.weights().isEmpty()) {
+            } else if (node.weightsDeclared()) {
                 throw error("BLENDLIB-X9-GLB-015", "/nodes/" + node.index() + "/weights",
                         "skinned_v2 node must not declare morph weights");
             }
@@ -434,7 +473,8 @@ final class ExperimentalGlbProfileValidator {
             ExperimentalProfile profile,
             ExperimentalGlbStructureValidator.Result structure,
             List<MeshInfo> meshes,
-            Set<BlendResourceId> capabilities) {
+            Set<BlendResourceId> capabilities,
+            BufferViewUsageGraph usages) {
         JsonValue value = root.get("animations");
         if (value == null) {
             return 0;
@@ -471,6 +511,8 @@ final class ExperimentalGlbProfileValidator {
                 rejectUnknown(sampler, SAMPLER_FIELDS, pointer);
                 int input = integer(required(sampler, "input", pointer + "/input"), pointer + "/input");
                 int output = integer(required(sampler, "output", pointer + "/output"), pointer + "/output");
+                usages.markAnimationInput(input, pointer + "/input");
+                usages.markAnimationOutput(output, pointer + "/output");
                 String interpolation = sampler.containsKey("interpolation")
                         ? string(sampler.get("interpolation"), pointer + "/interpolation") : "LINEAR";
                 if (!Set.of("LINEAR", "STEP", "CUBICSPLINE").contains(interpolation)) {
@@ -483,10 +525,10 @@ final class ExperimentalGlbProfileValidator {
                             "Animation input must not be empty");
                 }
                 totalInputSamples = addBounded(totalInputSamples, inputInfo.count(),
-                        limits.baseGlbLimits().maxKeyframeSamples(), pointer + "/input",
+                        limits.glbLimits().maxKeyframeSamples(), pointer + "/input",
                         "Animation input sample limit exceeded");
                 float[] times = structure.accessors().readFloatElements(input, "SCALAR");
-                validateExactFloatBounds(root, input, times, 1, pointer + "/input");
+                requireAccessorBounds(root, input, pointer + "/input");
                 validateTimes(times, pointer + "/input");
                 samplers.add(new SamplerInfo(output, interpolation, times.length));
             }
@@ -565,7 +607,7 @@ final class ExperimentalGlbProfileValidator {
                 }
                 totalOutputValues = addBounded(totalOutputValues,
                         (long) output.count() * output.componentCount(),
-                        (long) limits.baseGlbLimits().maxKeyframeSamples() * 16L,
+                        (long) limits.glbLimits().maxKeyframeSamples() * 16L,
                         channelPointer, "Animation output value limit exceeded");
                 float[] outputValues = structure.accessors().readFloatElements(sampler.outputAccessor(), expectedType);
                 if ("rotation".equals(path)) {
@@ -597,6 +639,39 @@ final class ExperimentalGlbProfileValidator {
         }
     }
 
+    private static void markInverseBindMatrixUsages(JsonObject root, BufferViewUsageGraph usages) {
+        JsonArray skins = array(required(root, "skins", "/skins"), "/skins");
+        for (int skinIndex = 0; skinIndex < skins.size(); skinIndex++) {
+            String pointer = "/skins/" + skinIndex + "/inverseBindMatrices";
+            JsonObject skin = object(skins.get(skinIndex), "/skins/" + skinIndex);
+            usages.markInverseBindMatrix(integer(required(skin, "inverseBindMatrices", pointer), pointer), pointer);
+        }
+    }
+
+    private static void validateUnitVectors(float[] values, int stride, String pointer, String message) {
+        for (int offset = 0; offset < values.length; offset += stride) {
+            double lengthSquared = 0.0;
+            for (int component = 0; component < 3; component++) {
+                double value = values[offset + component];
+                lengthSquared += value * value;
+            }
+            if (!Double.isFinite(lengthSquared)
+                    || Math.abs(lengthSquared - 1.0) > UNIT_VECTOR_LENGTH_SQUARED_TOLERANCE) {
+                throw error("BLENDLIB-X9-GLB-015", pointer, message);
+            }
+        }
+    }
+
+    private static void validateBaseTangents(float[] values, String pointer) {
+        validateUnitVectors(values, 4, pointer, "Base TANGENT XYZ vectors must have unit length");
+        for (int offset = 0; offset < values.length; offset += 4) {
+            if (values[offset + 3] != -1.0f && values[offset + 3] != 1.0f) {
+                throw error("BLENDLIB-X9-GLB-015", pointer,
+                        "Base TANGENT handedness must be exactly -1 or 1");
+            }
+        }
+    }
+
     private static void requireFeatureCount(
             Set<BlendResourceId> capabilities,
             String capability,
@@ -609,37 +684,13 @@ final class ExperimentalGlbProfileValidator {
         }
     }
 
-    private static void validateExactFloatBounds(
-            JsonObject root, int accessorIndex, float[] values, int componentCount, String pointer) {
+    private static void requireAccessorBounds(JsonObject root, int accessorIndex, String pointer) {
         JsonArray accessorArray = array(required(root, "accessors", "/accessors"), "/accessors");
         JsonObject accessor = object(accessorArray.get(accessorIndex), "/accessors/" + accessorIndex);
-        JsonArray minimum = array(required(accessor, "min", "/accessors/" + accessorIndex + "/min"),
+        array(required(accessor, "min", "/accessors/" + accessorIndex + "/min"),
                 "/accessors/" + accessorIndex + "/min");
-        JsonArray maximum = array(required(accessor, "max", "/accessors/" + accessorIndex + "/max"),
+        array(required(accessor, "max", "/accessors/" + accessorIndex + "/max"),
                 "/accessors/" + accessorIndex + "/max");
-        if (minimum.size() != componentCount || maximum.size() != componentCount || values.length == 0) {
-            throw error("BLENDLIB-X9-GLB-015", pointer,
-                    "Required accessor bounds have invalid cardinality");
-        }
-        for (int component = 0; component < componentCount; component++) {
-            float actualMinimum = Float.POSITIVE_INFINITY;
-            float actualMaximum = Float.NEGATIVE_INFINITY;
-            for (int index = component; index < values.length; index += componentCount) {
-                actualMinimum = Math.min(actualMinimum, values[index]);
-                actualMaximum = Math.max(actualMaximum, values[index]);
-            }
-            String minimumPointer = "/accessors/" + accessorIndex + "/min/" + component;
-            String maximumPointer = "/accessors/" + accessorIndex + "/max/" + component;
-            double declaredMinimum = finite(number(minimum.get(component), minimumPointer), minimumPointer);
-            double declaredMaximum = finite(number(maximum.get(component), maximumPointer), maximumPointer);
-            float declaredMinimumFloat = (float) declaredMinimum;
-            float declaredMaximumFloat = (float) declaredMaximum;
-            if (!Float.isFinite(declaredMinimumFloat) || !Float.isFinite(declaredMaximumFloat)
-                    || actualMinimum != declaredMinimumFloat || actualMaximum != declaredMaximumFloat) {
-                throw error("BLENDLIB-X9-GLB-015", pointer,
-                        "Accessor min/max metadata must exactly match the finite accessor data");
-            }
-        }
     }
 
     private static void validateAnimatedRotations(float[] values, String interpolation, String pointer) {
@@ -666,12 +717,57 @@ final class ExperimentalGlbProfileValidator {
         }
     }
 
-    private static void validateAttributeNames(JsonObject attributes, String pointer) {
+    private void validateAttributeNames(JsonObject attributes, String pointer) {
+        boolean[] uvSets = new boolean[limits.maxUvSets()];
+        int highestUvSet = -1;
         for (String name : attributes.values().keySet()) {
-            if (!PRIMITIVE_ATTRIBUTES.contains(name)) {
+            if (name.startsWith("TEXCOORD_")) {
+                int set = parseUvSet(name, pointer);
+                if (set >= limits.maxUvSets()) {
+                    throw error("BLENDLIB-X9-LIMIT-001", pointer + "/" + name,
+                            "Primitive UV set index exceeds the configured X9 limit");
+                }
+                uvSets[set] = true;
+                highestUvSet = Math.max(highestUvSet, set);
+            } else if (!PRIMITIVE_ATTRIBUTES.contains(name)) {
                 throw error("BLENDLIB-X9-GLB-015", pointer + "/" + name,
                         "Unsupported X9 primitive attribute");
             }
+        }
+        for (int set = 0; set <= highestUvSet; set++) {
+            if (!uvSets[set]) {
+                throw error("BLENDLIB-X9-GLB-015", pointer,
+                        "Primitive UV semantics must be consecutively numbered from TEXCOORD_0");
+            }
+        }
+    }
+
+    private static int parseUvSet(String name, String pointer) {
+        String suffix = name.substring("TEXCOORD_".length());
+        validateCanonicalUvSuffix(suffix, name, pointer);
+        try {
+            return Integer.parseInt(suffix);
+        } catch (NumberFormatException exception) {
+            throw error("BLENDLIB-X9-GLB-015", pointer + "/" + name,
+                    "Primitive UV semantics must use canonical consecutive decimal indices");
+        }
+    }
+
+    private static void validateCanonicalUvSuffix(String suffix, String name, String pointer) {
+        if (suffix.isEmpty() || (suffix.length() > 1 && suffix.charAt(0) == '0')) {
+            throw error("BLENDLIB-X9-GLB-015", pointer + "/" + name,
+                    "Primitive UV semantics must use canonical consecutive decimal indices");
+        }
+        for (int index = 0; index < suffix.length(); index++) {
+            char character = suffix.charAt(index);
+            if (character < '0' || character > '9') {
+                throw error("BLENDLIB-X9-GLB-015", pointer + "/" + name,
+                        "Primitive UV semantics must use canonical consecutive decimal indices");
+            }
+        }
+        if (suffix.length() > 10 || (suffix.length() == 10 && suffix.compareTo("2147483647") > 0)) {
+            throw error("BLENDLIB-X9-GLB-015", pointer + "/" + name,
+                    "Primitive UV semantics must use canonical consecutive decimal indices");
         }
     }
 
@@ -857,5 +953,203 @@ final class ExperimentalGlbProfileValidator {
     }
 
     private record SamplerInfo(int outputAccessor, String interpolation, int inputCount) {
+    }
+
+    /**
+     * Binds every accessor to its observed glTF use before enforcing buffer-view
+     * target, stride, and vertex-alignment rules. The generic accessor reader
+     * intentionally cannot make these decisions because it does not know whether
+     * an accessor is a vertex attribute, an index stream, or non-vertex data.
+     */
+    private static final class BufferViewUsageGraph {
+        private static final int VERTEX_ATTRIBUTE = 1;
+        private static final int PRIMITIVE_INDEX = 1 << 1;
+        private static final int ANIMATION = 1 << 2;
+        private static final int INVERSE_BIND_MATRIX = 1 << 3;
+        private static final int ARRAY_BUFFER = 34_962;
+        private static final int ELEMENT_ARRAY_BUFFER = 34_963;
+
+        private final JsonArray bufferViews;
+        private final int[] bufferViewByAccessor;
+        private final int[] accessorByteOffsetByAccessor;
+        private final int[] usageByBufferView;
+        private final boolean[] primitiveIndices;
+        private final boolean[] nonIndexUse;
+        private final List<List<Integer>> vertexAccessorsByBufferView;
+
+        private BufferViewUsageGraph(JsonObject root, int accessorCount) {
+            this.bufferViews = array(required(root, "bufferViews", "/bufferViews"), "/bufferViews");
+            JsonArray accessors = array(required(root, "accessors", "/accessors"), "/accessors");
+            if (accessors.size() != accessorCount) {
+                throw error("BLENDLIB-X9-GLB-015", "/accessors",
+                        "Accessor usage graph must cover the validated accessor array");
+            }
+            this.bufferViewByAccessor = new int[accessorCount];
+            this.accessorByteOffsetByAccessor = new int[accessorCount];
+            for (int accessorIndex = 0; accessorIndex < accessorCount; accessorIndex++) {
+                String pointer = "/accessors/" + accessorIndex + "/bufferView";
+                JsonObject accessor = object(accessors.get(accessorIndex), "/accessors/" + accessorIndex);
+                int bufferView = integer(required(accessor, "bufferView", pointer), pointer);
+                if (bufferView < 0 || bufferView >= bufferViews.size()) {
+                    throw error("BLENDLIB-GLB-014", pointer, "Accessor buffer-view reference is outside the buffer-view array");
+                }
+                bufferViewByAccessor[accessorIndex] = bufferView;
+                if (accessor.containsKey("byteOffset")) {
+                    String byteOffsetPointer = "/accessors/" + accessorIndex + "/byteOffset";
+                    int byteOffset = integer(accessor.get("byteOffset"), byteOffsetPointer);
+                    if (byteOffset < 0) {
+                        throw error("BLENDLIB-GLB-014", byteOffsetPointer,
+                                "Accessor byte offset must be non-negative");
+                    }
+                    accessorByteOffsetByAccessor[accessorIndex] = byteOffset;
+                }
+            }
+            this.usageByBufferView = new int[bufferViews.size()];
+            this.primitiveIndices = new boolean[accessorCount];
+            this.nonIndexUse = new boolean[accessorCount];
+            this.vertexAccessorsByBufferView = new ArrayList<>(bufferViews.size());
+            for (int index = 0; index < bufferViews.size(); index++) {
+                vertexAccessorsByBufferView.add(null);
+            }
+        }
+
+        private void markPrimitiveIndices(int accessorIndex, String pointer) {
+            int bufferView = requireIndex(accessorIndex, pointer);
+            primitiveIndices[accessorIndex] = true;
+            usageByBufferView[bufferView] |= PRIMITIVE_INDEX;
+        }
+
+        private void markVertexAttribute(int accessorIndex, String pointer) {
+            markVertex(accessorIndex, pointer);
+        }
+
+        private void markMorphAttribute(int accessorIndex, String pointer) {
+            markVertex(accessorIndex, pointer);
+        }
+
+        private void markVertex(int accessorIndex, String pointer) {
+            int bufferView = requireIndex(accessorIndex, pointer);
+            nonIndexUse[accessorIndex] = true;
+            usageByBufferView[bufferView] |= VERTEX_ATTRIBUTE;
+            List<Integer> accessors = vertexAccessorsByBufferView.get(bufferView);
+            if (accessors == null) {
+                accessors = new ArrayList<>();
+                vertexAccessorsByBufferView.set(bufferView, accessors);
+            }
+            if (!accessors.contains(accessorIndex)) {
+                accessors.add(accessorIndex);
+            }
+        }
+
+        private void markAnimationInput(int accessorIndex, String pointer) {
+            markNonIndexRole(accessorIndex, pointer, ANIMATION);
+        }
+
+        private void markAnimationOutput(int accessorIndex, String pointer) {
+            markNonIndexRole(accessorIndex, pointer, ANIMATION);
+        }
+
+        private void markInverseBindMatrix(int accessorIndex, String pointer) {
+            markNonIndexRole(accessorIndex, pointer, INVERSE_BIND_MATRIX);
+        }
+
+        private void markNonIndexRole(int accessorIndex, String pointer, int role) {
+            int bufferView = requireIndex(accessorIndex, pointer);
+            nonIndexUse[accessorIndex] = true;
+            usageByBufferView[bufferView] |= role;
+        }
+
+        private void validate(GlbAccessorReader accessors) {
+            for (int bufferViewIndex = 0; bufferViewIndex < bufferViews.size(); bufferViewIndex++) {
+                int usage = usageByBufferView[bufferViewIndex];
+                if (Integer.bitCount(usage) > 1) {
+                    throw error("BLENDLIB-X9-GLB-015", "/bufferViews/" + bufferViewIndex,
+                            "A buffer view must not mix vertex attributes, primitive indices, animation data, and inverse-bind matrices");
+                }
+                if (usage == VERTEX_ATTRIBUTE) {
+                    validateVertexBufferView(bufferViewIndex, accessors);
+                } else if (usage == PRIMITIVE_INDEX || usage == ANIMATION || usage == INVERSE_BIND_MATRIX) {
+                    validateNonVertexBufferView(bufferViewIndex, usage);
+                }
+            }
+            for (int accessorIndex = 0; accessorIndex < accessors.accessorCount(); accessorIndex++) {
+                AccessorInfo info = accessors.info(accessorIndex);
+                if (info.componentType() == UNSIGNED_INT
+                        && (!primitiveIndices[accessorIndex] || nonIndexUse[accessorIndex])) {
+                    throw error("BLENDLIB-X9-GLB-015", "/accessors/" + accessorIndex + "/componentType",
+                            "UNSIGNED_INT accessors may be used only by mesh primitive indices");
+                }
+            }
+        }
+
+        private void validateVertexBufferView(int bufferViewIndex, GlbAccessorReader accessors) {
+            String pointer = "/bufferViews/" + bufferViewIndex;
+            JsonObject view = object(bufferViews.get(bufferViewIndex), pointer);
+            if (view.containsKey("target")
+                    && integer(view.get("target"), pointer + "/target") != ARRAY_BUFFER) {
+                throw error("BLENDLIB-X9-GLB-015", pointer + "/target",
+                        "A buffer view used by vertex or morph attributes must use ARRAY_BUFFER when target is declared");
+            }
+
+            List<Integer> vertexAccessors = vertexAccessorsByBufferView.get(bufferViewIndex);
+            if (vertexAccessors == null || vertexAccessors.isEmpty()) {
+                throw new AssertionError("vertex buffer-view use without a recorded accessor");
+            }
+            vertexAccessors.sort(Integer::compareTo);
+            if (view.containsKey("byteStride")) {
+                int stride = integer(view.get("byteStride"), pointer + "/byteStride");
+                if (stride < 4 || stride > 252 || stride % 4 != 0) {
+                    throw error("BLENDLIB-X9-GLB-015", pointer + "/byteStride",
+                            "Vertex buffer-view byteStride must be within 4..252 and a multiple of four");
+                }
+                for (int accessorIndex : vertexAccessors) {
+                    AccessorInfo info = accessors.info(accessorIndex);
+                    if (stride < info.elementByteSize() || stride % info.componentByteSize() != 0) {
+                        throw error("BLENDLIB-X9-GLB-015", pointer + "/byteStride",
+                                "Vertex buffer-view byteStride must fit every accessor element and align to every component type");
+                    }
+                }
+            } else {
+                if (vertexAccessors.size() > 1) {
+                    throw error("BLENDLIB-X9-GLB-015", pointer + "/byteStride",
+                            "A shared vertex buffer view requires byteStride");
+                }
+                if (accessors.info(vertexAccessors.get(0)).byteStride() % 4 != 0) {
+                    throw error("BLENDLIB-X9-GLB-015", pointer + "/byteStride",
+                            "A tightly packed vertex buffer view must have an effective byteStride that is a multiple of four");
+                }
+            }
+            for (int accessorIndex : vertexAccessors) {
+                if (accessorByteOffsetByAccessor[accessorIndex] % 4 != 0) {
+                    throw error("BLENDLIB-X9-GLB-015", "/accessors/" + accessorIndex + "/byteOffset",
+                            "Vertex and morph accessor byteOffset must be a multiple of four");
+                }
+            }
+        }
+
+        private void validateNonVertexBufferView(int bufferViewIndex, int usage) {
+            String pointer = "/bufferViews/" + bufferViewIndex;
+            JsonObject view = object(bufferViews.get(bufferViewIndex), pointer);
+            if (usage == PRIMITIVE_INDEX && view.containsKey("target")
+                    && integer(view.get("target"), pointer + "/target") != ELEMENT_ARRAY_BUFFER) {
+                throw error("BLENDLIB-X9-GLB-015", pointer + "/target",
+                        "A buffer view used by primitive indices must use ELEMENT_ARRAY_BUFFER when target is declared");
+            }
+            if ((usage == ANIMATION || usage == INVERSE_BIND_MATRIX) && view.containsKey("target")) {
+                throw error("BLENDLIB-X9-GLB-015", pointer + "/target",
+                        "A buffer view used by animation or inverse-bind data must not declare target");
+            }
+            if (view.containsKey("byteStride")) {
+                throw error("BLENDLIB-X9-GLB-015", pointer + "/byteStride",
+                        "Only buffer views used exclusively by vertex attributes may declare byteStride");
+            }
+        }
+
+        private int requireIndex(int accessorIndex, String pointer) {
+            if (accessorIndex < 0 || accessorIndex >= primitiveIndices.length) {
+                throw error("BLENDLIB-GLB-014", pointer, "Accessor reference is outside the accessor array");
+            }
+            return bufferViewByAccessor[accessorIndex];
+        }
     }
 }

@@ -1,0 +1,11 @@
+# Generated only in D:\BlendLib\blendlib-showcase\run\p6-sync-server by prepareP6SyncServerRun.
+# This profile is intentionally loopback-only and must not be copied into a formal server.
+server-ip=127.0.0.1
+server-port=25575
+online-mode=false
+enforce-secure-profile=false
+enable-rcon=false
+white-list=false
+enforce-whitelist=false
+level-name=blendlib-p6-sync-world
+motd=BlendLib P6 isolated local synchronization test

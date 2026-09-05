@@ -299,7 +299,7 @@ class StableFacadeContractTest {
         }
     }
 
-    private static final class HostileAdapterFailure extends AssertionError {
+    private static final class HostileAdapterFailure extends RuntimeException {
         @SuppressWarnings("serial")
         private static final long serialVersionUID = 1L;
 

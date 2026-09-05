@@ -102,6 +102,28 @@ public final class AnimationController {
         return applyResolvedCorrection(correction, position.state(), position.localTimeSeconds());
     }
 
+    /**
+     * Samples a trusted synchronized timeline at an absolute controller time without replaying
+     * historical visual events or advancing through every elapsed loop. This is intentionally
+     * unsequenced: callers must only use it after they have already accepted the semantic state
+     * through {@link #applyTimelineCorrection(AnimationCorrection)}.
+     */
+    public AnimationAdvance synchronizeTimeline(BlendAnimationKey originKey, double controllerTimeSeconds) {
+        Objects.requireNonNull(originKey, "originKey");
+        if (!Double.isFinite(controllerTimeSeconds) || controllerTimeSeconds < 0.0d) {
+            throw new IllegalArgumentException("Timeline time must be finite and non-negative");
+        }
+        TimelinePosition position = resolveTimeline(originKey, controllerTimeSeconds);
+        current = position.state();
+        currentTimeSeconds = position.localTimeSeconds();
+        previous = null;
+        previousTimeSeconds = 0.0d;
+        blendElapsedSeconds = 0.0d;
+        blendDurationSeconds = 0.0d;
+        pendingVisualEvents.clear();
+        return new AnimationAdvance(current.key(), currentTimeSeconds, List.of());
+    }
+
     private AnimationCorrectionResult applyResolvedCorrection(
             AnimationCorrection correction, AnimationState target, double targetTime) {
         lastSequence = correction.sequence();

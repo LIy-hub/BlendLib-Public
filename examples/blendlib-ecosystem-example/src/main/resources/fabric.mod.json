@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "id": "blendlib_ecosystem_example",
+  "version": "${version}",
+  "name": "BlendLib Ecosystem Example",
+  "description": "Independent public-API BlendLib consumer and ecosystem handoff example.",
+  "license": "Apache-2.0",
+  "environment": "*",
+  "entrypoints": {
+    "main": [
+      "com.liy.blendlib.examples.ecosystem.EcosystemExampleEntrypoint"
+    ],
+    "client": [
+      "com.liy.blendlib.examples.ecosystem.client.EcosystemExampleClientEntrypoint"
+    ]
+  },
+  "depends": {
+    "fabricloader": ">=0.19.3",
+    "minecraft": "26.1.2",
+    "java": ">=25",
+    "fabric-api": "*",
+    "blendlib": ">=${blendlib_alpha_version}"
+  }
+}

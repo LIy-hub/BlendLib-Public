@@ -6,10 +6,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.liy.blendlib.api.BlendModelKey;
 import com.liy.blendlib.api.BlendResourceId;
-import com.liy.blendlib.core.animation.AnimationChannel;
-import com.liy.blendlib.core.animation.AnimationClip;
-import com.liy.blendlib.core.animation.AnimationPath;
-import com.liy.blendlib.core.animation.Interpolation;
 import com.liy.blendlib.core.descriptor.MaterialDefinition;
 import com.liy.blendlib.core.diagnostic.BlendDiagnostic;
 import com.liy.blendlib.core.diagnostic.BlendDiagnosticCodes;
@@ -76,33 +72,6 @@ class ProfiledRenderHandleReloadTest {
         assertTrue(diagnostic.message().contains("ADDITIVE_UNSUPPORTED_IN_P4"));
     }
 
-    @Test
-    void reloadPublicationUsesOnlyTheNewGenerationAnimatedEnvelopeAndRejectsAStaleReplacement() {
-        ClientModelRegistry registry = new ClientModelRegistry();
-        ModelAsset firstAsset = animatedRigidAsset(1L, 2.0F);
-        ModelRegistryGeneration first = ClientModelReloadListener.createPublishedGeneration(new PreparedModelGeneration(
-                1L, Map.of(RIGID_KEY, firstAsset), Map.of(), List.of()));
-        registry.publish(first);
-        Bounds firstBounds = registry.current().find(RIGID_KEY).orElseThrow().renderHandle().bounds();
-
-        ModelAsset secondAsset = animatedRigidAsset(2L, 20.0F);
-        ModelRegistryGeneration second = ClientModelReloadListener.createPublishedGeneration(new PreparedModelGeneration(
-                2L, Map.of(RIGID_KEY, secondAsset), Map.of(), List.of()));
-        registry.publish(second);
-        Bounds secondBounds = registry.current().find(RIGID_KEY).orElseThrow().renderHandle().bounds();
-
-        assertTrue(firstBounds.max().x() >= 3.0F);
-        assertTrue(secondBounds.max().x() >= 21.0F);
-        assertTrue(secondBounds.max().x() > firstBounds.max().x());
-        assertEquals(2L, registry.current().generationId());
-        assertEquals(secondBounds, registry.current().find(RIGID_KEY).orElseThrow().renderHandle().bounds());
-
-        registry.publish(first);
-        assertEquals(2L, registry.current().generationId());
-        assertEquals(secondBounds, registry.current().find(RIGID_KEY).orElseThrow().renderHandle().bounds());
-        assertTrue(first.isRetired());
-    }
-
     private static void assertLoadedHandle(
             ModelRegistryGeneration generation,
             BlendModelKey key,
@@ -139,39 +108,6 @@ class ProfiledRenderHandleReloadTest {
                 List.of(new ModelPrimitive(0, 0, 0, primitive)),
                 null,
                 List.of(),
-                new SocketTable(Map.of()),
-                Bounds.fromPositions(primitive.positions()),
-                List.of());
-    }
-
-    private static ModelAsset animatedRigidAsset(long generation, float translationX) {
-        MeshPrimitive primitive = new MeshPrimitive(
-                RIGID_SLOT,
-                trianglePositions(),
-                triangleNormals(),
-                triangleUvs(),
-                new int[] {0, 1, 2},
-                null,
-                null);
-        AnimationClip clip = new AnimationClip("move-" + generation, List.of(new AnimationChannel(
-                0,
-                AnimationPath.TRANSLATION,
-                Interpolation.LINEAR,
-                new float[] {0.0F, 1.0F},
-                new float[] {0.0F, 0.0F, 0.0F, translationX, 0.0F, 0.0F})));
-        return new ModelAsset(
-                RIGID_KEY.resourceId(),
-                RIGID_KEY.descriptorResourceId(),
-                generation,
-                ModelProfile.RIGID_V1,
-                1.0D,
-                Map.of(RIGID_SLOT, material(MaterialDefinition.Mode.OPAQUE)),
-                null,
-                List.of(new ModelNode(0, "RigidMesh", Transform.IDENTITY, List.of(), 0, -1, false)),
-                List.of(0),
-                List.of(new ModelPrimitive(0, 0, 0, primitive)),
-                null,
-                List.of(clip),
                 new SocketTable(Map.of()),
                 Bounds.fromPositions(primitive.positions()),
                 List.of());

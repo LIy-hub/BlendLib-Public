@@ -1,0 +1,20 @@
+# Isolated X6 prepare-time fixture. This is not a v1 descriptor extension.
+format_version=1
+variant=x6_test:skin|SKIN|x6_test:part_skin
+variant=x6_test:material|MATERIAL|x6_test:part_material
+variant=x6_test:mesh|MESH|x6_test:part_mesh
+variant=x6_test:equipment|EQUIPMENT|x6_test:socket
+variant=x6_test:damage|DAMAGE_STAGE|x6_test:part_damage
+variant=x6_test:visibility|PART_VISIBILITY|x6_test:part_visibility
+default=x6_test:skin_selector|x6_test:skin
+default=x6_test:material_selector|x6_test:material
+default=x6_test:mesh_selector|x6_test:mesh
+default=x6_test:equipment_selector|x6_test:equipment
+default=x6_test:damage_selector|x6_test:damage
+default=x6_test:visibility_selector|x6_test:visibility
+rule=x6_test:skin_rule|x6_test:skin_selector|100|x6_test:skin|x6_test:state=active
+rule=x6_test:material_rule|x6_test:material_selector|100|x6_test:material|x6_test:state=active
+rule=x6_test:mesh_rule|x6_test:mesh_selector|100|x6_test:mesh|x6_test:state=active
+rule=x6_test:equipment_rule|x6_test:equipment_selector|100|x6_test:equipment|x6_test:state=active
+rule=x6_test:damage_rule|x6_test:damage_selector|100|x6_test:damage|x6_test:state=active
+rule=x6_test:visibility_rule|x6_test:visibility_selector|100|x6_test:visibility|x6_test:state=active

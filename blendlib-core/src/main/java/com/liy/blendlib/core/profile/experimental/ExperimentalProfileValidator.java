@@ -13,7 +13,7 @@ import java.util.Objects;
  *
  * <p>The result is intentionally validation-only: it does not create a v1
  * {@code ModelAsset}, select a renderer, register a provider, or expose an API
- * surface. Integration is experimental and may change without compatibility guarantees.</p>
+ * surface. Integration remains pending independent X9 review.</p>
  */
 public final class ExperimentalProfileValidator {
     private final ExperimentalProfileLimits limits;
@@ -28,7 +28,7 @@ public final class ExperimentalProfileValidator {
     public ExperimentalProfileValidator(ExperimentalProfileLimits limits) {
         this.limits = Objects.requireNonNull(limits, "limits");
         this.descriptorDecoder = new ExperimentalDescriptorDecoder(limits);
-        this.glbReader = new GlbReader(limits.baseGlbLimits());
+        this.glbReader = new GlbReader(limits.glbLimits().asInternalBlendAssetLimits());
         this.glbValidator = new ExperimentalGlbProfileValidator(limits);
     }
 

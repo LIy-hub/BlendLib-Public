@@ -42,7 +42,6 @@
             "required": [
               "blendlib:cubic-spline",
               "blendlib:vertex-color",
-              "blendlib:multiple-uv",
               "blendlib:richer-material-metadata"
             ]
           }
@@ -60,7 +59,6 @@
             "required": [
               "blendlib:cubic-spline",
               "blendlib:vertex-color",
-              "blendlib:multiple-uv",
               "blendlib:richer-material-metadata",
               "blendlib:morph-targets"
             ]

@@ -9,6 +9,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import com.liy.blendlib.api.BlendModelKey;
 import com.liy.blendlib.core.model.Transform;
 import com.liy.blendlib.fabric.client.reload.ClientModelRegistry;
+import com.liy.blendlib.fabric.client.reload.ClientModelLookupTestSupport;
 import com.liy.blendlib.fabric.client.render.CullingMetadata;
 import com.liy.blendlib.fabric.client.render.MissingModelRenderHandle;
 import com.liy.blendlib.fabric.client.render.ModelRenderSnapshot;
@@ -29,7 +30,7 @@ class ClientAdapterContractsTest {
 
     @Test
     void lookupBuildsMissingHandleOnlyOutsideSubmitAndPreservesImmutableRegistryView() {
-        ClientModelLookup lookup = new RegistryBackedModelLookup(new ClientModelRegistry());
+        ClientModelLookup lookup = ClientModelLookupTestSupport.sourceOwnedLookup(new ClientModelRegistry());
 
         ClientModelView unknown = lookup.resolve(KEY);
         assertFalse(unknown.discovered());

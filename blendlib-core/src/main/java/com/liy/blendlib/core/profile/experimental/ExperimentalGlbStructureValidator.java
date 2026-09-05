@@ -9,6 +9,8 @@ import com.liy.blendlib.core.json.JsonNumber;
 import com.liy.blendlib.core.json.JsonObject;
 import com.liy.blendlib.core.json.JsonString;
 import com.liy.blendlib.core.json.JsonValue;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -28,6 +30,9 @@ import java.util.Set;
  */
 final class ExperimentalGlbStructureValidator {
     private static final int FLOAT = 5126;
+    private static final int UNSIGNED_BYTE = 5121;
+    private static final int UNSIGNED_SHORT = 5123;
+    private static final int UNSIGNED_INT = 5125;
     private static final int MAX_STRUCTURAL_ENTRIES = 16_384;
     private static final Set<String> DISABLED_EXTENSIONS = Set.of(
             "KHR_draco_mesh_compression", "EXT_meshopt_compression", "KHR_texture_basisu");
@@ -62,7 +67,8 @@ final class ExperimentalGlbStructureValidator {
         this.document = Objects.requireNonNull(document, "document");
         this.root = document.json();
         this.limits = Objects.requireNonNull(limits, "limits");
-        this.accessors = new GlbAccessorReader(modelKey, resourceId, document, limits.baseGlbLimits());
+        this.accessors = new GlbAccessorReader(modelKey, resourceId, document,
+                limits.glbLimits().asInternalBlendAssetLimits());
     }
 
     Result validate() {
@@ -72,7 +78,7 @@ final class ExperimentalGlbStructureValidator {
         validateBuffersAndAccessors();
 
         JsonArray meshes = array(required(root, "meshes", "/meshes"), "/meshes");
-        if (meshes.size() == 0 || meshes.size() > limits.baseGlbLimits().maxNodes()) {
+        if (meshes.size() == 0 || meshes.size() > limits.glbLimits().maxNodes()) {
             throw error(meshes.size() == 0 ? "BLENDLIB-X9-GLB-015" : "BLENDLIB-X9-LIMIT-001",
                     "/meshes", "X9 mesh count is outside the structural bound");
         }
@@ -80,7 +86,9 @@ final class ExperimentalGlbStructureValidator {
         HierarchyInfo hierarchy = validateScenesAndHierarchy(nodes);
         List<SkinInfo> skins = validateSkins(nodes, hierarchy);
         validateNodeSkinAndMeshBindings(nodes, skins, hierarchy.activeNodes(), meshes.size());
-        return new Result(accessors, List.copyOf(nodes), List.copyOf(skins), Set.copyOf(hierarchy.activeNodes()));
+        return new Result(accessors, document.binaryBuffer().order(ByteOrder.LITTLE_ENDIAN),
+                new IndexScanBudget(limits.glbLimits().maxIndices()), List.copyOf(nodes), List.copyOf(skins),
+                Set.copyOf(hierarchy.activeNodes()));
     }
 
     private void validateAssetMetadata() {
@@ -189,6 +197,8 @@ final class ExperimentalGlbStructureValidator {
             }
         }
         Set<Integer> referencedViews = new HashSet<>();
+        AccessorInfo[] infos = new AccessorInfo[accessorArray.size()];
+        long scanComponents = 0L;
         for (int index = 0; index < accessorArray.size(); index++) {
             String pointer = "/accessors/" + index;
             JsonObject accessor = object(accessorArray.get(index), pointer);
@@ -200,11 +210,31 @@ final class ExperimentalGlbStructureValidator {
             }
             referencedViews.add(view);
             AccessorInfo info = accessors.info(index);
-            if (info.componentType() == FLOAT && info.normalized()) {
+            infos[index] = info;
+            if (info.count() < 1) {
+                throw error("BLENDLIB-X9-GLB-015", pointer + "/count",
+                        "Accessor count must be at least one");
+            }
+            if ((info.componentType() == FLOAT || info.componentType() == UNSIGNED_INT) && info.normalized()) {
                 throw error("BLENDLIB-X9-GLB-015", pointer + "/normalized",
-                        "FLOAT accessors must not declare normalized=true");
+                        "FLOAT and UNSIGNED_INT accessors must not declare normalized=true");
             }
             validateAccessorBoundsMetadata(accessor, info, pointer);
+            if (info.componentType() == FLOAT || accessor.containsKey("min")) {
+                long components = (long) info.count() * info.componentCount();
+                scanComponents = addScanComponents(scanComponents, components, pointer + "/count");
+            }
+        }
+        if (scanComponents > maximumAccessorScanComponents()) {
+            throw error("BLENDLIB-X9-LIMIT-001", "/accessors",
+                    "Aggregate accessor validation scan exceeds the X9 bound");
+        }
+        ByteBuffer binary = document.binaryBuffer().order(ByteOrder.LITTLE_ENDIAN);
+        for (int index = 0; index < accessorArray.size(); index++) {
+            JsonObject accessor = object(accessorArray.get(index), "/accessors/" + index);
+            if (infos[index].componentType() == FLOAT || accessor.containsKey("min")) {
+                validateAccessorData(accessor, infos[index], binary, "/accessors/" + index);
+            }
         }
         if (referencedViews.size() != views.size()) {
             throw error("BLENDLIB-X9-GLB-015", "/bufferViews",
@@ -230,8 +260,17 @@ final class ExperimentalGlbStructureValidator {
             }
             double[] decoded = new double[values.size()];
             for (int index = 0; index < values.size(); index++) {
-                decoded[index] = finite(number(values.get(index), pointer + "/" + field + "/" + index),
-                        pointer + "/" + field + "/" + index);
+                String valuePointer = pointer + "/" + field + "/" + index;
+                if (info.componentType() == FLOAT) {
+                    double value = finite(number(values.get(index), valuePointer), valuePointer);
+                    if (!Float.isFinite((float) value)) {
+                        throw error("BLENDLIB-X9-GLB-015", valuePointer,
+                                "FLOAT accessor bounds must be representable as finite FLOAT values");
+                    }
+                    decoded[index] = (float) value;
+                } else {
+                    decoded[index] = declaredUnsignedBound(values.get(index), info.componentType(), valuePointer);
+                }
             }
             if ("min".equals(field)) {
                 minimum = decoded;
@@ -249,9 +288,136 @@ final class ExperimentalGlbStructureValidator {
         }
     }
 
+    private void validateAccessorData(JsonObject accessor, AccessorInfo info, ByteBuffer binary, String pointer) {
+        int components = info.componentCount();
+        if (info.componentType() == FLOAT) {
+            float[] actualMinimum = new float[components];
+            float[] actualMaximum = new float[components];
+            Arrays.fill(actualMinimum, Float.POSITIVE_INFINITY);
+            Arrays.fill(actualMaximum, Float.NEGATIVE_INFINITY);
+            for (int element = 0; element < info.count(); element++) {
+                int base = (int) ((long) info.firstByteOffset() + (long) element * info.byteStride());
+                for (int component = 0; component < components; component++) {
+                    float value = binary.getFloat(base + component * Float.BYTES);
+                    if (!Float.isFinite(value)) {
+                        throw error("BLENDLIB-GLB-015", pointer,
+                                "Accessor contains NaN or infinity");
+                    }
+                    actualMinimum[component] = Math.min(actualMinimum[component], value);
+                    actualMaximum[component] = Math.max(actualMaximum[component], value);
+                }
+            }
+            if (accessor.containsKey("min")) {
+                validateFloatBounds(accessor, actualMinimum, actualMaximum, pointer);
+            }
+            return;
+        }
+
+        long[] actualMinimum = new long[components];
+        long[] actualMaximum = new long[components];
+        Arrays.fill(actualMinimum, Long.MAX_VALUE);
+        for (int element = 0; element < info.count(); element++) {
+            int base = (int) ((long) info.firstByteOffset() + (long) element * info.byteStride());
+            for (int component = 0; component < components; component++) {
+                long value = readUnsigned(binary, base + component * info.componentByteSize(), info.componentType());
+                actualMinimum[component] = Math.min(actualMinimum[component], value);
+                actualMaximum[component] = Math.max(actualMaximum[component], value);
+            }
+        }
+        validateUnsignedBounds(accessor, info.componentType(), actualMinimum, actualMaximum, pointer);
+    }
+
+    private static void validateFloatBounds(
+            JsonObject accessor, float[] actualMinimum, float[] actualMaximum, String pointer) {
+        JsonArray minimum = array(accessor.get("min"), pointer + "/min");
+        JsonArray maximum = array(accessor.get("max"), pointer + "/max");
+        for (int component = 0; component < actualMinimum.length; component++) {
+            float declaredMinimum = (float) finite(number(minimum.get(component), pointer + "/min/" + component),
+                    pointer + "/min/" + component);
+            float declaredMaximum = (float) finite(number(maximum.get(component), pointer + "/max/" + component),
+                    pointer + "/max/" + component);
+            if (actualMinimum[component] != declaredMinimum || actualMaximum[component] != declaredMaximum) {
+                throw error("BLENDLIB-X9-GLB-015", pointer,
+                        "Accessor min/max metadata must exactly match the raw accessor data");
+            }
+        }
+    }
+
+    private static void validateUnsignedBounds(
+            JsonObject accessor, int componentType, long[] actualMinimum, long[] actualMaximum, String pointer) {
+        JsonArray minimum = array(accessor.get("min"), pointer + "/min");
+        JsonArray maximum = array(accessor.get("max"), pointer + "/max");
+        for (int component = 0; component < actualMinimum.length; component++) {
+            long declaredMinimum = declaredUnsignedBound(
+                    minimum.get(component), componentType, pointer + "/min/" + component);
+            long declaredMaximum = declaredUnsignedBound(
+                    maximum.get(component), componentType, pointer + "/max/" + component);
+            if (actualMinimum[component] != declaredMinimum || actualMaximum[component] != declaredMaximum) {
+                throw error("BLENDLIB-X9-GLB-015", pointer,
+                        "Accessor min/max metadata must exactly match the raw accessor data");
+            }
+        }
+    }
+
+    private static long declaredUnsignedBound(JsonValue value, int componentType, String pointer) {
+        long decoded;
+        try {
+            decoded = Long.parseLong(number(value, pointer).raw());
+        } catch (IllegalArgumentException exception) {
+            throw error("BLENDLIB-X9-GLB-015", pointer,
+                    "Unsigned integer accessor bounds must be integer JSON numbers");
+        }
+        long maximum = unsignedMaximum(componentType);
+        if (decoded < 0L || decoded > maximum) {
+            throw error("BLENDLIB-X9-GLB-015", pointer,
+                    "Unsigned integer accessor bound is outside its component type range");
+        }
+        return decoded;
+    }
+
+    private static long readUnsigned(ByteBuffer binary, int offset, int componentType) {
+        return switch (componentType) {
+            case UNSIGNED_BYTE -> Byte.toUnsignedInt(binary.get(offset));
+            case UNSIGNED_SHORT -> Short.toUnsignedInt(binary.getShort(offset));
+            case UNSIGNED_INT -> Integer.toUnsignedLong(binary.getInt(offset));
+            default -> throw new AssertionError("validated accessor component type");
+        };
+    }
+
+    private static long unsignedMaximum(int componentType) {
+        return switch (componentType) {
+            case UNSIGNED_BYTE -> 0xffL;
+            case UNSIGNED_SHORT -> 0xffffL;
+            case UNSIGNED_INT -> 0xffff_ffffL;
+            default -> throw new AssertionError("validated accessor component type");
+        };
+    }
+
+    private long addScanComponents(long total, long components, String pointer) {
+        long result;
+        try {
+            result = Math.addExact(total, components);
+        } catch (ArithmeticException exception) {
+            throw error("BLENDLIB-X9-LIMIT-001", pointer,
+                    "Aggregate accessor validation scan exceeds the X9 bound");
+        }
+        if (result > maximumAccessorScanComponents()) {
+            throw error("BLENDLIB-X9-LIMIT-001", pointer,
+                    "Aggregate accessor validation scan exceeds the X9 bound");
+        }
+        return result;
+    }
+
+    private long maximumAccessorScanComponents() {
+        return limits.glbLimits().maxIndices()
+                + 16L * limits.glbLimits().maxVertices()
+                + 4L * limits.glbLimits().maxKeyframeSamples()
+                + 16L * limits.glbLimits().maxSkinJoints();
+    }
+
     private List<NodeInfo> validateNodes(int meshCount) {
         JsonArray nodeArray = array(required(root, "nodes", "/nodes"), "/nodes");
-        if (nodeArray.size() == 0 || nodeArray.size() > limits.baseGlbLimits().maxNodes()) {
+        if (nodeArray.size() == 0 || nodeArray.size() > limits.glbLimits().maxNodes()) {
             throw error(nodeArray.size() == 0 ? "BLENDLIB-X9-GLB-015" : "BLENDLIB-X9-LIMIT-001",
                     "/nodes", "X9 node count is outside bounds");
         }
@@ -268,23 +434,28 @@ final class ExperimentalGlbStructureValidator {
             int skin = optionalIndex(node, "skin", -1, pointer + "/skin");
             List<Integer> children = node.containsKey("children")
                     ? boundedIntegerList(array(node.get("children"), pointer + "/children"),
-                            limits.baseGlbLimits().maxNodes(), pointer + "/children",
+                            limits.glbLimits().maxNodes(), pointer + "/children",
                             "Node child count exceeds the X9 bound")
                     : List.of();
             if (new HashSet<>(children).size() != children.size()) {
                 throw error("BLENDLIB-X9-GLB-015", pointer + "/children", "Node children must be unique");
             }
             validateNodeTransform(node, pointer);
-            List<Double> weights = node.containsKey("weights")
+            boolean weightsDeclared = node.containsKey("weights");
+            List<Double> weights = weightsDeclared
                     ? boundedFiniteList(array(node.get("weights"), pointer + "/weights"),
                             limits.maxMorphTargetsPerPrimitive(), pointer + "/weights",
                             "Node morph-weight count exceeds the X9 bound")
                     : List.of();
-            if (!weights.isEmpty() && mesh < 0) {
+            if (weightsDeclared && weights.isEmpty()) {
+                throw error("BLENDLIB-X9-GLB-015", pointer + "/weights",
+                        "Explicit node morph weights must contain at least one value");
+            }
+            if (weightsDeclared && mesh < 0) {
                 throw error("BLENDLIB-X9-GLB-015", pointer + "/weights",
                         "Node morph weights require a bound mesh");
             }
-            nodes.add(new NodeInfo(index, mesh, skin, children, node.containsKey("matrix"), weights));
+            nodes.add(new NodeInfo(index, mesh, skin, children, node.containsKey("matrix"), weightsDeclared, weights));
         }
         for (NodeInfo node : nodes) {
             for (int child : node.children()) {
@@ -423,7 +594,7 @@ final class ExperimentalGlbStructureValidator {
             pending.add(new NodeDepth(rootIndex, 1));
             while (!pending.isEmpty()) {
                 NodeDepth current = pending.removeFirst();
-                if (current.depth() > limits.baseGlbLimits().maxHierarchyDepth()) {
+                if (current.depth() > limits.glbLimits().maxHierarchyDepth()) {
                     throw error("BLENDLIB-X9-LIMIT-001", "/nodes/" + current.node(),
                             "Node hierarchy depth limit exceeded");
                 }
@@ -448,7 +619,7 @@ final class ExperimentalGlbStructureValidator {
             validateOptionalString(skin, "name", pointer + "/name");
             List<Integer> joints = boundedIntegerList(
                     array(required(skin, "joints", pointer + "/joints"), pointer + "/joints"),
-                    limits.baseGlbLimits().maxSkinJoints(), pointer + "/joints",
+                    limits.glbLimits().maxSkinJoints(), pointer + "/joints",
                     "Skin joint count exceeds the X9 bound");
             if (joints.isEmpty()) {
                 throw error("BLENDLIB-X9-SKIN-001", pointer + "/joints", "Skin joint list must not be empty");
@@ -715,9 +886,53 @@ final class ExperimentalGlbStructureValidator {
 
     record Result(
             GlbAccessorReader accessors,
+            ByteBuffer binary,
+            IndexScanBudget indexScanBudget,
             List<NodeInfo> nodes,
             List<SkinInfo> skins,
             Set<Integer> activeNodes) {
+        int validatePrimitiveIndices(int accessorIndex, long vertexCount, String pointer) {
+            AccessorInfo info = accessors.info(accessorIndex);
+            if (!"SCALAR".equals(info.type())
+                    || (info.componentType() != UNSIGNED_BYTE
+                    && info.componentType() != UNSIGNED_SHORT
+                    && info.componentType() != UNSIGNED_INT)
+                    || info.normalized()) {
+                throw error("BLENDLIB-X9-GLB-015", pointer,
+                        "Primitive indices must be non-normalized U8, U16, or U32 SCALAR values");
+            }
+            indexScanBudget.consume(info.count(), pointer);
+            long reserved = unsignedMaximum(info.componentType());
+            for (int element = 0; element < info.count(); element++) {
+                int offset = (int) ((long) info.firstByteOffset() + (long) element * info.byteStride());
+                long value = readUnsigned(binary, offset, info.componentType());
+                if (value == reserved) {
+                    throw error("BLENDLIB-X9-GLB-015", pointer,
+                            "Primitive indices must not contain the reserved primitive restart value");
+                }
+                if (value >= vertexCount) {
+                    throw error("BLENDLIB-X9-GLB-015", pointer,
+                            "Triangle index references a missing vertex");
+                }
+            }
+            return info.count();
+        }
+    }
+
+    private static final class IndexScanBudget {
+        private long remaining;
+
+        private IndexScanBudget(long maximum) {
+            this.remaining = maximum;
+        }
+
+        private void consume(long elements, String pointer) {
+            if (elements > remaining) {
+                throw error("BLENDLIB-X9-LIMIT-001", pointer,
+                        "Aggregate primitive-index validation scan exceeds the X9 bound");
+            }
+            remaining -= elements;
+        }
     }
 
     record NodeInfo(
@@ -726,6 +941,7 @@ final class ExperimentalGlbStructureValidator {
             int skinIndex,
             List<Integer> children,
             boolean matrixDeclared,
+            boolean weightsDeclared,
             List<Double> weights) {
     }
 

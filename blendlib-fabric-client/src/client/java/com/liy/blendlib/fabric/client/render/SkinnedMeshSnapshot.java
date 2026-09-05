@@ -71,11 +71,27 @@ final class SkinnedMeshSnapshot {
     void emit(VertexSink sink) {
         Objects.requireNonNull(sink, "sink");
         for (int offset = 0; offset < indices.length; offset += 3) {
-            emitIndex(sink, indices[offset]);
-            emitIndex(sink, indices[offset + 1]);
-            emitIndex(sink, indices[offset + 2]);
-            emitIndex(sink, indices[offset + 2]);
+            emitTriangle(sink, offset);
         }
+    }
+
+    /** Emits only immutable prepare-time selected source triangles without copying mesh payloads. */
+    void emitTriangles(int[] triangleOffsets, VertexSink sink) {
+        Objects.requireNonNull(triangleOffsets, "triangleOffsets");
+        Objects.requireNonNull(sink, "sink");
+        for (int offset : triangleOffsets) {
+            if (offset < 0 || offset + 2 >= indices.length || offset % 3 != 0) {
+                throw new IllegalArgumentException("Skinned triangle subset is outside the captured immutable topology");
+            }
+            emitTriangle(sink, offset);
+        }
+    }
+
+    private void emitTriangle(VertexSink sink, int offset) {
+        emitIndex(sink, indices[offset]);
+        emitIndex(sink, indices[offset + 1]);
+        emitIndex(sink, indices[offset + 2]);
+        emitIndex(sink, indices[offset + 2]);
     }
 
     private void emitIndex(VertexSink sink, int index) {

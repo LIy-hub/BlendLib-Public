@@ -2,6 +2,25 @@
 
 All notable changes to BlendLib are documented here.
 
+## [1.0.0-beta.1+26.1.2] - 2026-09-06
+
+This Beta update retains the existing public-alpha line while bringing in the complete
+X1–X9 extension source history. It adds the expansion API/SPI, animation, procedural,
+host-adapter, authoring, material/variant, advanced-rendering, platform/ecosystem, and experimental
+profile work documented under `docs/expansion/`.
+
+- The separate 26.2 Fabric candidate, NeoForge bridge, datagen, examples, converter, templates,
+  inventories, and SHA wiring remain separately scoped X8 content. They are not embedded in the
+  26.1.2 runtime JAR and do not constitute a release, dynamic-validation result, or Gate promotion.
+- Restores strict asset validation, receive-time world guards, animated bounds, and merged build
+  contracts; isolates the client Mixin package and adopts the official folded-B project branding.
+- Ordinary Showcase entity visuals received bounded user acceptance. Full material/item/block-entity
+  visuals, two-client synchronization, 20-reload leak checks, Iris/Sodium, and hardware performance
+  remain unaccepted. This update does not claim stable API/ABI or aggregate phase completion.
+- Phase-only gameplay artifacts have been retired: the X7 client diagnostic literal, the P7
+  Showcase scene commands, and all Showcase summonable entity registrations are no longer exposed
+  in game. The normal asset, inspection, and diagnostic commands remain available.
+
 ## [1.0.0-alpha.1+26.1.2] - 2026-08-04
 
 First public-alpha source and packaging metadata for the dedicated Minecraft 26.1.2 adapter.

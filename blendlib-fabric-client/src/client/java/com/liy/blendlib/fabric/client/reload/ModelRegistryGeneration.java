@@ -2,6 +2,7 @@ package com.liy.blendlib.fabric.client.reload;
 
 import com.liy.blendlib.api.BlendModelKey;
 import com.liy.blendlib.core.diagnostic.BlendDiagnostic;
+import com.liy.blendlib.fabric.client.render.ModelRenderHandle;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -10,6 +11,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * One whole immutable model-registry generation.
@@ -25,6 +27,13 @@ public final class ModelRegistryGeneration {
     private final int loadedBackendHandleCount;
     private final int missingBackendHandleCount;
     private final AtomicBoolean retired = new AtomicBoolean(false);
+    /**
+     * A generation has one permanent lifecycle identity.  The reference never returns to {@code null}; otherwise a
+     * detached cleanup path could reuse a retired generation through a second registry owner.
+     */
+    private final AtomicReference<ClientGenerationResourceOwner> resourceOwner = new AtomicReference<>();
+    /** Coordinates an unowned direct retirement with the one-way owner binding. */
+    private final Object resourceOwnershipLock = new Object();
 
     public ModelRegistryGeneration(
             long generationId,
@@ -88,7 +97,75 @@ public final class ModelRegistryGeneration {
      * @return {@code true} only for the transition from active to retired
      */
     boolean retire() {
-        return retired.compareAndSet(false, true);
+        ClientGenerationResourceOwner owner = resourceOwner.get();
+        return owner == null ? retireIfStillUnowned() : owner.retire(this);
+    }
+
+    GenerationRenderResourceLease acquireRenderResourceLease(ModelHandle handle) {
+        ClientGenerationResourceOwner owner = resourceOwner.get();
+        if (owner == null) {
+            throw new IllegalStateException("Generation has no resource lifecycle owner");
+        }
+        return owner.acquire(this, handle);
+    }
+
+    GenerationRenderResourceLease acquireExactRenderResourceLease(
+            BlendModelKey key,
+            ModelHandle expectedHandle,
+            ModelRenderHandle expectedRenderHandle) {
+        ClientGenerationResourceOwner owner = resourceOwner.get();
+        if (owner == null) {
+            throw new IllegalStateException("Generation has no resource lifecycle owner");
+        }
+        return owner.acquireExact(this, key, expectedHandle, expectedRenderHandle);
+    }
+
+    /** Revalidates a source-owned absent or map-owned missing sample without acquiring a count. */
+    void requireExactCurrentMissingBinding(
+            BlendModelKey key, ModelHandle expectedHandle, ModelRenderHandle expectedRenderHandle) {
+        ClientGenerationResourceOwner owner = resourceOwner.get();
+        if (owner == null) {
+            throw new IllegalStateException("Generation has no resource lifecycle owner");
+        }
+        owner.requireExactCurrentMissing(this, key, expectedHandle, expectedRenderHandle);
+    }
+
+    boolean retryFailedRenderResourceClose() {
+        ClientGenerationResourceOwner owner = resourceOwner.get();
+        return owner != null && owner.retryFailedClose(this);
+    }
+
+    /**
+     * Claims this generation for exactly one owner.  A successful binding is permanent; same-owner calls are
+     * idempotent and a foreign owner is rejected without changing either owner.
+     */
+    boolean tryAttachResourceOwner(ClientGenerationResourceOwner owner) {
+        ClientGenerationResourceOwner checkedOwner = Objects.requireNonNull(owner, "owner");
+        synchronized (resourceOwnershipLock) {
+            ClientGenerationResourceOwner existing = resourceOwner.get();
+            if (existing == checkedOwner) {
+                return true;
+            }
+            return existing == null && resourceOwner.compareAndSet(null, checkedOwner);
+        }
+    }
+
+    boolean isAttachedToResourceOwner(ClientGenerationResourceOwner owner) {
+        return resourceOwner.get() == owner;
+    }
+
+    boolean retireFromResourceOwner(ClientGenerationResourceOwner owner) {
+        return resourceOwner.get() == owner && retired.compareAndSet(false, true);
+    }
+
+    /**
+     * Retires an aborted candidate only when no registry has won its permanent owner identity.  The lock prevents a
+     * foreign owner from binding between the ownership check and the retirement transition.
+     */
+    private boolean retireIfStillUnowned() {
+        synchronized (resourceOwnershipLock) {
+            return resourceOwner.get() == null && retired.compareAndSet(false, true);
+        }
     }
 
     int backendHandleCount() {

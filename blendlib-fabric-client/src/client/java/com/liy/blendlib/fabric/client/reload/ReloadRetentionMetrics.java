@@ -3,10 +3,11 @@ package com.liy.blendlib.fabric.client.reload;
 /**
  * Internal immutable observation of client model-registry generation retention.
  *
- * <p>Counts describe ownership by {@link ClientModelRegistry}, not references owned by immutable extraction or
- * render snapshots. The registry keeps only its active generation; a replaced or stale candidate is marked retired
- * but is never added to a registry retention collection. This lets regression tests distinguish legitimate snapshot
- * lifetime from a registry-side backend-handle leak without exposing a public metrics API.</p>
+ * <p>Counts describe ownership by {@link ClientModelRegistry} and its package-private lifecycle owner, not
+ * references owned by immutable extraction or render snapshots. The registry keeps only its active generation,
+ * while the owner retains a non-active generation only until drain/close obligations finish. This lets regression
+ * tests distinguish legitimate snapshot lifetime from an owner-side backend-handle leak without exposing a public
+ * metrics API.</p>
  */
 record ReloadRetentionMetrics(
         long activeGenerationId,

@@ -1,0 +1,25 @@
+{
+  "schema": "blendlib-x0-checkpoint-byte-preservation-diff-check-v1",
+  "generated_utc": "2026-07-31T21:01:28.2105033Z",
+  "range": {
+    "parent": "183cfba1f72d3b63028bee5519efd5ddaab469f9",
+    "correction_commit": "0102a9fea4e01abda19cb1975a46360a9cdf02ed",
+    "paths": 22
+  },
+  "raw_git_diff_check": {
+    "command": "git diff --check 183cfba1f72d3b63028bee5519efd5ddaab469f9 0102a9fea4e01abda19cb1975a46360a9cdf02ed -- <22 preservation paths>",
+    "exit_code": 2,
+    "output_lines": 8642,
+    "trailing_whitespace_diagnostics": 4321,
+    "transcript_sha256": "01d96d7a02f4f3368cf035e6d88b6c710c7cf0eed4cd09f545929e048d4bfdf3",
+    "expected_nonzero_reason": "The correction intentionally restores captured CRLF/mixed bytes for 22 paths. git diff --check diagnoses CRLF as trailing whitespace; this is preserved capture data, not a content defect."
+  },
+  "semantic_comparison": {
+    "command": "git diff --ignore-space-at-eol 183cfba1f72d3b63028bee5519efd5ddaab469f9 0102a9fea4e01abda19cb1975a46360a9cdf02ed -- <22 preservation paths>",
+    "exit_code": 0,
+    "output_lines": 0,
+    "content_difference_detected": false
+  },
+  "staged_blob_proof": "checkpoint-byte-preservation-staged-index.json",
+  "review_state": "CORRECTION_IMPLEMENTED_AWAITING_FRESH_REVIEW"
+}

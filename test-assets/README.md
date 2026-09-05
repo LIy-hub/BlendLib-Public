@@ -1,10 +1,10 @@
-# BlendLib Canonical Authoring Fixtures
+# BlendLib P2 Canonical Fixtures
 
 `static`, `rigid`, and `skinned` each contain a committed Blender source,
 external source PNG, expected export contract, deterministic export report, and
 golden normalized GLB/descriptor structure plus SHA-256 hashes.
 
-The runtime never reads these `.blend` files. They are authoring fixtures
+The runtime never reads these `.blend` files. They are P2 authoring fixtures
 only. The runtime-facing generated copies live in
 `blendlib-showcase/src/main/resources/assets/blendlib_showcase/`.
 
@@ -22,7 +22,7 @@ Regenerate source fixtures with Blender 5.1.2:
 $env:PYTHONDONTWRITEBYTECODE = '1'
 & 'D:\Program Files\Blender\blender.exe' --background `
   --python blender-addon\scripts\create_canonical_fixtures.py -- `
-  --project-root .
+  --project-root D:\BlendLib
 ```
 
 Run the parser and two-run determinism verification with:
@@ -31,7 +31,7 @@ Run the parser and two-run determinism verification with:
 $env:PYTHONDONTWRITEBYTECODE = '1'
 & 'D:\Program Files\Blender\blender.exe' --background `
   --python blender-addon\scripts\verify_p2_fixtures.py -- `
-  --project-root .
+  --project-root D:\BlendLib
 ```
 
 That verification exports each fixture twice and asserts that every
@@ -46,5 +46,5 @@ characters, with:
 
 ```powershell
 python -B blender-addon\scripts\verify_p2_descriptor_schema.py `
-  --project-root .
+  --project-root D:\BlendLib
 ```

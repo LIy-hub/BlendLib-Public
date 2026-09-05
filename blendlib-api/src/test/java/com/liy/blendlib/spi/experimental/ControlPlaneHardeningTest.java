@@ -2,6 +2,9 @@ package com.liy.blendlib.spi.experimental;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -29,9 +32,15 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 class ControlPlaneHardeningTest {
     private static final BlendResourceId CAPABILITY = BlendResourceId.parse("example:capability/hardened");
@@ -72,7 +81,7 @@ class ControlPlaneHardeningTest {
         provider.retireAction = ignored -> {
             retireEntered.countDown();
             await(releaseRetire);
-            throw new HostileAssertionError();
+            throw new HostileRuntimeException();
         };
         ProviderLifecycleSession session = sessionFor(20_018L, provider);
         publish(session);
@@ -172,21 +181,24 @@ class ControlPlaneHardeningTest {
         assertEquals(1, threadDeath.closeCount.get());
     }
 
-    @Test
-    void fatalAdapterRegistrationWinsOverConcurrentUninstallAndSecondaryCloseFailure() throws Exception {
+    @ParameterizedTest
+    @EnumSource(value = RollbackCloseOutcome.class, names = {"CONTAINABLE", "FATAL"})
+    void fatalAdapterRegistrationWinsOverConcurrentUninstallAndRetainsSecondaryCloseFailure(
+            RollbackCloseOutcome closeOutcome) throws Exception {
         PlatformAdapterControl control = PlatformAdapterControl.global();
-        ReentrantProvider adapter = new ReentrantProvider("example:fatal_adapter_race");
+        ReentrantProvider adapter = new ReentrantProvider("example:fatal_adapter_race_" + closeOutcome.name().toLowerCase());
         CountDownLatch registerEntered = new CountDownLatch(1);
         CountDownLatch releaseRegister = new CountDownLatch(1);
         FatalLifecycleError fatal = new FatalLifecycleError();
+        Throwable closeFailure = closeOutcome == RollbackCloseOutcome.FATAL
+                ? new FatalLifecycleError()
+                : new HostileRuntimeException();
         adapter.registerAction = ignored -> {
             registerEntered.countDown();
             await(releaseRegister);
             throw fatal;
         };
-        adapter.closeAction = () -> {
-            throw new HostileAssertionError();
-        };
+        adapter.closeAction = () -> rethrowTestFailure(closeFailure);
         control.install(adapter);
 
         try (ExecutorService executor = Executors.newFixedThreadPool(2)) {
@@ -202,12 +214,136 @@ class ControlPlaneHardeningTest {
                     java.util.concurrent.ExecutionException.class,
                     () -> registration.get(2, TimeUnit.SECONDS));
             assertEquals(fatal, failure.getCause());
+            assertEquals(1, fatal.getSuppressed().length);
+            assertSame(closeFailure, fatal.getSuppressed()[0]);
         }
 
         assertTrue(control.adapterId().isEmpty());
         assertEquals(0, control.registrationCount());
         assertEquals(1, adapter.registerCount.get());
         assertEquals(1, adapter.closeCount.get());
+    }
+
+    @ParameterizedTest
+    @EnumSource(RollbackCloseOutcome.class)
+    void ordinaryProviderIdFailureRetainsEveryRollbackCloseOutcome(RollbackCloseOutcome closeOutcome) {
+        PlatformAdapterControl control = PlatformAdapterControl.global();
+        ReentrantProvider adapter = new ReentrantProvider(
+                "example:ordinary_provider_id_" + closeOutcome.name().toLowerCase());
+        IllegalStateException primary = new IllegalStateException("ordinary provider-id failure");
+        Throwable closeFailure = configureRollbackFailure(adapter, closeOutcome);
+        adapter.providerIdAction = () -> {
+            throw primary;
+        };
+
+        if (closeOutcome == RollbackCloseOutcome.FATAL) {
+            FatalLifecycleError thrown = assertThrows(FatalLifecycleError.class, () -> control.install(adapter));
+            assertSame(closeFailure, thrown);
+            assertEquals(1, thrown.getSuppressed().length);
+            assertSame(primary, thrown.getSuppressed()[0]);
+        } else {
+            BlendRegistrationException thrown = assertThrows(
+                    BlendRegistrationException.class, () -> control.install(adapter));
+            assertSafeRegistrationFailure(thrown);
+            assertTrue(thrown.diagnostic().message().contains("IllegalStateException"));
+            if (closeOutcome == RollbackCloseOutcome.CONTAINABLE) {
+                assertTrue(thrown.diagnostic().message().contains("HostileRuntimeException"));
+            }
+            assertNull(thrown.getCause());
+            assertEquals(0, thrown.getSuppressed().length);
+        }
+
+        assertTrue(control.adapterId().isEmpty());
+        assertEquals(0, control.registrationCount());
+        assertEquals(1, adapter.providerIdCount.get());
+        assertEquals(1, adapter.closeCount.get());
+        assertControlReusable(control, "ordinary_provider_id_replacement_" + closeOutcome.name().toLowerCase());
+    }
+
+    @ParameterizedTest
+    @EnumSource(RollbackCloseOutcome.class)
+    void invalidAdapterIdentityRetainsEveryRollbackCloseOutcome(RollbackCloseOutcome closeOutcome) {
+        PlatformAdapterControl control = PlatformAdapterControl.global();
+        ReentrantProvider adapter = new ReentrantProvider(
+                "example:invalid_identity_" + closeOutcome.name().toLowerCase());
+        adapter.providerIdResult = BlendResourceId.parse("example:" + "x".repeat(300));
+        Throwable closeFailure = configureRollbackFailure(adapter, closeOutcome);
+
+        if (closeOutcome == RollbackCloseOutcome.FATAL) {
+            FatalLifecycleError thrown = assertThrows(FatalLifecycleError.class, () -> control.install(adapter));
+            assertSame(closeFailure, thrown);
+            assertEquals(1, thrown.getSuppressed().length);
+            BlendRegistrationException primary = (BlendRegistrationException) thrown.getSuppressed()[0];
+            assertEquals(BlendApiDiagnosticCode.PLATFORM_ADAPTER_FAILURE, primary.diagnostic().code());
+            assertTrue(primary.diagnostic().message().contains("bounded canonical identity policy"));
+        } else {
+            BlendRegistrationException thrown = assertThrows(
+                    BlendRegistrationException.class, () -> control.install(adapter));
+            assertEquals(BlendApiDiagnosticCode.PLATFORM_ADAPTER_FAILURE, thrown.diagnostic().code());
+            assertTrue(thrown.diagnostic().message().contains("bounded canonical identity policy"));
+            if (closeOutcome == RollbackCloseOutcome.CONTAINABLE) {
+                assertTrue(thrown.diagnostic().message().contains("HostileRuntimeException"));
+            }
+            assertNull(thrown.getCause());
+            assertEquals(0, thrown.getSuppressed().length);
+        }
+
+        assertTrue(control.adapterId().isEmpty());
+        assertEquals(0, control.registrationCount());
+        assertEquals(1, adapter.providerIdCount.get());
+        assertEquals(1, adapter.closeCount.get());
+        assertControlReusable(control, "invalid_identity_replacement_" + closeOutcome.name().toLowerCase());
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = RollbackCloseOutcome.class, names = {"CONTAINABLE", "FATAL"})
+    void fatalProviderIdFailureRetainsSecondaryRollbackFailure(RollbackCloseOutcome closeOutcome) {
+        PlatformAdapterControl control = PlatformAdapterControl.global();
+        ReentrantProvider adapter = new ReentrantProvider(
+                "example:fatal_provider_id_" + closeOutcome.name().toLowerCase());
+        FatalLifecycleError primary = new FatalLifecycleError();
+        Throwable closeFailure = configureRollbackFailure(adapter, closeOutcome);
+        adapter.providerIdAction = () -> {
+            throw primary;
+        };
+
+        FatalLifecycleError thrown = assertThrows(FatalLifecycleError.class, () -> control.install(adapter));
+
+        assertSame(primary, thrown);
+        assertEquals(1, thrown.getSuppressed().length);
+        assertSame(closeFailure, thrown.getSuppressed()[0]);
+        assertTrue(control.adapterId().isEmpty());
+        assertEquals(0, control.registrationCount());
+        assertEquals(1, adapter.providerIdCount.get());
+        assertEquals(1, adapter.closeCount.get());
+        assertControlReusable(control, "fatal_provider_id_replacement_" + closeOutcome.name().toLowerCase());
+    }
+
+    @Test
+    void failedInstallRollbackCloseCannotReattachBeforeTheOperationEnds() {
+        PlatformAdapterControl control = PlatformAdapterControl.global();
+        ReentrantProvider nested = new ReentrantProvider("example:rollback_nested_adapter");
+        ReentrantProvider outer = new ReentrantProvider("example:rollback_reentrant_close");
+        AtomicReference<BlendRegistrationException> nestedFailure = new AtomicReference<>();
+        outer.providerIdAction = () -> {
+            throw new IllegalStateException("force rollback");
+        };
+        outer.closeAction = () -> nestedFailure.set(assertThrows(
+                BlendRegistrationException.class, () -> control.install(nested)));
+
+        BlendRegistrationException failure = assertThrows(
+                BlendRegistrationException.class, () -> control.install(outer));
+
+        assertSafeRegistrationFailure(failure);
+        assertEquals(BlendApiDiagnosticCode.PLATFORM_ADAPTER_FAILURE,
+                nestedFailure.get().diagnostic().code());
+        assertTrue(control.adapterId().isEmpty());
+        assertEquals(0, control.registrationCount());
+        assertEquals(1, outer.closeCount.get());
+        assertEquals(0, nested.closeCount.get());
+        control.install(nested);
+        control.uninstall();
+        assertEquals(1, nested.closeCount.get());
     }
 
     @Test
@@ -239,12 +375,53 @@ class ControlPlaneHardeningTest {
                 java.util.concurrent.ExecutionException failure = assertThrows(
                         java.util.concurrent.ExecutionException.class,
                         () -> observer.get(2, TimeUnit.SECONDS));
-                assertEquals(fatal, failure.getCause());
+                assertSame(fatal, failure.getCause());
             }
         }
 
         assertEquals(ProviderLifecycleState.CLOSED, session.state());
-        assertFalse(session.retire().successful());
+        assertSame(fatal, assertThrows(FatalLifecycleError.class, session::retire));
+        assertSame(fatal, assertThrows(FatalLifecycleError.class, session::close));
+        assertEquals(1, provider.retireCount.get());
+        assertEquals(1, provider.closeCount.get());
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void concurrentRetireObserversShareOneFinalResultAfterCloseCompletes(boolean closeFails) throws Exception {
+        ReentrantProvider provider = new ReentrantProvider("example:concurrent_retire_result_" + closeFails);
+        CountDownLatch closeEntered = new CountDownLatch(1);
+        CountDownLatch releaseClose = new CountDownLatch(1);
+        provider.closeAction = () -> {
+            closeEntered.countDown();
+            await(releaseClose);
+            if (closeFails) {
+                throw new HostileRuntimeException();
+            }
+        };
+        ProviderLifecycleSession session = sessionFor(20_018L + (closeFails ? 1L : 0L), provider);
+        publish(session);
+
+        try (ExecutorService executor = Executors.newFixedThreadPool(2)) {
+            Future<ProviderLifecycleResult> initiator = executor.submit(session::retire);
+            assertTrue(closeEntered.await(2, TimeUnit.SECONDS));
+            Future<ProviderLifecycleResult> observer = executor.submit(session::retire);
+            try {
+                assertThrows(TimeoutException.class, () -> observer.get(125, TimeUnit.MILLISECONDS));
+                assertEquals(ProviderLifecycleState.RETIRING, session.state());
+            } finally {
+                releaseClose.countDown();
+            }
+
+            ProviderLifecycleResult initiatorResult = initiator.get(2, TimeUnit.SECONDS);
+            ProviderLifecycleResult observerResult = observer.get(2, TimeUnit.SECONDS);
+            assertSame(initiatorResult, observerResult);
+            assertEquals(!closeFails, initiatorResult.successful());
+            assertEquals(closeFails ? List.of(CapabilityErrorCode.PROVIDER_CLOSE_FAILURE) : List.of(),
+                    initiatorResult.diagnostics().stream().map(CapabilityDiagnostic::code).toList());
+        }
+
+        assertEquals(ProviderLifecycleState.CLOSED, session.state());
         assertEquals(1, provider.retireCount.get());
         assertEquals(1, provider.closeCount.get());
     }
@@ -421,6 +598,156 @@ class ControlPlaneHardeningTest {
         assertEquals("BLENDLIB-X1-CAP-017", CapabilityErrorCode.INVALID_CAPABILITY_REQUEST.code());
     }
 
+    @ParameterizedTest
+    @MethodSource("fatalTransitionObserverCases")
+    @SuppressWarnings("removal")
+    void fatalPrepareAndApplyPublishTerminalReleaseOnlyAfterCloseCompletes(
+            ProviderLifecycleStage fatalStage,
+            TerminalObserver observerOperation,
+            boolean closeFails) throws Exception {
+        ReentrantProvider provider = new ReentrantProvider("example:fatal_terminal_"
+                + fatalStage.name().toLowerCase() + '_' + observerOperation.name().toLowerCase() + '_' + closeFails);
+        CountDownLatch closeEntered = new CountDownLatch(1);
+        CountDownLatch releaseClose = new CountDownLatch(1);
+        ThreadDeath fatal = new ThreadDeath();
+        AtomicReference<ProviderLifecycleSession> sessionReference = new AtomicReference<>();
+        AtomicReference<CapabilityNegotiationException> nestedFailure = new AtomicReference<>();
+        provider.closeAction = () -> {
+            nestedFailure.set(assertThrows(
+                    CapabilityNegotiationException.class,
+                    sessionReference.get()::retire));
+            closeEntered.countDown();
+            await(releaseClose);
+            if (closeFails) {
+                throw new HostileRuntimeException();
+            }
+        };
+        if (fatalStage == ProviderLifecycleStage.PREPARE) {
+            provider.prepareAction = ignored -> {
+                throw fatal;
+            };
+        } else {
+            provider.applyAction = ignored -> {
+                throw fatal;
+            };
+        }
+        ProviderLifecycleSession session = sessionFor(20_021L + fatalStage.ordinal() * 10L
+                + observerOperation.ordinal() * 2L + (closeFails ? 1L : 0L), provider);
+        sessionReference.set(session);
+        if (fatalStage == ProviderLifecycleStage.APPLY) {
+            assertTrue(session.prepare().successful());
+        }
+
+        try (ExecutorService executor = Executors.newFixedThreadPool(2)) {
+            Future<?> initiator = executor.submit(() -> {
+                if (fatalStage == ProviderLifecycleStage.PREPARE) {
+                    session.prepare();
+                } else {
+                    session.apply();
+                }
+                return null;
+            });
+            assertTrue(closeEntered.await(2, TimeUnit.SECONDS));
+            Future<?> observer = executor.submit(() -> {
+                if (observerOperation == TerminalObserver.RETIRE) {
+                    session.retire();
+                } else {
+                    session.close();
+                }
+                return null;
+            });
+            try {
+                assertThrows(TimeoutException.class, () -> observer.get(125, TimeUnit.MILLISECONDS));
+                assertNotEquals(ProviderLifecycleState.CLOSED, session.state());
+            } finally {
+                releaseClose.countDown();
+            }
+
+            java.util.concurrent.ExecutionException initiatorFailure = assertThrows(
+                    java.util.concurrent.ExecutionException.class,
+                    () -> initiator.get(2, TimeUnit.SECONDS));
+            java.util.concurrent.ExecutionException observerFailure = assertThrows(
+                    java.util.concurrent.ExecutionException.class,
+                    () -> observer.get(2, TimeUnit.SECONDS));
+            assertSame(fatal, initiatorFailure.getCause());
+            assertSame(fatal, observerFailure.getCause());
+        }
+
+        List<CapabilityErrorCode> expectedCodes = closeFails
+                ? List.of(CapabilityErrorCode.PROVIDER_CLOSE_FAILURE)
+                : List.of();
+        assertEquals(expectedCodes, session.diagnostics().stream().map(CapabilityDiagnostic::code).toList());
+        assertEquals(CapabilityErrorCode.INVALID_LIFECYCLE_STATE,
+                nestedFailure.get().diagnostic().code());
+        assertEquals(ProviderLifecycleState.CLOSED, session.state());
+        assertEquals(0, provider.retireCount.get());
+        assertEquals(1, provider.closeCount.get());
+    }
+
+    @Test
+    @SuppressWarnings("removal")
+    void fatalTransitionObserverCanBeInterruptedWithoutPublishingEarlyCompletion() throws Exception {
+        ReentrantProvider provider = new ReentrantProvider("example:fatal_terminal_interrupt");
+        CountDownLatch closeEntered = new CountDownLatch(1);
+        CountDownLatch releaseClose = new CountDownLatch(1);
+        ThreadDeath fatal = new ThreadDeath();
+        provider.prepareAction = ignored -> {
+            throw fatal;
+        };
+        provider.closeAction = () -> {
+            closeEntered.countDown();
+            await(releaseClose);
+        };
+        ProviderLifecycleSession session = sessionFor(20_030L, provider);
+        AtomicReference<CapabilityNegotiationException> interruption = new AtomicReference<>();
+        AtomicReference<Boolean> interruptedFlag = new AtomicReference<>(false);
+
+        try (ExecutorService executor = Executors.newSingleThreadExecutor()) {
+            Future<?> initiator = executor.submit(() -> {
+                session.prepare();
+                return null;
+            });
+            assertTrue(closeEntered.await(2, TimeUnit.SECONDS));
+            Thread observer = Thread.ofPlatform().start(() -> {
+                try {
+                    session.retire();
+                } catch (CapabilityNegotiationException exception) {
+                    interruption.set(exception);
+                    interruptedFlag.set(Thread.currentThread().isInterrupted());
+                }
+            });
+            try {
+                long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(2);
+                while (observer.getState() != Thread.State.WAITING
+                        && observer.getState() != Thread.State.TIMED_WAITING
+                        && observer.isAlive()
+                        && System.nanoTime() < deadline) {
+                    Thread.onSpinWait();
+                }
+                observer.interrupt();
+                observer.join(2_000L);
+                assertFalse(observer.isAlive());
+                assertEquals(CapabilityErrorCode.INVALID_LIFECYCLE_STATE,
+                        interruption.get().diagnostic().code());
+                assertTrue(interruptedFlag.get());
+            } finally {
+                releaseClose.countDown();
+            }
+            java.util.concurrent.ExecutionException initiatorFailure = assertThrows(
+                    java.util.concurrent.ExecutionException.class,
+                    () -> initiator.get(2, TimeUnit.SECONDS));
+            assertSame(fatal, initiatorFailure.getCause());
+        }
+        assertEquals(1, provider.closeCount.get());
+    }
+
+    private static Stream<Arguments> fatalTransitionObserverCases() {
+        return Stream.of(ProviderLifecycleStage.PREPARE, ProviderLifecycleStage.APPLY)
+                .flatMap(stage -> Stream.of(TerminalObserver.RETIRE, TerminalObserver.CLOSE)
+                        .flatMap(observer -> Stream.of(false, true)
+                                .map(closeFails -> Arguments.of(stage, observer, closeFails))));
+    }
+
     @Test
     void registryGenerationRecordRejectsPlanGenerationTamperingBeforeOwnershipOrCallbacks() throws Exception {
         ReentrantProvider provider = new ReentrantProvider("example:generation_tamper");
@@ -442,13 +769,13 @@ class ControlPlaneHardeningTest {
     }
 
     @Test
-    void metadataErrorsAreNormalizedOrRethrownWithoutLeavingRegistryMutationBusy() {
+    void metadataOrdinaryFailuresAreNormalizedWhileEveryErrorRethrowsWithoutLeavingRegistryMutationBusy() {
         CapabilityRegistry containedRegistry = new CapabilityRegistry();
         ReentrantProvider contained = new ReentrantProvider("example:error_metadata");
         AtomicInteger containedCalls = new AtomicInteger();
         contained.providerIdAction = () -> {
             if (containedCalls.getAndIncrement() == 0) {
-                throw new HostileAssertionError();
+                throw new HostileRuntimeException();
             }
         };
 
@@ -462,24 +789,74 @@ class ControlPlaneHardeningTest {
 
         CapabilityRegistry fatalRegistry = new CapabilityRegistry();
         ReentrantProvider fatal = new ReentrantProvider("example:fatal_metadata");
+        FatalLifecycleError fatalFailure = new FatalLifecycleError();
         AtomicInteger fatalCalls = new AtomicInteger();
         fatal.providerIdAction = () -> {
             if (fatalCalls.getAndIncrement() == 0) {
-                throw new FatalLifecycleError();
+                throw fatalFailure;
             }
         };
 
-        assertThrows(FatalLifecycleError.class, () -> fatalRegistry.register(fatal));
+        assertSame(fatalFailure, assertThrows(FatalLifecycleError.class, () -> fatalRegistry.register(fatal)));
 
         fatalRegistry.register(fatal);
         assertEquals(List.of(fatal.providerId), fatalRegistry.registeredProviderIds());
     }
 
     @Test
-    void nonRuntimeLifecycleFailuresAreContainedAndNeverLeaveABusyOrFalseSuccessfulSession() {
+    void assertionAndLinkageErrorsRetainIdentityAcrossX1MetadataLifecycleAndAdapterCleanup() {
+        LinkageError metadataError = new LinkageError("offers metadata");
+        CapabilityRegistry registry = new CapabilityRegistry();
+        ReentrantProvider metadata = new ReentrantProvider("example:linkage_offers_metadata");
+        metadata.offersAction = () -> {
+            throw metadataError;
+        };
+
+        assertSame(metadataError, assertThrows(LinkageError.class, () -> registry.register(metadata)));
+        metadata.offersAction = () -> { };
+        registry.register(metadata);
+        assertEquals(List.of(metadata.providerId), registry.registeredProviderIds());
+
+        LinkageError applyError = new LinkageError("apply lifecycle");
+        ReentrantProvider apply = new ReentrantProvider("example:linkage_apply");
+        apply.applyAction = ignored -> {
+            throw applyError;
+        };
+        ProviderLifecycleSession applySession = sessionFor(20_031L, apply);
+        assertTrue(applySession.prepare().successful());
+
+        assertSame(applyError, assertThrows(LinkageError.class, applySession::apply));
+        assertEquals(ProviderLifecycleState.CLOSED, applySession.state());
+        assertTrue(applySession.diagnostics().isEmpty());
+        assertSame(applyError, assertThrows(LinkageError.class, applySession::retire));
+        assertEquals(1, apply.closeCount.get());
+
+        AssertionError adapterPrimary = new AssertionError("adapter identity");
+        LinkageError adapterCleanup = new LinkageError("adapter cleanup");
+        PlatformAdapterControl control = PlatformAdapterControl.global();
+        ReentrantProvider adapter = new ReentrantProvider("example:assertion_adapter_identity");
+        adapter.providerIdAction = () -> {
+            throw adapterPrimary;
+        };
+        adapter.closeAction = () -> {
+            throw adapterCleanup;
+        };
+
+        assertSame(adapterPrimary, assertThrows(AssertionError.class, () -> control.install(adapter)));
+        assertEquals(List.of(adapterCleanup), List.of(adapterPrimary.getSuppressed()));
+        assertTrue(control.adapterId().isEmpty());
+        assertEquals(1, adapter.closeCount.get());
+
+        LinkageError diagnosticError = new LinkageError("safe type");
+        assertSame(diagnosticError, assertThrows(
+                LinkageError.class, () -> ExperimentalControlBoundary.safeThrowableType(diagnosticError)));
+    }
+
+    @Test
+    void ordinaryLifecycleFailuresAreContainedAndNeverLeaveABusyOrFalseSuccessfulSession() {
         ReentrantProvider prepare = new ReentrantProvider("example:error_prepare");
         prepare.prepareAction = ignored -> {
-            throw new HostileAssertionError();
+            throw new HostileRuntimeException();
         };
         ProviderLifecycleSession prepareSession = sessionFor(20_010L, prepare);
         assertSafeFailure(prepareSession.prepare(), CapabilityErrorCode.PROVIDER_PREPARE_FAILURE);
@@ -491,7 +868,7 @@ class ControlPlaneHardeningTest {
 
         ReentrantProvider apply = new ReentrantProvider("example:error_apply");
         apply.applyAction = ignored -> {
-            throw new HostileAssertionError();
+            throw new HostileRuntimeException();
         };
         ProviderLifecycleSession applySession = sessionFor(20_011L, apply);
         assertTrue(applySession.prepare().successful());
@@ -504,7 +881,7 @@ class ControlPlaneHardeningTest {
 
         ReentrantProvider retire = new ReentrantProvider("example:error_retire");
         retire.retireAction = ignored -> {
-            throw new HostileAssertionError();
+            throw new HostileRuntimeException();
         };
         ProviderLifecycleSession retireSession = sessionFor(20_012L, retire);
         publish(retireSession);
@@ -516,7 +893,7 @@ class ControlPlaneHardeningTest {
 
         ReentrantProvider close = new ReentrantProvider("example:error_close");
         close.closeAction = () -> {
-            throw new HostileAssertionError();
+            throw new HostileRuntimeException();
         };
         ProviderLifecycleSession closeSession = sessionFor(20_013L, close);
         publish(closeSession);
@@ -527,7 +904,7 @@ class ControlPlaneHardeningTest {
 
         ReentrantProvider closeEntry = new ReentrantProvider("example:error_close_entry");
         closeEntry.retireAction = ignored -> {
-            throw new HostileAssertionError();
+            throw new HostileRuntimeException();
         };
         ProviderLifecycleSession closeEntrySession = sessionFor(20_014L, closeEntry);
         publish(closeEntrySession);
@@ -539,7 +916,7 @@ class ControlPlaneHardeningTest {
         PlatformAdapterControl control = PlatformAdapterControl.global();
         ReentrantProvider adapterClose = new ReentrantProvider("example:error_adapter_close");
         adapterClose.closeAction = () -> {
-            throw new HostileAssertionError();
+            throw new HostileRuntimeException();
         };
         control.install(adapterClose);
         assertSafeRegistrationFailure(assertThrows(BlendRegistrationException.class, control::uninstall));
@@ -554,44 +931,49 @@ class ControlPlaneHardeningTest {
     @Test
     void fatalLifecycleFailuresRestoreTerminalStateAndReleaseOwnershipBeforeRethrow() {
         ReentrantProvider prepare = new ReentrantProvider("example:fatal_prepare");
+        FatalLifecycleError prepareFatal = new FatalLifecycleError();
         prepare.prepareAction = ignored -> {
-            throw new FatalLifecycleError();
+            throw prepareFatal;
         };
         ProviderLifecycleSession prepareSession = sessionFor(20_015L, prepare);
 
-        assertThrows(FatalLifecycleError.class, prepareSession::prepare);
+        assertSame(prepareFatal, assertThrows(FatalLifecycleError.class, prepareSession::prepare));
 
         assertEquals(ProviderLifecycleState.CLOSED, prepareSession.state());
-        assertFalse(prepareSession.retire().successful());
-        assertEquals(CapabilityErrorCode.PROVIDER_PREPARE_FAILURE,
-                prepareSession.diagnostics().getFirst().code());
+        assertSame(prepareFatal, assertThrows(FatalLifecycleError.class, prepareSession::retire));
+        assertSame(prepareFatal, assertThrows(FatalLifecycleError.class, prepareSession::close));
+        assertTrue(prepareSession.diagnostics().isEmpty());
         assertEquals(1, prepare.closeCount.get());
 
         ReentrantProvider retire = new ReentrantProvider("example:fatal_retire");
+        FatalLifecycleError retireFatal = new FatalLifecycleError();
         retire.retireAction = ignored -> {
-            throw new FatalLifecycleError();
+            throw retireFatal;
         };
         ProviderLifecycleSession retireSession = sessionFor(20_016L, retire);
         publish(retireSession);
 
-        assertThrows(FatalLifecycleError.class, retireSession::retire);
+        assertSame(retireFatal, assertThrows(FatalLifecycleError.class, retireSession::retire));
 
         assertEquals(ProviderLifecycleState.CLOSED, retireSession.state());
-        assertFalse(retireSession.retire().successful());
+        assertSame(retireFatal, assertThrows(FatalLifecycleError.class, retireSession::retire));
+        assertSame(retireFatal, assertThrows(FatalLifecycleError.class, retireSession::close));
         assertEquals(1, retire.retireCount.get());
         assertEquals(1, retire.closeCount.get());
 
         ReentrantProvider close = new ReentrantProvider("example:fatal_close");
+        FatalLifecycleError closeFatal = new FatalLifecycleError();
         close.closeAction = () -> {
-            throw new FatalLifecycleError();
+            throw closeFatal;
         };
         ProviderLifecycleSession closeSession = sessionFor(20_017L, close);
         publish(closeSession);
 
-        assertThrows(FatalLifecycleError.class, closeSession::retire);
+        assertSame(closeFatal, assertThrows(FatalLifecycleError.class, closeSession::retire));
 
         assertEquals(ProviderLifecycleState.CLOSED, closeSession.state());
-        assertFalse(closeSession.retire().successful());
+        assertSame(closeFatal, assertThrows(FatalLifecycleError.class, closeSession::retire));
+        assertSame(closeFatal, assertThrows(FatalLifecycleError.class, closeSession::close));
         assertEquals(1, close.closeCount.get());
     }
 
@@ -954,6 +1336,38 @@ class ControlPlaneHardeningTest {
         return BlendLib.entity(host).model(MODEL).animation(AnimationRequest.loop(ANIMATION)).build();
     }
 
+    private static Throwable configureRollbackFailure(
+            ReentrantProvider adapter,
+            RollbackCloseOutcome closeOutcome) {
+        Throwable closeFailure = switch (closeOutcome) {
+            case SUCCESS -> null;
+            case CONTAINABLE -> new HostileRuntimeException();
+            case FATAL -> new FatalLifecycleError();
+        };
+        if (closeFailure != null) {
+            adapter.closeAction = () -> rethrowTestFailure(closeFailure);
+        }
+        return closeFailure;
+    }
+
+    private static void rethrowTestFailure(Throwable failure) {
+        if (failure instanceof RuntimeException exception) {
+            throw exception;
+        }
+        if (failure instanceof Error error) {
+            throw error;
+        }
+        throw new AssertionError("unsupported test throwable", failure);
+    }
+
+    private static void assertControlReusable(PlatformAdapterControl control, String providerId) {
+        ReentrantProvider replacement = new ReentrantProvider("example:" + providerId);
+        control.install(replacement);
+        assertEquals(replacement.providerId, control.adapterId().orElseThrow());
+        control.uninstall();
+        assertEquals(1, replacement.closeCount.get());
+    }
+
     private static void assertSafeFailure(ProviderLifecycleResult result, CapabilityErrorCode code) {
         assertFalse(result.successful());
         assertEquals(code, result.diagnostics().getFirst().code());
@@ -1021,6 +1435,7 @@ class ControlPlaneHardeningTest {
         private RuntimeException retireFailure;
         private RuntimeException registerFailure;
         private RuntimeException closeFailure;
+        private BlendResourceId providerIdResult;
         private final AtomicInteger retireCount = new AtomicInteger();
         private final AtomicInteger closeCount = new AtomicInteger();
         private final AtomicInteger prepareCount = new AtomicInteger();
@@ -1030,6 +1445,7 @@ class ControlPlaneHardeningTest {
         ReentrantProvider(String providerId) {
             super(BlendResourceId.parse(providerId), List.of(new CapabilityOffer(
                     BlendResourceId.parse(providerId), CAPABILITY, new CapabilityVersion(1, 0, 0), 1)));
+            providerIdResult = this.providerId;
         }
 
         @Override
@@ -1039,7 +1455,7 @@ class ControlPlaneHardeningTest {
             if (providerIdFailure != null) {
                 throw providerIdFailure;
             }
-            return providerId;
+            return providerIdResult;
         }
 
         @Override
@@ -1106,24 +1522,20 @@ class ControlPlaneHardeningTest {
         }
     }
 
-    private static final class HostileAssertionError extends AssertionError {
+    private static final class FatalLifecycleError extends AssertionError {
         @SuppressWarnings("serial")
         private static final long serialVersionUID = 1L;
-
-        @Override
-        public String getMessage() {
-            throw new IllegalStateException("attacker getMessage");
-        }
-
-        @Override
-        public String toString() {
-            throw new IllegalStateException("attacker toString");
-        }
     }
 
-    private static final class FatalLifecycleError extends VirtualMachineError {
-        @SuppressWarnings("serial")
-        private static final long serialVersionUID = 1L;
+    private enum TerminalObserver {
+        RETIRE,
+        CLOSE
+    }
+
+    private enum RollbackCloseOutcome {
+        SUCCESS,
+        CONTAINABLE,
+        FATAL
     }
 
     private static final class HostileHost {

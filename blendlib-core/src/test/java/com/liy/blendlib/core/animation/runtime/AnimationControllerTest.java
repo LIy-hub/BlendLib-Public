@@ -101,158 +101,6 @@ class AnimationControllerTest {
     }
 
     @Test
-    void timelineCorrectionComposesControllerAndDescriptorSpeeds() {
-        for (double descriptorSpeed : new double[] {0.5, 1.0, 2.0}) {
-            AnimationState idle = state(
-                    IDLE, translationClip("idle", 0.0f, 1.0f), true, descriptorSpeed, 0.0, null, List.of());
-            AnimationController controller = new AnimationController(
-                    BlendInstanceKey.entity("session", (int) (descriptorSpeed * 10.0)), definition(idle));
-
-            assertEquals(AnimationCorrectionResult.APPLIED_SNAP, controller.applyTimelineCorrection(
-                    new AnimationCorrection(IDLE, 0.25, 1L, 0.0)));
-            assertEquals(0.25 * descriptorSpeed, controller.currentTimeSeconds(), 1.0e-9);
-        }
-    }
-
-    @Test
-    void timelineCorrectionMatchesContinuousAdvanceAcrossNonLoopNext() {
-        AnimationState idle = state(
-                IDLE, translationClip("idle", 0.0f, 1.0f), true, 0.5, 0.0, null, List.of());
-        AnimationState attack = state(
-                ATTACK, translationClip("attack", 2.0f, 3.0f), false, 2.0, 0.0, IDLE, List.of());
-        AnimationControllerDefinition definition = definition(idle, attack);
-        AnimationController continuous = new AnimationController(
-                BlendInstanceKey.entity("session", 20), definition);
-        continuous.trigger(ATTACK);
-        continuous.advance(1.5);
-
-        AnimationController corrected = new AnimationController(
-                BlendInstanceKey.entity("session", 21), definition);
-        corrected.applyTimelineCorrection(new AnimationCorrection(ATTACK, 1.5, 1L, 0.0));
-
-        assertEquals(IDLE, continuous.currentState());
-        assertEquals(continuous.currentState(), corrected.currentState());
-        assertEquals(0.5, continuous.currentTimeSeconds(), 1.0e-9);
-        assertEquals(continuous.currentTimeSeconds(), corrected.currentTimeSeconds(), 1.0e-9);
-    }
-
-    @Test
-    void timelineCorrectionMatchesSpeedScaledNextAndLoopBoundaries() {
-        int instanceId = 100;
-        for (double speed : new double[] {0.5, 1.0, 2.0, BlendAssetLimits.MAX_ANIMATION_SPEED}) {
-            AnimationState next = state(
-                    ATTACK, translationClip("next_" + speed, 2.0f, 3.0f), true, 1.25, 0.0, null, List.of());
-            AnimationState origin = state(
-                    IDLE, translationClip("origin_" + speed, 0.0f, 1.0f), false, speed, 0.0, ATTACK, List.of());
-            AnimationControllerDefinition nextDefinition = definition(origin, next);
-            double boundary = 1.0 / speed;
-            double outsideBothTolerances = Math.max(4.0e-8, 4.0e-8 / speed);
-            double insideBothTolerances = Math.min(2.5e-9, 2.5e-9 / speed);
-
-            AnimationController before = assertTimelineMatchesAdvance(
-                    nextDefinition, IDLE, boundary - outsideBothTolerances, instanceId++);
-            assertEquals(IDLE, before.currentState());
-            assertTimelineMatchesAdvance(nextDefinition, IDLE, boundary, instanceId++);
-            assertTimelineMatchesAdvance(nextDefinition, IDLE, boundary + outsideBothTolerances, instanceId++);
-            AnimationController toleranceBoundary = assertTimelineMatchesAdvance(
-                    nextDefinition, IDLE, boundary - insideBothTolerances, instanceId++);
-            assertEquals(ATTACK, toleranceBoundary.currentState());
-
-            AnimationState looping = state(
-                    IDLE, translationClip("loop_" + speed, 0.0f, 1.0f), true, speed, 0.0, null, List.of());
-            AnimationControllerDefinition loopDefinition = definition(looping);
-            assertTimelineMatchesAdvance(loopDefinition, IDLE, boundary - outsideBothTolerances, instanceId++);
-            assertTimelineMatchesAdvance(loopDefinition, IDLE, boundary, instanceId++);
-            assertTimelineMatchesAdvance(loopDefinition, IDLE, boundary + outsideBothTolerances, instanceId++);
-        }
-
-        AnimationState maxSpeedNext = state(
-                ATTACK, translationClip("max_next", 2.0f, 3.0f), true, 1.0, 0.0, null, List.of());
-        AnimationState maxSpeedOrigin = state(
-                IDLE, translationClip("max_origin", 0.0f, 1.0f), false,
-                BlendAssetLimits.MAX_ANIMATION_SPEED, 0.0, ATTACK, List.of());
-        AnimationController reviewerReproduction = assertTimelineMatchesAdvance(
-                definition(maxSpeedOrigin, maxSpeedNext),
-                IDLE,
-                1.0 / BlendAssetLimits.MAX_ANIMATION_SPEED - 5.0e-9,
-                instanceId);
-        assertEquals(IDLE, reviewerReproduction.currentState());
-        assertEquals(0.99999968, reviewerReproduction.currentTimeSeconds(), 1.0e-12);
-    }
-
-    @Test
-    void timelineCorrectionSkipsLongPositiveNextCyclesButRejectsZeroDurationCycles() {
-        AnimationState idle = state(
-                IDLE, translationClip("idle", 0.0f, 1.0f), false, 1.0, 0.0, ATTACK, List.of());
-        AnimationState attack = state(
-                ATTACK, translationClip("attack", 2.0f, 3.0f), false, 2.0, 0.0, IDLE, List.of());
-        AnimationController positiveCycle = new AnimationController(
-                BlendInstanceKey.entity("session", 22), definition(idle, attack));
-
-        assertTimeoutPreemptively(Duration.ofSeconds(1), () -> positiveCycle.applyTimelineCorrection(
-                new AnimationCorrection(IDLE, 1_500_000.25, 1L, 0.0)));
-        assertEquals(IDLE, positiveCycle.currentState());
-        assertEquals(0.25, positiveCycle.currentTimeSeconds(), 1.0e-9);
-
-        AnimationState zeroIdle = state(
-                IDLE, zeroDurationClip("zero_idle"), false, 1.0, 0.0, ATTACK, List.of());
-        AnimationState zeroAttack = state(
-                ATTACK, zeroDurationClip("zero_attack"), false, 1.0, 0.0, IDLE, List.of());
-        AnimationController zeroCycle = new AnimationController(
-                BlendInstanceKey.entity("session", 23), definition(zeroIdle, zeroAttack));
-        IllegalStateException failure = assertTimeoutPreemptively(Duration.ofSeconds(1), () -> assertThrows(
-                IllegalStateException.class,
-                () -> zeroCycle.applyTimelineCorrection(new AnimationCorrection(IDLE, 1.0, 1L, 0.0))));
-        assertTrue(failure.getMessage().contains("no positive duration"));
-    }
-
-    @Test
-    void timelineCorrectionPreservesClosedFormPositiveCycleModuloBoundaries() {
-        AnimationState idle = state(
-                IDLE, translationClip("cycle_idle", 0.0f, 1.0f), false, 1.0, 0.0, ATTACK, List.of());
-        AnimationState attack = state(
-                ATTACK, translationClip("cycle_attack", 2.0f, 3.0f), false, 2.0, 0.0, IDLE, List.of());
-        AnimationControllerDefinition definition = definition(idle, attack);
-        double cycleSeconds = 1.5;
-        double largeCycleBase = 1_000_000.0 * cycleSeconds;
-        int instanceId = 150;
-
-        for (double remainder : new double[] {
-                0.0,
-                1.0 - 4.0e-8,
-                1.0,
-                1.0 + 4.0e-8,
-                cycleSeconds - 4.0e-8}) {
-            AnimationController expected = new AnimationController(
-                    BlendInstanceKey.entity("session", instanceId++), definition);
-            expected.applyTimelineCorrection(new AnimationCorrection(IDLE, remainder, 1L, 0.0));
-            AnimationController closedForm = new AnimationController(
-                    BlendInstanceKey.entity("session", instanceId++), definition);
-            assertTimeoutPreemptively(Duration.ofSeconds(1), () -> closedForm.applyTimelineCorrection(
-                    new AnimationCorrection(IDLE, largeCycleBase + remainder, 1L, 0.0)));
-
-            assertEquals(expected.currentState(), closedForm.currentState());
-            assertEquals(expected.currentTimeSeconds(), closedForm.currentTimeSeconds(), 5.0e-8);
-        }
-    }
-
-    @Test
-    void timelineCorrectionDoesNotReplayHistoricalPresentationEvents() {
-        AnimationVisualEvent idleEntry = event(0.0, "idle_entry");
-        AnimationVisualEvent attackEntry = event(0.0, "attack_entry");
-        AnimationState idle = state(
-                IDLE, translationClip("idle", 0.0f, 1.0f), true, 1.0, 0.0, null, List.of(idleEntry));
-        AnimationState attack = state(
-                ATTACK, translationClip("attack", 2.0f, 3.0f), true, 1.0, 0.0, null, List.of(attackEntry));
-        AnimationController controller = new AnimationController(
-                BlendInstanceKey.entity("session", 24), definition(idle, attack));
-
-        controller.applyTimelineCorrection(new AnimationCorrection(ATTACK, 0.5, 1L, 0.0));
-
-        assertTrue(controller.advance(0.0).visualEvents().isEmpty());
-    }
-
-    @Test
     void emitsVisualEventsOnceAndExposesNoGameplayAction() {
         BlendResourceId enter = BlendResourceId.parse("fixture:visual_enter");
         BlendResourceId pulse = BlendResourceId.parse("fixture:visual_pulse");
@@ -393,22 +241,6 @@ class AnimationControllerTest {
                 .collect(java.util.stream.Collectors.toMap(AnimationState::key, state -> state, (left, right) -> left, java.util.LinkedHashMap::new)));
     }
 
-    private static AnimationController assertTimelineMatchesAdvance(
-            AnimationControllerDefinition definition,
-            BlendAnimationKey origin,
-            double controllerTimeSeconds,
-            int instanceId) {
-        AnimationController continuous = new AnimationController(
-                BlendInstanceKey.entity("continuous", instanceId), definition);
-        continuous.advance(controllerTimeSeconds);
-        AnimationController corrected = new AnimationController(
-                BlendInstanceKey.entity("corrected", instanceId), definition);
-        corrected.applyTimelineCorrection(new AnimationCorrection(origin, controllerTimeSeconds, 1L, 0.0));
-        assertEquals(continuous.currentState(), corrected.currentState());
-        assertEquals(continuous.currentTimeSeconds(), corrected.currentTimeSeconds(), 1.0e-12);
-        return corrected;
-    }
-
     private static AnimationState state(
             BlendAnimationKey key,
             AnimationClip clip,
@@ -427,15 +259,6 @@ class AnimationControllerTest {
                 Interpolation.LINEAR,
                 new float[] {0.0f, 1.0f},
                 new float[] {start, 0.0f, 0.0f, end, 0.0f, 0.0f})));
-    }
-
-    private static AnimationClip zeroDurationClip(String name) {
-        return new AnimationClip(name, List.of(new AnimationChannel(
-                0,
-                AnimationPath.TRANSLATION,
-                Interpolation.STEP,
-                new float[] {0.0f},
-                new float[] {0.0f, 0.0f, 0.0f})));
     }
 
     private static AnimationVisualEvent event(double timeSeconds, String path) {

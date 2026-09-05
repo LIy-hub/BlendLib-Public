@@ -3,7 +3,7 @@
   "id": "blendlib_showcase",
   "version": "${version}",
   "name": "BlendLib Showcase",
-  "description": "BlendLib 1.0.0-alpha.1 Showcase consumer for Minecraft 26.1.2.",
+  "description": "BlendLib 1.0.0-beta.1 Showcase consumer for Minecraft 26.1.2.",
   "license": "Apache-2.0",
   "authors": ["LIy-hub"],
   "contact": {
@@ -26,6 +26,6 @@
     "minecraft": "26.1.2",
     "java": "25",
     "fabric-api": "0.154.2+26.1.2",
-    "blendlib": "1.0.0-alpha.1+26.1.2"
+    "blendlib": "1.0.0-beta.1+26.1.2"
   }
 }

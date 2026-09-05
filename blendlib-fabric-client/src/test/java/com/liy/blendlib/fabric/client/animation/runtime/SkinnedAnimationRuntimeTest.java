@@ -241,6 +241,19 @@ class SkinnedAnimationRuntimeTest {
     }
 
     @Test
+    void syntheticNegativeEntityIdsAreIgnoredInsteadOfAbortingTeardownOrRender() {
+        RuntimeHarness harness = harness();
+        harness.runtime().onPlayInit();
+
+        // Synthetic/replay entities (e.g. Flashback's Replay Viewer) carry negative ids. They can
+        // never be bound as an instance key, so unload and per-frame render queries must no-op.
+        assertEquals(0, harness.runtime().onEntityUnload(-981723987));
+        assertTrue(harness.runtime().activeEntityKey(-981723987).isEmpty());
+        assertEquals(0, harness.lifecycle().registry().size());
+        assertEquals(0, harness.runtime().trackedClockCount());
+    }
+
+    @Test
     void genericRuntimeAcceptsTypedBlockEntityKeyWithoutAnEntityId() {
         SkinnedFixture fixture = skinnedFixture(7L);
         RuntimeHarness harness = harness();
@@ -296,6 +309,27 @@ class SkinnedAnimationRuntimeTest {
         assertEquals(IDLE, initial.advance().state());
         assertEquals(0.55d, initial.advance().timeSeconds(), 1.0e-9d);
         assertEquals(0.65d, later.advance().timeSeconds(), 1.0e-9d);
+    }
+
+    @Test
+    void repeatedSynchronizedStateSeeksAfterLongCullWithoutReplayingLoops() {
+        SkinnedFixture fixture = skinnedFixture(81L);
+        RuntimeHarness harness = harness();
+        harness.runtime().onPlayInit();
+        publish(harness.models(), fixture.loaded());
+        BlendInstanceKey.Entity key = new BlendInstanceKey.Entity("long-cull-sync", 81);
+        SyncedAnimationState state = synced(IDLE, 0L, 1L, 1.0F);
+
+        harness.runtime().extract(input(
+                MODEL, key, 0L, 0.0F, WALK, Optional.of(state),
+                AnimationUpdateBucket.VISIBLE_NEAR, fixture.handle())).orElseThrow();
+        SkinnedAnimationRuntimeResult reappeared = harness.runtime().extract(input(
+                MODEL, key, 100_003L, 0.0F, WALK, Optional.of(state),
+                AnimationUpdateBucket.VISIBLE_NEAR, fixture.handle())).orElseThrow();
+
+        assertEquals(IDLE, reappeared.advance().state());
+        assertEquals(0.15d, reappeared.advance().timeSeconds(), 1.0e-9d);
+        assertTrue(reappeared.advance().visualEvents().isEmpty());
     }
 
     @Test

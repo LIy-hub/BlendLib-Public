@@ -37,7 +37,7 @@ public final class ProviderLifecycleSession implements AutoCloseable {
     private boolean transitionActive;
     private ProviderLifecycleStage activeStage;
     private long transitionEpoch;
-    private RetirementCompletion retirementCompletion;
+    private volatile RetirementCompletion retirementCompletion;
 
     /**
      * Creates a generation session from one registry-produced publishable plan.
@@ -203,33 +203,45 @@ public final class ProviderLifecycleSession implements AutoCloseable {
      * only after all issued pins drain.
      *
      * <p>The returned diagnostics contain every retire and provider-close failure observed so far.
-     * A provider shared by another active generation or adapter control remains open.</p>
+     * A provider shared by another active generation or adapter control remains open. Once terminal
+     * completion is published, this method always returns that same result instance or rethrows that
+     * same original fatal failure for concurrent and later observers.</p>
      *
      * @return cumulative isolated retirement/close result
      */
     public ProviderLifecycleResult retire() {
+        rejectMutationDuringCallback(ProviderLifecycleStage.RETIRE);
+        RetirementCompletion concurrentCompletion = retirementCompletion;
+        if (concurrentCompletion != null) {
+            return awaitRetirement(concurrentCompletion);
+        }
+
         long epoch;
         RetirementCompletion observedCompletion = null;
         synchronized (this) {
-            rejectMutationDuringCallback(ProviderLifecycleStage.RETIRE);
-            validatePlan();
-            if (transitionActive) {
-                if (retired && (activeStage == ProviderLifecycleStage.RETIRE
-                        || activeStage == ProviderLifecycleStage.CLOSE)) {
-                    observedCompletion = retirementCompletion;
-                } else {
-                    throw transitionFailure(ProviderLifecycleStage.RETIRE);
-                }
-            } else if (!retired) {
-                retired = true;
-                if (state != ProviderLifecycleState.CLOSED) {
-                    state = ProviderLifecycleState.RETIRING;
-                }
-            }
+            observedCompletion = retirementCompletion;
             if (observedCompletion == null) {
-                epoch = beginRetirementIfDrained();
-                if (epoch < 0L) {
-                    return retirementResult(ProviderLifecycleStage.RETIRE);
+                validatePlan();
+                if (transitionActive) {
+                    if (retired && (activeStage == ProviderLifecycleStage.RETIRE
+                            || activeStage == ProviderLifecycleStage.CLOSE)) {
+                        observedCompletion = retirementCompletion;
+                    } else {
+                        throw transitionFailure(ProviderLifecycleStage.RETIRE);
+                    }
+                } else if (!retired) {
+                    retired = true;
+                    if (state != ProviderLifecycleState.CLOSED) {
+                        state = ProviderLifecycleState.RETIRING;
+                    }
+                }
+                if (observedCompletion == null) {
+                    epoch = beginRetirementIfDrained();
+                    if (epoch < 0L) {
+                        return retirementResult(ProviderLifecycleStage.RETIRE);
+                    }
+                } else {
+                    epoch = -1L;
                 }
             } else {
                 epoch = -1L;
@@ -261,12 +273,23 @@ public final class ProviderLifecycleSession implements AutoCloseable {
                 try {
                     ExperimentalControlBoundary.runExternal(() -> callback.invoke(owned.provider(), context));
                 } catch (Throwable exception) {
-                    CapabilityDiagnostic diagnostic = providerFailure(failureCode, owned.providerId(), stage, exception);
-                    transitionDiagnostics.add(diagnostic);
                     if (ExperimentalControlBoundary.isFatal(exception)) {
-                        terminateAfterFatalTransition(epoch, stage, transitionDiagnostics);
+                        terminateAfterFatalTransition(epoch, stage, transitionDiagnostics, exception);
+                        completed = true;
                         ExperimentalControlBoundary.rethrowIfFatal(exception);
                     }
+                    CapabilityDiagnostic diagnostic;
+                    try {
+                        diagnostic = providerFailure(failureCode, owned.providerId(), stage, exception);
+                    } catch (Throwable diagnosticFailure) {
+                        if (ExperimentalControlBoundary.isFatal(diagnosticFailure)) {
+                            terminateAfterFatalTransition(epoch, stage, transitionDiagnostics, diagnosticFailure);
+                            completed = true;
+                            ExperimentalControlBoundary.rethrowIfFatal(diagnosticFailure);
+                        }
+                        throw diagnosticFailure;
+                    }
+                    transitionDiagnostics.add(diagnostic);
                     ProviderLifecycleResult result = completeTransitionFailure(
                             epoch, stage, transitionDiagnostics);
                     completed = true;
@@ -293,13 +316,13 @@ public final class ProviderLifecycleSession implements AutoCloseable {
             try {
                 ExperimentalControlBoundary.runExternal(() -> owned.provider().retire(context));
             } catch (Throwable exception) {
+                if (ExperimentalControlBoundary.isFatal(exception)) {
+                    fatalFailure = retainPrimaryFatal(fatalFailure, exception);
+                    break;
+                }
                 CapabilityDiagnostic diagnostic = providerFailure(CapabilityErrorCode.PROVIDER_RETIRE_FAILURE,
                         owned.providerId(), ProviderLifecycleStage.RETIRE, exception);
                 transitionDiagnostics.add(diagnostic);
-                if (ExperimentalControlBoundary.isFatal(exception)) {
-                    fatalFailure = exception;
-                    break;
-                }
             }
             verifyTransition(epoch, ProviderLifecycleStage.RETIRE);
         }
@@ -360,6 +383,7 @@ public final class ProviderLifecycleSession implements AutoCloseable {
         List<CapabilityDiagnostic> failures = new ArrayList<>();
         Throwable fatalFailure = null;
         boolean completed = false;
+        Throwable escapingFailure = null;
         try {
             RetireInvocation invocation = invokeRetire(epoch);
             failures.addAll(invocation.diagnostics());
@@ -370,39 +394,45 @@ public final class ProviderLifecycleSession implements AutoCloseable {
                 closeInvoked = true;
             }
             for (OwnedProvider owned : selectedProviders) {
-                Throwable exception = owned.ownership().release();
+                Throwable exception = releaseOwnership(owned.ownership());
                 if (exception != null) {
-                    failures.add(providerFailure(CapabilityErrorCode.PROVIDER_CLOSE_FAILURE,
-                            owned.providerId(), ProviderLifecycleStage.CLOSE, exception));
-                    if (fatalFailure == null && ExperimentalControlBoundary.isFatal(exception)) {
-                        fatalFailure = exception;
+                    if (ExperimentalControlBoundary.isFatal(exception)) {
+                        fatalFailure = retainPrimaryFatal(fatalFailure, exception);
+                    } else {
+                        failures.add(providerFailure(CapabilityErrorCode.PROVIDER_CLOSE_FAILURE,
+                                owned.providerId(), ProviderLifecycleStage.CLOSE, exception));
                     }
                 }
                 verifyTransition(epoch, ProviderLifecycleStage.CLOSE);
             }
             ProviderLifecycleResult result;
+            RetirementCompletion completion = retirementCompletion;
             synchronized (this) {
                 verifyTransitionState(epoch, ProviderLifecycleStage.CLOSE);
                 retirementDiagnostics.addAll(failures);
                 diagnostics.addAll(failures);
                 state = ProviderLifecycleState.CLOSED;
-                clearTransition();
                 result = retirementResult(ProviderLifecycleStage.CLOSE);
+                completion.complete(result, fatalFailure);
+                clearTransition();
             }
             completed = true;
-            retirementCompletion.complete(result, fatalFailure);
             if (fatalFailure != null) {
                 ExperimentalControlBoundary.rethrowIfFatal(fatalFailure);
             }
             return result;
+        } catch (Throwable failure) {
+            escapingFailure = failure;
+            throw failure;
         } finally {
             if (!completed) {
-                emergencyClose(epoch, failures);
-                ProviderLifecycleResult result;
-                synchronized (this) {
-                    result = retirementResult(ProviderLifecycleStage.CLOSE);
+                Throwable emergencyFatal = emergencyClose(epoch, failures, retirementCompletion, escapingFailure);
+                if (emergencyFatal != null && emergencyFatal != escapingFailure) {
+                    if (escapingFailure != null) {
+                        retainSecondary(emergencyFatal, escapingFailure);
+                    }
+                    ExperimentalControlBoundary.rethrowIfFatal(emergencyFatal);
                 }
-                retirementCompletion.complete(result, null);
             }
         }
     }
@@ -428,52 +458,119 @@ public final class ProviderLifecycleSession implements AutoCloseable {
     private void terminateAfterFatalTransition(
             long epoch,
             ProviderLifecycleStage stage,
-            List<CapabilityDiagnostic> failures) {
+            List<CapabilityDiagnostic> failures,
+            Throwable fatalFailure) {
+        RetirementCompletion completion = new RetirementCompletion();
         synchronized (this) {
             verifyTransitionState(epoch, stage);
-            diagnostics.addAll(failures);
-            retirementDiagnostics.addAll(failures);
             retired = true;
             retireInvoked = true;
             closeInvoked = true;
-            state = ProviderLifecycleState.CLOSED;
-            clearTransition();
+            state = ProviderLifecycleState.RETIRING;
+            activeStage = ProviderLifecycleStage.CLOSE;
+            retirementCompletion = completion;
         }
-        List<CapabilityDiagnostic> closeFailures = releaseAllOwnership();
+        OwnershipReleaseResult releaseResult = releaseAllOwnership();
+        Throwable selectedFatal = retainPrimaryFatal(fatalFailure, releaseResult.fatalFailure());
         synchronized (this) {
-            retirementDiagnostics.addAll(closeFailures);
-            diagnostics.addAll(closeFailures);
+            verifyTransitionState(epoch, ProviderLifecycleStage.CLOSE);
+            retirementDiagnostics.addAll(failures);
+            retirementDiagnostics.addAll(releaseResult.diagnostics());
+            diagnostics.addAll(failures);
+            diagnostics.addAll(releaseResult.diagnostics());
+            state = ProviderLifecycleState.CLOSED;
+            ProviderLifecycleResult result = retirementResult(ProviderLifecycleStage.CLOSE);
+            completion.complete(result, selectedFatal);
+            clearTransition();
         }
     }
 
-    private void emergencyClose(long epoch, List<CapabilityDiagnostic> knownFailures) {
-        List<CapabilityDiagnostic> closeFailures = releaseAllOwnership();
+    private Throwable emergencyClose(
+            long epoch,
+            List<CapabilityDiagnostic> knownFailures,
+            RetirementCompletion completion,
+            Throwable primaryFailure) {
+        OwnershipReleaseResult releaseResult = releaseAllOwnership();
+        Throwable selectedFatal = primaryFailure != null && ExperimentalControlBoundary.isFatal(primaryFailure)
+                ? primaryFailure
+                : releaseResult.fatalFailure();
+        if (selectedFatal == primaryFailure) {
+            retainSecondary(selectedFatal, releaseResult.fatalFailure());
+        } else if (selectedFatal != null) {
+            retainSecondary(selectedFatal, primaryFailure);
+        }
         synchronized (this) {
             if (!transitionActive || transitionEpoch != epoch) {
-                return;
+                return selectedFatal;
             }
             List<CapabilityDiagnostic> retained = new ArrayList<>(knownFailures);
-            retained.addAll(closeFailures);
+            retained.addAll(releaseResult.diagnostics());
             retirementDiagnostics.addAll(retained);
             diagnostics.addAll(retained);
             retired = true;
             retireInvoked = true;
             closeInvoked = true;
             state = ProviderLifecycleState.CLOSED;
+            completion.complete(retirementResult(ProviderLifecycleStage.CLOSE), selectedFatal);
             clearTransition();
+        }
+        return selectedFatal;
+    }
+
+    private OwnershipReleaseResult releaseAllOwnership() {
+        List<CapabilityDiagnostic> closeFailures = new ArrayList<>();
+        Throwable fatalFailure = null;
+        for (OwnedProvider owned : selectedProviders) {
+            Throwable exception = releaseOwnership(owned.ownership());
+            if (exception != null) {
+                if (ExperimentalControlBoundary.isFatal(exception)) {
+                    fatalFailure = retainPrimaryFatal(fatalFailure, exception);
+                } else {
+                    try {
+                        closeFailures.add(providerFailure(CapabilityErrorCode.PROVIDER_CLOSE_FAILURE,
+                                owned.providerId(), ProviderLifecycleStage.CLOSE, exception));
+                    } catch (Throwable diagnosticFailure) {
+                        if (ExperimentalControlBoundary.isFatal(diagnosticFailure)) {
+                            fatalFailure = retainPrimaryFatal(fatalFailure, diagnosticFailure);
+                        } else {
+                            throw diagnosticFailure;
+                        }
+                    }
+                }
+            }
+        }
+        return new OwnershipReleaseResult(closeFailures, fatalFailure);
+    }
+
+    private static Throwable releaseOwnership(ProviderOwnership.Handle ownership) {
+        try {
+            return ownership.release();
+        } catch (Throwable failure) {
+            return failure;
         }
     }
 
-    private List<CapabilityDiagnostic> releaseAllOwnership() {
-        List<CapabilityDiagnostic> closeFailures = new ArrayList<>();
-        for (OwnedProvider owned : selectedProviders) {
-            Throwable exception = owned.ownership().release();
-            if (exception != null) {
-                closeFailures.add(providerFailure(CapabilityErrorCode.PROVIDER_CLOSE_FAILURE,
-                        owned.providerId(), ProviderLifecycleStage.CLOSE, exception));
-            }
+    private static Throwable retainPrimaryFatal(Throwable primaryFailure, Throwable secondaryFailure) {
+        if (secondaryFailure == null) {
+            return primaryFailure;
         }
-        return closeFailures;
+        if (primaryFailure == null) {
+            return secondaryFailure;
+        }
+        retainSecondary(primaryFailure, secondaryFailure);
+        return primaryFailure;
+    }
+
+    private static void retainSecondary(Throwable primaryFailure, Throwable secondaryFailure) {
+        if (primaryFailure == null || secondaryFailure == null || primaryFailure == secondaryFailure) {
+            return;
+        }
+        try {
+            primaryFailure.addSuppressed(secondaryFailure);
+        } catch (Throwable suppressionFailure) {
+            ExperimentalControlBoundary.rethrowIfFatal(suppressionFailure);
+            // Ordinary suppression bookkeeping cannot replace the selected fatal failure.
+        }
     }
 
     private synchronized void abandonTransition(long epoch, ProviderLifecycleStage stage) {
@@ -566,6 +663,7 @@ public final class ProviderLifecycleSession implements AutoCloseable {
             BlendResourceId providerId,
             ProviderLifecycleStage stage,
             Throwable exception) {
+        ExperimentalControlBoundary.rethrowIfFatal(exception);
         return CapabilityDiagnostic.provider(
                 code,
                 BlendDiagnosticSeverity.ERROR,
@@ -614,6 +712,14 @@ public final class ProviderLifecycleSession implements AutoCloseable {
         }
     }
 
+    private record OwnershipReleaseResult(
+            List<CapabilityDiagnostic> diagnostics,
+            Throwable fatalFailure) {
+        private OwnershipReleaseResult {
+            diagnostics = List.copyOf(diagnostics);
+        }
+    }
+
     private static final class RetirementCompletion {
         private final CountDownLatch completed = new CountDownLatch(1);
         private volatile ProviderLifecycleResult result;
@@ -627,6 +733,10 @@ public final class ProviderLifecycleSession implements AutoCloseable {
 
         private boolean await(long timeout, TimeUnit unit) throws InterruptedException {
             return completed.await(timeout, unit);
+        }
+
+        private boolean isCompleted() {
+            return completed.getCount() == 0L;
         }
 
         private ProviderLifecycleResult result() {

@@ -1,0 +1,16 @@
+{
+  "format": "blendlib-x8-socket-intent-v1",
+  "model": "blendlib_template:starter_rigid",
+  "sockets": [
+    {
+      "bone": "root",
+      "id": "blendlib_template:tip",
+      "translation": [
+        0.0,
+        0.5,
+        0.0
+      ]
+    }
+  ],
+  "status": "authoring-reference-only; socket attachment stays presentation-only"
+}

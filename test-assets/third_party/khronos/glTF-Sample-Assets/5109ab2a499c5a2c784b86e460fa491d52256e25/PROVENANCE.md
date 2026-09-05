@@ -1,7 +1,7 @@
-# Khronos derived-fixture provenance
+# Khronos P3 derived-fixture provenance
 
 This directory is test data only. It records a deterministic strict-GLB v1
-derivation for compatibility testing; it does not declare
+derivation for the P3 compatibility-fixture requirement; it does not declare
 or change a BlendLib project license.
 
 ## Fixed upstream source and license facts

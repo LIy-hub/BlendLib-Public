@@ -1,0 +1,46 @@
+{
+  "animation": {
+    "initial_state": "blendlib_ecosystem_example:idle",
+    "states": {
+      "blendlib_ecosystem_example:attack": {
+        "blend_seconds": 0.08,
+        "clip": "attack",
+        "events": [
+          {
+            "event": "blendlib_ecosystem_example:attack_whoosh",
+            "time_seconds": 0.25
+          }
+        ],
+        "loop": false,
+        "next": "blendlib_ecosystem_example:idle",
+        "speed": 1.0
+      },
+      "blendlib_ecosystem_example:idle": {
+        "blend_seconds": 0.12,
+        "clip": "idle",
+        "loop": true,
+        "speed": 1.0
+      }
+    }
+  },
+  "extensions": {},
+  "extensions_required": [],
+  "extensions_used": [],
+  "format_version": 1,
+  "materials": {
+    "ShowcaseAnimationSurface": {
+      "base_color": "blendlib_ecosystem_example:textures/blendlib/actors/example_actor__surface.png",
+      "double_sided": false,
+      "emissive": false,
+      "mode": "opaque"
+    }
+  },
+  "mesh": "blendlib_ecosystem_example:models3d/actors/example_actor.glb",
+  "profile": "blendlib:skinned_v1",
+  "sockets": {
+    "blendlib_ecosystem_example:tip": {
+      "node": "ShowcaseAnimationRoot/ShowcaseAnimationArmature/ShowcaseRootBone/ShowcaseTipBone"
+    }
+  },
+  "units_per_block": 1.0
+}

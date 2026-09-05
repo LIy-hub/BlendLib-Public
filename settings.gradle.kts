@@ -21,6 +21,7 @@ include(
     "blendlib-fabric-common",
     "blendlib-fabric-client",
     "blendlib-showcase",
+    "blendlib-datagen",
     "blendlib-api-consumer-fixture",
     "blendlib-fabric-consumer-fixture",
 )

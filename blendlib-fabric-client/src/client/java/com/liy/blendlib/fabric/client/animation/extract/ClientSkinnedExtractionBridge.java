@@ -1,8 +1,6 @@
 package com.liy.blendlib.fabric.client.animation.extract;
 
 import com.liy.blendlib.api.BlendResourceId;
-import com.liy.blendlib.core.animation.runtime.CpuSkinnedMesh;
-import com.liy.blendlib.core.animation.runtime.CpuSkinner;
 import com.liy.blendlib.core.animation.runtime.NodePalette;
 import com.liy.blendlib.core.animation.runtime.SkinPalette;
 import com.liy.blendlib.core.animation.runtime.SocketWorldTransform;
@@ -16,6 +14,7 @@ import com.liy.blendlib.fabric.client.render.PreparedSkinnedRenderPrimitive;
 import com.liy.blendlib.fabric.client.render.SkinnedRenderHandle;
 import com.liy.blendlib.fabric.client.render.SkinnedRenderSnapshot;
 import com.liy.blendlib.fabric.client.render.StaticRigidRenderHandle;
+import com.liy.blendlib.fabric.client.render.x7gpu.X7SkinnedFrameProvenance;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -68,8 +67,8 @@ public final class ClientSkinnedExtractionBridge {
         }
         NodePalette canonicalPalette = NodePalette.fromCanonicalScene(
                 checkedPose.localPose(), asset.nodes(), asset.defaultSceneRoots());
-        List<CpuSkinnedMesh> outputs = skinPreparedPrimitives(asset, skinnedHandle, canonicalPalette);
-        SkinnedRenderSnapshot captured = SkinnedRenderSnapshot.capture(skinnedHandle, outputs);
+        List<X7SkinnedFrameProvenance.SealedFrame> extracted = skinPreparedPrimitives(asset, skinnedHandle, canonicalPalette);
+        SkinnedRenderSnapshot captured = SkinnedRenderSnapshot.captureWithT4Provenance(skinnedHandle, extracted);
         ModelRenderSnapshot renderSnapshot = ModelRenderSnapshot.skinned(
                 skinnedHandle,
                 checkedRequest.rootTransform(),
@@ -82,19 +81,19 @@ public final class ClientSkinnedExtractionBridge {
         return new ClientSkinnedExtractionFrame(renderSnapshot, socketTransforms(asset, canonicalPalette));
     }
 
-    private static List<CpuSkinnedMesh> skinPreparedPrimitives(
+    private static List<X7SkinnedFrameProvenance.SealedFrame> skinPreparedPrimitives(
             ModelAsset asset,
             SkinnedRenderHandle handle,
             NodePalette canonicalPalette) {
-        List<CpuSkinnedMesh> outputs = new ArrayList<>(handle.skinnedPrimitives().size());
+        List<X7SkinnedFrameProvenance.SealedFrame> captured = new ArrayList<>(handle.skinnedPrimitives().size());
         for (PreparedSkinnedRenderPrimitive primitive : handle.skinnedPrimitives()) {
             if (primitive.skinIndex() < 0 || primitive.skinIndex() >= asset.skeleton().skins().size()) {
                 throw new IllegalArgumentException("prepared skinned primitive references an absent skin");
             }
             SkinPalette palette = SkinPalette.from(asset.skeleton().skins().get(primitive.skinIndex()), canonicalPalette);
-            outputs.add(CpuSkinner.skin(primitive.geometry(), palette));
+            captured.add(X7SkinnedFrameProvenance.capture(primitive, palette));
         }
-        return List.copyOf(outputs);
+        return List.copyOf(captured);
     }
 
     private static Map<BlendResourceId, Transform> socketTransforms(ModelAsset asset, NodePalette canonicalPalette) {

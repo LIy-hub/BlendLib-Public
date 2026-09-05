@@ -58,6 +58,19 @@ class ClientModelReloadListenerTest {
     private static final AnimationControllerDefinition RETIREMENT_DEFINITION = retirementDefinition();
 
     @Test
+    void applyComposesAnExplicitCpuOnlyTransactionBeforePublicationAndHasNoAttachmentRoute() throws IOException {
+        String source = Files.readString(Path.of(System.getProperty("blendlib.projectDir"))
+                .resolve("src/client/java/com/liy/blendlib/fabric/client/reload/ClientModelReloadListener.java"));
+
+        int composition = source.indexOf("PendingGenerationTransaction.cpuOnly(candidateGeneration)");
+        int publication = source.indexOf("registry.publish(transaction)");
+        assertTrue(composition >= 0);
+        assertTrue(publication > composition);
+        assertFalse(source.contains("attachCompleteResourceSetOnRenderThread"));
+        assertFalse(source.contains("CompletedGenerationResourceSet"));
+    }
+
+    @Test
     void prepareUsesOnlyFinalResourceManagerSelectionThenApplyPublishesBackendReadyGeneration() throws IOException {
         AtomicInteger descriptorOpens = new AtomicInteger();
         AtomicInteger meshOpens = new AtomicInteger();

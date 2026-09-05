@@ -55,21 +55,17 @@ public final class PlatformAdapterControl {
         long epoch = beginOperation(ControlOperation.INSTALL, true);
         ProviderOwnership.Handle ownership = null;
         boolean installed = false;
+        Throwable primaryFailure = null;
+        Throwable rollbackFailure = null;
         try {
             try {
                 ownership = ProviderOwnership.acquire(platformAdapter);
             } catch (ProviderOwnership.OwnershipConflictException exception) {
                 throw adapterFailure("Platform adapter ownership is unavailable", exception);
             }
-            BlendResourceId providerId;
-            try {
-                providerId = Objects.requireNonNull(
-                        ExperimentalControlBoundary.callExternal(platformAdapter::providerId),
-                        "platformAdapter.providerId()");
-            } catch (Throwable exception) {
-                terminateAfterFatal(epoch, ControlOperation.INSTALL, ownership, exception);
-                throw adapterFailure("Platform adapter identity lookup failed", exception);
-            }
+            BlendResourceId providerId = Objects.requireNonNull(
+                    ExperimentalControlBoundary.callExternal(platformAdapter::providerId),
+                    "platformAdapter.providerId()");
             if (!ExperimentalControlBoundary.isValidId(providerId)) {
                 throw registrationFailure(BlendApiDiagnosticCode.PLATFORM_ADAPTER_FAILURE,
                         "Platform adapter identity is outside the bounded canonical identity policy");
@@ -86,11 +82,19 @@ public final class PlatformAdapterControl {
                 adapterOwnership = ownership;
                 installed = true;
             }
+        } catch (Throwable failure) {
+            primaryFailure = failure;
         } finally {
             if (!installed && ownership != null) {
-                ownership.release();
+                rollbackFailure = releaseOwnership(ownership);
             }
             endOperation(epoch, ControlOperation.INSTALL);
+        }
+        if (primaryFailure != null) {
+            throw failedInstall(primaryFailure, rollbackFailure);
+        }
+        if (rollbackFailure != null) {
+            throw failedInstall(null, rollbackFailure);
         }
     }
 
@@ -120,18 +124,53 @@ public final class PlatformAdapterControl {
             adapterOwnership = null;
             registrations.clear();
         }
-        Throwable closeFailure;
-        try {
-            closeFailure = ownership.release();
-        } catch (Throwable exception) {
-            closeFailure = exception;
-        } finally {
-            endOperation(epoch, ControlOperation.UNINSTALL);
-        }
+        Throwable closeFailure = releaseOwnership(ownership);
+        endOperation(epoch, ControlOperation.UNINSTALL);
         if (closeFailure != null) {
             ExperimentalControlBoundary.rethrowIfFatal(closeFailure);
             throw adapterFailure("Platform adapter close failed", closeFailure);
         }
+    }
+
+    /**
+     * Removes the active adapter only when it is the exact supplied instance.
+     *
+     * <p>This is the lifecycle-safe counterpart to {@link #uninstall()} for a platform runtime
+     * that owns one particular adapter instance. Identity comparison and removal occur under the
+     * same control monitor, so a stale close receipt cannot observe an adapter ID and later
+     * uninstall a replacement adapter with the same provider ID.</p>
+     *
+     * @param expectedAdapter exact adapter instance owned by the caller
+     * @return true when that exact instance was active and removed; false when it was already
+     *         absent or another instance is active
+     * @throws BlendRegistrationException when the exact adapter close callback fails
+     */
+    public boolean uninstallIfSame(PlatformAdapter expectedAdapter) {
+        PlatformAdapter checkedExpectedAdapter = Objects.requireNonNull(expectedAdapter, "expectedAdapter");
+        long epoch;
+        ProviderOwnership.Handle ownership;
+        synchronized (this) {
+            rejectCallbackMutation(ControlOperation.UNINSTALL);
+            requireNoOperation(ControlOperation.UNINSTALL);
+            if (adapterOwnership == null || adapter != checkedExpectedAdapter) {
+                return false;
+            }
+            operationActive = true;
+            activeOperation = ControlOperation.UNINSTALL;
+            epoch = ++operationEpoch;
+            ownership = adapterOwnership;
+            adapter = null;
+            installedAdapterId = null;
+            adapterOwnership = null;
+            registrations.clear();
+        }
+        Throwable closeFailure = releaseOwnership(ownership);
+        endOperation(epoch, ControlOperation.UNINSTALL);
+        if (closeFailure != null) {
+            ExperimentalControlBoundary.rethrowIfFatal(closeFailure);
+            throw adapterFailure("Platform adapter close failed", closeFailure);
+        }
+        return true;
     }
 
     /**
@@ -287,10 +326,61 @@ public final class PlatformAdapterControl {
             }
         }
         if (ownership != null) {
-            ownership.release();
+            Throwable closeFailure = releaseOwnership(ownership);
+            retainSecondary(failure, closeFailure);
         }
-        endOperation(epoch, operation);
         ExperimentalControlBoundary.rethrowIfFatal(failure);
+    }
+
+    private static Throwable releaseOwnership(ProviderOwnership.Handle ownership) {
+        try {
+            return ownership.release();
+        } catch (Throwable failure) {
+            return failure;
+        }
+    }
+
+    private static RuntimeException failedInstall(Throwable primaryFailure, Throwable rollbackFailure) {
+        if (primaryFailure != null && ExperimentalControlBoundary.isFatal(primaryFailure)) {
+            return rethrowFatal(primaryFailure, rollbackFailure);
+        }
+        if (rollbackFailure != null && ExperimentalControlBoundary.isFatal(rollbackFailure)) {
+            return rethrowFatal(rollbackFailure, primaryFailure);
+        }
+        if (primaryFailure instanceof BlendRegistrationException registrationFailure) {
+            if (rollbackFailure == null) {
+                return registrationFailure;
+            }
+            BlendApiDiagnostic diagnostic = registrationFailure.diagnostic();
+            String cleanup = "; rollback_close_cause="
+                    + ExperimentalControlBoundary.safeThrowableType(rollbackFailure);
+            return new BlendRegistrationException(new BlendApiDiagnostic(
+                    diagnostic.code(),
+                    diagnostic.severity(),
+                    boundedMessageWithSuffix(diagnostic.message(), cleanup)));
+        }
+        if (primaryFailure != null) {
+            return adapterFailure("Platform adapter identity lookup failed", primaryFailure, rollbackFailure);
+        }
+        return adapterFailure("Platform adapter rollback close failed", rollbackFailure);
+    }
+
+    private static RuntimeException rethrowFatal(Throwable fatalFailure, Throwable secondaryFailure) {
+        retainSecondary(fatalFailure, secondaryFailure);
+        ExperimentalControlBoundary.rethrowIfFatal(fatalFailure);
+        return new IllegalStateException("Fatal classifier returned without rethrowing");
+    }
+
+    private static void retainSecondary(Throwable primaryFailure, Throwable secondaryFailure) {
+        if (secondaryFailure == null || secondaryFailure == primaryFailure) {
+            return;
+        }
+        try {
+            primaryFailure.addSuppressed(secondaryFailure);
+        } catch (Throwable suppressionFailure) {
+            ExperimentalControlBoundary.rethrowIfFatal(suppressionFailure);
+            // Ordinary suppression bookkeeping cannot replace the selected primary failure.
+        }
     }
 
     private void requireNoOperation(ControlOperation operation) {
@@ -313,7 +403,18 @@ public final class PlatformAdapterControl {
     }
 
     private static BlendRegistrationException adapterFailure(String prefix, Throwable exception) {
+        return adapterFailure(prefix, exception, null);
+    }
+
+    private static BlendRegistrationException adapterFailure(
+            String prefix,
+            Throwable exception,
+            Throwable rollbackFailure) {
         String context = prefix + "; cause=" + ExperimentalControlBoundary.safeThrowableType(exception);
+        if (rollbackFailure != null) {
+            context = boundedMessageWithSuffix(context, "; rollback_close_cause="
+                    + ExperimentalControlBoundary.safeThrowableType(rollbackFailure));
+        }
         return new BlendRegistrationException(new BlendApiDiagnostic(
                 BlendApiDiagnosticCode.PLATFORM_ADAPTER_FAILURE,
                 BlendDiagnosticSeverity.ERROR,
@@ -339,6 +440,19 @@ public final class PlatformAdapterControl {
             return message;
         }
         return message.substring(0, BlendApiDiagnostic.MAX_MESSAGE_LENGTH - 3) + "...";
+    }
+
+    private static String boundedMessageWithSuffix(String message, String suffix) {
+        message = Objects.requireNonNull(message, "message");
+        suffix = Objects.requireNonNull(suffix, "suffix");
+        int available = BlendApiDiagnostic.MAX_MESSAGE_LENGTH - suffix.length();
+        if (message.length() <= available) {
+            return message + suffix;
+        }
+        if (available <= 3) {
+            return suffix.substring(0, BlendApiDiagnostic.MAX_MESSAGE_LENGTH);
+        }
+        return message.substring(0, available - 3) + "..." + suffix;
     }
 
     private record RegistrationRecord(

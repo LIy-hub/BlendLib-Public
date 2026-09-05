@@ -108,6 +108,11 @@ public final class ClientAnimationSyncRuntime {
      */
     public void onEntityUnload(BlendResourceId dimension, int entityId) {
         Objects.requireNonNull(dimension, "dimension");
+        // Synthetic/replay entities carry negative ids and are never stored under an entity target;
+        // skip them so the target construction below cannot reject the id during teardown.
+        if (entityId < 0) {
+            return;
+        }
         if (store.activeDimension().filter(dimension::equals).isEmpty()) {
             return;
         }

@@ -14,6 +14,7 @@ import com.liy.blendlib.fabric.client.render.ModelRenderHandle;
 import com.liy.blendlib.fabric.client.render.SkinnedRenderHandle;
 import com.liy.blendlib.fabric.client.render.StaticRigidRenderHandle;
 import com.liy.blendlib.fabric.client.render.UnsupportedRenderMaterialException;
+import com.liy.blendlib.fabric.client.render.X7DeferredSubmissionEndpoint;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
@@ -117,8 +118,15 @@ public final class ClientModelReloadListener extends SimpleReloadListener<Prepar
 
     @Override
     protected void apply(PreparedModelGeneration prepared, PreparableReloadListener.SharedState state) {
+        // This client-only cutoff releases only no-command deferred work. The current endpoint is
+        // source-order-disabled, but routing the lifecycle boundary now prevents a later adapter
+        // from silently retaining a pre-reload request.
+        X7DeferredSubmissionEndpoint.onClientReload();
         ModelRegistryGeneration candidateGeneration = createPublishedGeneration(Objects.requireNonNull(prepared, "prepared"));
-        ModelRegistryGeneration activeGeneration = registry.publish(candidateGeneration);
+        // This production route intentionally freezes the explicit CPU-only payload before registry publication.
+        // A later resource creator may compose an exact complete aggregate here, but never after publication.
+        PendingGenerationTransaction transaction = PendingGenerationTransaction.cpuOnly(candidateGeneration);
+        ModelRegistryGeneration activeGeneration = registry.publish(transaction);
         diagnosticsReporter.report(candidateGeneration, activeGeneration);
         activeGenerationListener.accept(activeGeneration.generationId());
     }

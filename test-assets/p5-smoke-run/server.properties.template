@@ -1,0 +1,12 @@
+# Generated only in D:\BlendLib\blendlib-showcase\run\p5-smoke-server by
+# prepareP5SmokeServerRun. This profile is loopback-only and must not be copied into a
+# formal server or world.
+server-ip=127.0.0.1
+server-port=25573
+online-mode=false
+enforce-secure-profile=false
+enable-rcon=false
+white-list=false
+enforce-whitelist=false
+level-name=blendlib-p5-smoke-world
+motd=BlendLib P5 isolated local animation smoke

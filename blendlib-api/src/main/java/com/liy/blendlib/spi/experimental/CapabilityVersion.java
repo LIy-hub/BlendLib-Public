@@ -12,8 +12,18 @@ public record CapabilityVersion(int major, int minor, int patch) implements Comp
     /** Largest allowed component value, preventing unbounded malformed metadata. */
     public static final int MAX_COMPONENT = 1_000_000;
 
-    /** Initial X1 controlled capability protocol version. */
+    /** Historical initial X1 capability data-plane version; it does not select a legacy host lifecycle policy. */
     public static final CapabilityVersion INITIAL_PROTOCOL = new CapabilityVersion(1, 0, 0);
+
+    /** Current X1 host-contract version, including terminal exact-object handling for every {@link Error}. */
+    public static final CapabilityVersion CURRENT_PROTOCOL = new CapabilityVersion(1, 1, 0);
+
+    /** First protocol version excluded from the current X1/X6 opt-in range. */
+    public static final CapabilityVersion CURRENT_PROTOCOL_MAX_EXCLUSIVE = new CapabilityVersion(1, 2, 0);
+
+    /** Current X1/X6 opt-in range; a new host must not silently select a historical 1.0 offer. */
+    public static final CapabilityVersionRange CURRENT_PROTOCOL_RANGE =
+            new CapabilityVersionRange(CURRENT_PROTOCOL, CURRENT_PROTOCOL_MAX_EXCLUSIVE);
 
     /** Validates all three non-negative bounded version components. */
     public CapabilityVersion {

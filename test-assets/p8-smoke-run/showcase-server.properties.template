@@ -1,0 +1,12 @@
+# Generated only in D:\BlendLib\blendlib-showcase\run\p8-current-manifest-server by
+# prepareP8CurrentManifestShowcaseServerRun. This profile is loopback-only and must
+# not be copied into a formal server or world.
+server-ip=127.0.0.1
+server-port=25585
+online-mode=false
+enforce-secure-profile=false
+enable-rcon=false
+white-list=false
+enforce-whitelist=false
+level-name=blendlib-p8-showcase-current-manifest-smoke-world
+motd=BlendLib P8 current-manifest Showcase local smoke

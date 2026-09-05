@@ -1,9 +1,9 @@
 {
-  "blend": "test-assets/skinned/source.blend",
+  "blend": "D:\\BlendLib\\test-assets\\skinned\\source.blend",
   "collection": "BlendLibExport",
-  "descriptor_path": "blendlib-showcase/src/main/resources/assets/blendlib_showcase/blend_models/fixtures/skinned_model.json",
+  "descriptor_path": "D:\\BlendLib\\blendlib-showcase\\src\\main\\resources\\assets\\blendlib_showcase\\blend_models\\fixtures\\skinned_model.json",
   "format": "blendlib-p2-export-report-v1",
-  "mesh_path": "blendlib-showcase/src/main/resources/assets/blendlib_showcase/models3d/fixtures/skinned_model.glb",
+  "mesh_path": "D:\\BlendLib\\blendlib-showcase\\src\\main\\resources\\assets\\blendlib_showcase\\models3d\\fixtures\\skinned_model.glb",
   "model_id": "fixtures/skinned_model",
   "namespace": "blendlib_showcase",
   "normalized_structure": {
@@ -137,7 +137,7 @@
     ]
   },
   "texture_paths": {
-    "SkinnedSurface": "blendlib-showcase/src/main/resources/assets/blendlib_showcase/textures/blendlib/fixtures_skinned_model__skinnedsurface.png"
+    "SkinnedSurface": "D:\\BlendLib\\blendlib-showcase\\src\\main\\resources\\assets\\blendlib_showcase\\textures\\blendlib\\fixtures_skinned_model__skinnedsurface.png"
   },
   "validation": {
     "animation_names": [

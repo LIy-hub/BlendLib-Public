@@ -1,0 +1,34 @@
+# ADR-X4002：X4 generation-pinned snapshot lifecycle and controlled stable bridge
+
+状态：Proposed / documentation candidate。R14 final source review 为 PASS；随后 formal integration 的独立 completion-order probe 在 8 个 JVM 中稳定复现 96/96 race，因此 formal integration 仍为 BLOCKED。R15 依次完成 R3 FAIL（0C/4H/2M/0L）、R4/R5 non-verdict design、valid RED（6 tests / 1 intended assertion failure）、冻结 source candidate 的 pre-documentation source/test PASS（0C/0H/0M/0L）与 static/binary PASS。当前 reconciliation 仍等待独立 docs/full-source review，不是 integration 或 release。manual client、network、reload、visual、Iris/Sodium、hardware、performance 及 shared bootstrap/renderer evidence 均为 WAITING。
+
+## Context
+
+renderer submit 是热路径。它不能在某个新 host 的 submit 内执行 lookup、JSON/GLB parsing、resource I/O、world access 或 generation rebinding。与此同时，X1 stable facade 已定义 experimental `PlatformAdapter` control，但没有真实 26.1.2 platform adapter。X4 必须接入该 control 而不把 raw renderer/resource handle 放进 stable SPI。
+
+## Decision
+
+1. X4 lifecycle 是 configure → freeze → prepare/extract → submit → retire → close。builder 成功 build 后封存；factory 必须显式接受 integration owner 已 publish 的 X1 `ProviderLifecycleSession`。每次 prepare 生成 caller-owned `X4PreparedSnapshot`，其中的 internal `ModelRenderSnapshot` 和真实 `ProviderLease` 均固定 exact generation；raw snapshot 不属于 public prepared-snapshot API。
+2. 同一 frozen adapter 可持续产生多个 frame snapshot。snapshot close 立即禁止 new public diagnostic/read hold；已原子取得的 package-private submit hold 先排空，再释放真实 pin。`X4HostLeaseDiagnostics` 与 `drainCompletion()` 报告本地 lease/in-flight drain；X4 不拥有或 retire 注入的共享 session。
+3. prepare 可从已发布 `ClientModelLookup` 获取 immutable view，或验证 externally captured snapshot；submit 只通过 `BlendRenderer` 消费该 snapshot。缺失模型仍使用 generation-scoped missing handle，且必须保留同 key/generation 的 `X4MissingModelDiagnostic`。
+4. `retire()` / `close()` 打开同一个 terminal epoch，`close()` 可单调升级 retire intent。epoch 一旦打开就同时拒绝新 prepare 与新 submit admission；当时仍 open 的 snapshot 都是未来 provider-release failure（B）source，必须 close 并完成贡献，只有 epoch 前已准入的 submit hold 可以继续完成。普通、非重入的 public caller 会等待这些 source 排空并重放同一个 sealed terminal outcome `F`；只有 exact renderer/provider/revoke callback owner 或 contribution owner 的重入调用会合并到 outer owner 且不自等，foreign caller 仍等待。不会把旧 lease 替换成 current generation。R5 terminal-epoch contract 取代先前“既有 lease 可继续新建 submit”或 public terminal call 可提前返回的宽松措辞；这是兼容边界内刻意收紧的行为（stricter behavioral compatibility），不改变任何 public/protected JVM descriptor，也不增删或重命名 `X4HostLifecycleState` enum constant。
+   Decision 4 的唯一 sealed result 公式为 `F = select(Ae*, select(select(B*, C*), D*))`；所有 source 必须在 seal 前贡献，seal 后只重放，不允许另一条 terminal epoch 或 second outcome。
+5. `X4HostAdapterRegistry` 不将普通 `state()` read 当作 registration commit proof。factory-managed adapter 从同一 lifecycle monitor 取得 package-private reservation；包外 adapter 必须显式通过 versioned experimental `X4ManagedHostAdapter.takeOwnership(...)` 转移 lifecycle ownership，raw adapter fail closed。managed handle 的 public API 不实现/暴露 internal marker 或 reservation SPI，也拒绝把一个 managed handle 再次 transfer。managed terminal lifecycle 是一个 owner-thread transaction：raw dispatch 尚未 seal 时并发 close 可 upgrade retire；seal 后 result 先发布再唤醒，同一 in-flight observer 都取得同一 immutable outcome，绝不第二次 delegate，owner-thread reentry fail-fast。只有 successful retire 已完成后的新 close 才会建立 successor transaction；failure outcome 对所有后续 terminal caller 永久重放。registry 只经同包 bridge 调用其 package-private lifecycle gate。operation 原子地 CONFIGURING → FROZEN，reservation 存在时 prepare fail closed，其他线程 retire/close 在 monitor 外等待。registry 先插入 pending exact membership，reservation commit 将 token 绑定到 adapter；只有 registry 仍 open、operation 仍 current、该 membership 尚未 revoke 时才激活并签发 receipt。direct close/retire、registry retire 和 lease-release failure terminal path 都在 adapter monitor 外先 revoke exact membership、物理移除 record，再使 terminal state 可观察；`registrations()` 不做 lazy state filter。receipt 绑定 registry owner token、adapter identity、revision 和 membership token，避免 stale/ABA receipt 删除 replacement。registry 从不在自身 monitor 内调用 adapter，adapter 也不在自身 monitor 内 revoke membership，避免 ABBA。commit/abort/cleanup failure 以统一 primary/cleanup selector 保留 fatal identity 与不同 suppressed failure；abort 的 nested finally 无条件清除 active registration sentinel。
+6. `Minecraft2612X4PlatformAdapter` 只能由 explicit bootstrap owner 手动 install，且必须保存 `X4PlatformInstallationReceipt` 后用 `uninstall(receipt)` 精确卸载。install 使用 epoch transaction：close 在 global publish 前取消；若 global owner 已发布但 receipt 尚未 commit，install owner 必须完成 exact rollback 后才结束。close 在进入事务 monitor 前的 ownership read 只是可测试 observation；所有会改变 `externalCloseObserved`、`globalDetached` 或 callback 分类的决策，必须在 `GLOBAL_X4_CONTROL_GATE → adapter monitor` 的固定锁序内基于 fresh exact-owner read，且 detached 状态只允许单调前进。外部 callback 不在 adapter monitor 内执行，close lifecycle hook 还必须在 global gate 释放后执行。外部 X1 detach 触发 bridge close callback 时必须等该 transaction 观察 owner loss，防止 unqualified rollback 删除 replacement。它在 callback monitor 外评估 item animation / duplicate equality，拒绝 duplicate、reentry 和 callback failure 的 partial commit；fatal callback 先恢复本地不变量、释放 exact control owner、再重抛同一 fatal 对象。
+7. binding 只标识 existing Fabric seam；最终 entity/block/item renderer installation 是 shared owner responsibility。bridge 不触发 renderer、resource、network 或 automatic bootstrap。
+
+## Consequences
+
+- reload 期间旧 snapshot 在其 caller lease 关闭前不会被重新绑定；新 generation 必须创建新的 frozen adapter。
+- PlatformAdapterControl 的 global ownership 不会由 X4 无条件卸载其他 provider；foreign/stale/ABA installation receipt 不会删除当前 owner。即使 close 先读到未安装、随后 install 在 close 事务决策前完成 global publish，fresh revalidation 也会迫使 exact rollback；receipt-less race 不会遗留 global owner 或误删 external replacement。
+- 一个已注册 adapter 的公开 terminal transition 不会留下可 inspect 的 membership；同 identity replacement 只能在前一 exact token 已物理撤销后成功。external migration 保持 public adapter surface，但 reservation/marker 仍是 package-private implementation detail。
+- unit tests 可以证明 exact snapshot/lease/bridge behavior，但不能替代 real-client visual/reload/compatibility evidence。
+- package-private `X4PreparedSnapshot.ReleaseListener` 的 internal method 传递已经分配的 exact `SubmissionHold`；这不改变 public/protected descriptor、不新增 submit allocation。若恢复另一 internal descriptor，会改变九个 executable hash，并要求全部 executable gate 重跑。
+- R15 的精确 source/static report、artifact/manifest SHA-256、6-test exact class、focused X4 9/65、focused X6 8/113、full client 55/323、root 134/1,033、X1 69、consumer 5 与 corrected Gate 7 8/8 统一记录在 [`../x6/test-evidence.md`](../x6/test-evidence.md)。这些自动化 PASS 不推进任何 WAITING runtime Gate。
+
+## Rejected alternatives
+
+- submit-time `ClientModelLookup.resolve`：会违反 immutable snapshot 和 hot-path boundary。
+- automatic adapter install：会让 load order、global ownership 和 rollback 不可控。
+- bridge 直接注册 Fabric renderer：会要求越过 X4 允许的 entrypoint/renderer ownership，并把 opaque stable token 变成 platform internals。
+- 公开 registry reservation 或要求 external adapter 实现 internal marker：会把 lock protocol 和 terminal-revocation trust boundary 变成可伪造的 public SPI。

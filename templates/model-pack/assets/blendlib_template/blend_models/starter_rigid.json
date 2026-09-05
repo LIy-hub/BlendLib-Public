@@ -1,0 +1,17 @@
+{
+  "extensions": {},
+  "extensions_required": [],
+  "extensions_used": [],
+  "format_version": 1,
+  "materials": {
+    "StaticSurface": {
+      "base_color": "blendlib_template:textures/blendlib/starter_rigid__staticsurface.png",
+      "double_sided": false,
+      "emissive": false,
+      "mode": "opaque"
+    }
+  },
+  "mesh": "blendlib_template:models3d/starter_rigid.glb",
+  "profile": "blendlib:rigid_v1",
+  "units_per_block": 1.0
+}

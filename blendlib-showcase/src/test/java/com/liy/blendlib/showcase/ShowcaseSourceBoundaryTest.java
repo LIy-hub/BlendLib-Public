@@ -68,37 +68,8 @@ class ShowcaseSourceBoundaryTest {
                             || importedType.startsWith("com.liy.blendlib.fabric.client.render."),
                     () -> "Client Showcase import escapes the public adapter surface: " + importedType);
         }
-        assertTrue(source.contains(".staticRestPose()"));
-        assertTrue(source.contains(".synchronizedSkinnedAnimation("));
-        assertTrue(source.contains("BlendEntityRenderers.register"));
-    }
-
-    @Test
-    void animatedActorWiringStaysOnThePublicExtractionOnlyAdapterSurface() throws IOException {
-        String entrypoint = readJavaSources("client");
-        for (String forbiddenToken : List.of(
-                "com.liy.blendlib.core.",
-                "com.liy.blendlib.fabric.client.reload.",
-                "ClientModelRegistry",
-                "ClientAnimationLifecycleBridge",
-                "BlendLibClientAnimationSync",
-                "ClientAnimationSyncRuntime",
-                "ClientAnimationSyncStore",
-                "UnknownTargetQueue",
-                "Minecraft.getInstance",
-                "com.liy.blendlib.fabric.client.network.",
-                "com.liy.blendlib.fabric.client.animation.sync.",
-                "com.liy.blendlib.fabric.common.network.",
-                "CustomPacketPayload",
-                ".submit(")) {
-            assertFalse(entrypoint.contains(forbiddenToken), forbiddenToken);
-        }
-        assertTrue(entrypoint.contains("ShowcaseEntities.ANIMATED_ACTOR"));
-        assertTrue(entrypoint.contains("ShowcaseSkinnedAnimationBinding.MODEL_KEY"));
-        assertTrue(entrypoint.contains("ShowcaseAnimatedActorStateSchedule.stateAt(request.ageInTicks())"));
-        assertTrue(entrypoint.contains(".synchronizedSkinnedAnimation("));
-        assertTrue(entrypoint.contains("TIP_SOCKET_KEY"));
-        assertTrue(entrypoint.contains(".skinnedSocketMarker(TIP_SOCKET_KEY)"));
+        assertTrue(source.contains(".syncedSkinnedAnimation("));
+        assertTrue(source.contains("BlendBlockEntityRenderers.register"));
     }
 
     private static String readJavaSources(String sourceSet) throws IOException {

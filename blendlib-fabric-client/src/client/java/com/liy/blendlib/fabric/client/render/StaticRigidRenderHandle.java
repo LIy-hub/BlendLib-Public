@@ -18,11 +18,10 @@ import java.util.Map;
 import java.util.Objects;
 
 /**
- * Prebuilt static/rigid handle for one immutable core asset generation.
+ * Prebuilt static/rigid rest-pose handle for one immutable core asset generation.
  *
- * <p>Geometry arrays are copied exactly once here, during handle creation. The core asset already
- * carries its load-time conservative all-clip culling envelope, so handle preparation and submit
- * perform no animation sampling or temporal bounds work.</p>
+ * <p>This class deliberately never reads model animation data; rigid animation sampling and
+ * node palettes begin in P5. Geometry arrays are copied exactly once here, during handle creation.</p>
  */
 public final class StaticRigidRenderHandle implements ModelRenderHandle {
     private final BlendModelKey modelKey;

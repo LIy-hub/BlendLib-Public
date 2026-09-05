@@ -19,6 +19,9 @@ logs/
 .vscode/
 out/
 
+# Local logo exploration; approved assets live in docs/assets/branding/
+/output/imagegen/
+
 # Local JVM crash diagnostics
 hs_err_pid*.log
 replay_pid*.log

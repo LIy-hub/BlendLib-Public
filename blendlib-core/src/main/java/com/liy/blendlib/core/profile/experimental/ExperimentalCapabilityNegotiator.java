@@ -55,7 +55,6 @@ final class ExperimentalCapabilityNegotiator {
     private static void enforceProfileCapabilities(ExperimentalProfile profile, Set<BlendResourceId> ids) {
         require(ids, "blendlib:cubic-spline", profile);
         require(ids, "blendlib:vertex-color", profile);
-        require(ids, "blendlib:multiple-uv", profile);
         require(ids, "blendlib:richer-material-metadata", profile);
         if (profile == ExperimentalProfile.MORPH_V1) {
             require(ids, "blendlib:morph-targets", profile);

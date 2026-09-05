@@ -1,0 +1,20 @@
+{
+  "format": "blendlib-x8-variant-intent-v1",
+  "model": "blendlib_template:starter_rigid",
+  "rules": [
+    {
+      "id": "base",
+      "priority": 0,
+      "result": "base"
+    },
+    {
+      "id": "charged",
+      "priority": 100,
+      "result": "charged",
+      "when": {
+        "semantic_flag": "charged"
+      }
+    }
+  ],
+  "status": "authoring-reference-only; X6 production wiring is WAITING"
+}

@@ -17,6 +17,13 @@ import java.util.concurrent.atomic.AtomicReference;
  */
 public final class BlendLibClientServices {
     private static final AtomicReference<Services> ACTIVE = new AtomicReference<>();
+    private static final ClientModelLookupBootstrap MANAGED_LOOKUP_BOOTSTRAP = new ManagedLookupBootstrap();
+
+    /** The sole Java-source constructible bootstrap token for a registry-backed managed lookup. */
+    static final class ManagedLookupBootstrap implements ClientModelLookupBootstrap {
+        private ManagedLookupBootstrap() {
+        }
+    }
 
     private BlendLibClientServices() {
     }
@@ -91,30 +98,25 @@ public final class BlendLibClientServices {
         return active().performanceMeasurements();
     }
 
-    private static void install(
+    private static synchronized void install(
             ClientModelRegistry registry, ModelRenderBackend backend, SkinnedAnimationRuntime skinnedAnimationRuntime) {
-        Services replacement = Services.create(registry, backend, skinnedAnimationRuntime);
-        while (true) {
-            Services current = ACTIVE.get();
-            if (current == null) {
-                if (ACTIVE.compareAndSet(null, replacement)) {
-                    return;
-                }
-                continue;
-            }
-            if (current.registry() != registry || current.backend() != backend) {
-                throw new IllegalStateException("BlendLib client services are already initialized for another adapter instance");
-            }
-            if (current.skinnedAnimationRuntime() == skinnedAnimationRuntime) {
-                return;
-            }
-            if (skinnedAnimationRuntime == null || current.skinnedAnimationRuntime() != null) {
-                throw new IllegalStateException("BlendLib client services cannot replace the installed P5 skinned animation runtime");
-            }
-            if (ACTIVE.compareAndSet(current, current.withSkinnedAnimationRuntime(skinnedAnimationRuntime))) {
-                return;
-            }
+        ClientModelRegistry checkedRegistry = Objects.requireNonNull(registry, "registry");
+        ModelRenderBackend checkedBackend = Objects.requireNonNull(backend, "backend");
+        Services current = ACTIVE.get();
+        if (current == null) {
+            ACTIVE.set(Services.create(checkedRegistry, checkedBackend, skinnedAnimationRuntime));
+            return;
         }
+        if (current.registry() != checkedRegistry || current.backend() != checkedBackend) {
+            throw new IllegalStateException("BlendLib client services are already initialized for another adapter instance");
+        }
+        if (current.skinnedAnimationRuntime() == skinnedAnimationRuntime) {
+            return;
+        }
+        if (skinnedAnimationRuntime == null || current.skinnedAnimationRuntime() != null) {
+            throw new IllegalStateException("BlendLib client services cannot replace the installed P5 skinned animation runtime");
+        }
+        ACTIVE.set(current.withSkinnedAnimationRuntime(skinnedAnimationRuntime));
     }
 
     private static Services active() {
@@ -138,7 +140,7 @@ public final class BlendLibClientServices {
                 ClientModelRegistry registry, ModelRenderBackend backend, SkinnedAnimationRuntime skinnedAnimationRuntime) {
             ClientModelRegistry checkedRegistry = Objects.requireNonNull(registry, "registry");
             ModelRenderBackend checkedBackend = Objects.requireNonNull(backend, "backend");
-            ClientModelLookup models = new RegistryBackedModelLookup(checkedRegistry);
+            ClientModelLookup models = checkedRegistry.installServiceLookup(MANAGED_LOOKUP_BOOTSTRAP);
             ClientDiagnosticsService diagnostics = new ClientDiagnosticsService(models);
             ClientRenderMeasurementService measurements = new ClientRenderMeasurementService(
                     () -> skinnedAnimationRuntime == null

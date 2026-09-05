@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "id": "blendlib_independent_consumer",
+  "version": "${version}",
+  "name": "BlendLib Independent Consumer",
+  "description": "Minimal public-coordinate BlendLib consumer.",
+  "license": "Apache-2.0",
+  "environment": "*",
+  "entrypoints": {
+    "main": [
+      "com.liy.blendlib.examples.consumer.IndependentConsumerEntrypoint"
+    ],
+    "client": [
+      "com.liy.blendlib.examples.consumer.client.IndependentConsumerClientEntrypoint"
+    ]
+  },
+  "depends": {
+    "fabricloader": ">=0.19.3",
+    "minecraft": "26.1.2",
+    "java": ">=25",
+    "fabric-api": "*",
+    "blendlib": ">=${blendlib_alpha_version}"
+  }
+}

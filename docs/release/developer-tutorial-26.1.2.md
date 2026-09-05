@@ -1,6 +1,6 @@
 # Fabric 26.1.2 开发者教程
 
-本教程只使用本地候选公共 API。将它放在你的 Fabric 模组的 client source set
+本教程只使用 Alpha 源线的公共 API。将它放在你的 Fabric 模组的 client source set
 或 server/common source set 中时，仍需遵守各自的类加载边界。
 
 ## 1. 定义语义 key 和资源布局

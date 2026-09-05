@@ -1,0 +1,58 @@
+{
+  "observed_at_utc": "2026-07-31T19:37:05.9498300Z",
+  "relation": "post-checkpoint live-source comparison against the authoritative capture; external concurrent activity only, author unknown",
+  "comparison": "SHA-256 and byte length for the fixed 577-path capture list",
+  "changed_candidate_paths": 7,
+  "missing_candidate_paths": 0,
+  "paths": [
+    {
+      "relative_path": "blendlib-fabric-common/src/test/java/com/liy/blendlib/fabric/common/network/AnimationPayloadCodecTest.java",
+      "captured_size_bytes": 4851,
+      "captured_sha256": "9DE8188E76A424DE110086D37D7F5D3652A0D5D812D54DB82B3AC783199D2C9E",
+      "live_size_bytes": 5138,
+      "live_sha256": "CFFBD3B2397A1DA6EEA26B39F4D000AD2C558BEA53EC93BFEADDEC873A483723"
+    },
+    {
+      "relative_path": "blendlib-fabric-client/src/test/java/com/liy/blendlib/fabric/client/animation/runtime/SkinnedAnimationRuntimeTest.java",
+      "captured_size_bytes": 27923,
+      "captured_sha256": "90D86575804EB2BC8F03AD7B51362C6F782ABBAF740C52ECA430FA011BA72CF3",
+      "live_size_bytes": 33675,
+      "live_sha256": "5E875EFC1605BCBEBEA1BF62E188BC986C1BE1160C86C9656EBA5CA68AFD1289"
+    },
+    {
+      "relative_path": "blendlib-fabric-client/src/client/java/com/liy/blendlib/fabric/client/animation/runtime/SkinnedAnimationRuntime.java",
+      "captured_size_bytes": 20035,
+      "captured_sha256": "E579F8832621CACAA9326537D3740360CAD8A5C2A8C800BE9748219D778FB70C",
+      "live_size_bytes": 20274,
+      "live_sha256": "908910616BF876EFDB013ABB1078C420E19E960DE5EE78B5EDABF27726F575C9"
+    },
+    {
+      "relative_path": "blendlib-core/src/main/java/com/liy/blendlib/core/animation/runtime/AnimationController.java",
+      "captured_size_bytes": 20327,
+      "captured_sha256": "85797D06CDDE968B2F74B0D3708C4E5810CF8B30317B1A98B5C9ED46E0184C85",
+      "live_size_bytes": 25498,
+      "live_sha256": "72288DF599AB12D65B2E48FC146E0DBBD98152FE8FD5A44A5A085C561CFA5F93"
+    },
+    {
+      "relative_path": "docs/design-v1.md",
+      "captured_size_bytes": 16726,
+      "captured_sha256": "E30960F97F6073A8C445748B64ECE7CB59A18B680FC6A78230EA036BBC108E81",
+      "live_size_bytes": 17256,
+      "live_sha256": "64C45CF4161895DE474FD16E0E460C84A21A31D375F9C99125E7849EF2E43A1E"
+    },
+    {
+      "relative_path": "blendlib-core/src/test/java/com/liy/blendlib/core/animation/runtime/AnimationControllerTest.java",
+      "captured_size_bytes": 14211,
+      "captured_sha256": "B649EADEC88138C03488FA08190118F4390F8931D6DFF7A0B2AF86BF7088EE79",
+      "live_size_bytes": 18861,
+      "live_sha256": "0D3695948E3E85589E6D6BCEC883CB2C4D4D5816E40DBACAAD71C3C7C0CE83FD"
+    },
+    {
+      "relative_path": "docs/architecture.md",
+      "captured_size_bytes": 13388,
+      "captured_sha256": "3B0E16BC1A20F8874AF59076F82001F607A26ED9B2A4B5E0FEC03D1BC1416D5F",
+      "live_size_bytes": 13724,
+      "live_sha256": "3A74D359B689D98995C55BCDBAD404566F9D0E8293B5CDDEFC59FBBD3850C26C"
+    }
+  ]
+}

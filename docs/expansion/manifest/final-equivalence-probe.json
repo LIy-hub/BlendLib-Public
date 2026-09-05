@@ -1,0 +1,41 @@
+{
+  "verified_at_utc": "2026-07-31T19:37:05.9498300Z",
+  "source": {
+    "status_command": "git -C D:\\BlendLib status --porcelain=v1 --untracked-files=all",
+    "head": "7d88c85d77a25667ad45bd5a792f4918429e979e",
+    "branch": "Liy/blendlib-v1",
+    "status_entries": 492,
+    "status_groups": [
+      {
+        "status": " M",
+        "count": 21
+      },
+      {
+        "status": "??",
+        "count": 471
+      }
+    ],
+    "capture_manifest_missing": 0,
+    "capture_manifest_mismatches": 7
+  },
+  "target": {
+    "status_command": "git -C D:\\BlendLib-agentloop status --porcelain=v1 --untracked-files=all",
+    "head": "8874d0b5b85a8e5e07270d185f3c0f0e6053feac",
+    "branch": "agentloop/blendlib-expansion",
+    "status_entries": 21,
+    "status_groups": [
+      {
+        "status": "??",
+        "count": 21
+      }
+    ],
+    "capture_manifest_missing": 0,
+    "capture_manifest_mismatches": 0
+  },
+  "capture": {
+    "files": 577,
+    "canonical_tab_sha256": "777d4616772a8f4327b8dc4146e2e55dc0ae27e73e33853283940d60d27efd09",
+    "authority": "near-copy PRE=POST capture, not the later live-source state"
+  },
+  "conclusion": "Target still preserves every captured path byte-for-byte. Later source drift is separately recorded and does not rewrite the checkpoint."
+}

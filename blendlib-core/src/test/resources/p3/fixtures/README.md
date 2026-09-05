@@ -1,9 +1,9 @@
-# Strict-loader fixture package
+# P3 strict-loader fixture package
 
-This package is self-authored test support. It does not copy or mutate canonical GLB,
+This package is self-authored test support. It does not copy or mutate P2 GLB,
 PNG, descriptor, source-blend, or golden files. Binary fixtures are generated
-deterministically by the core test fixture catalog, which returns a fresh bounded
-byte array for each request.
+deterministically by `com.liy.blendlib.core.testsupport.P3FixtureCatalog`; the
+catalog returns a fresh bounded byte array for each request.
 
 | GLB fixture | Expected diagnostic family |
 |---|---|

@@ -1,0 +1,13 @@
+# WAITING TEMPLATE ONLY: this file is intentionally not named neoforge.mods.toml,
+# so the X8 bridge JAR is not represented as a loadable NeoForge runtime artifact.
+# Replace only after an integration owner verifies official NeoForge 26.2 ModDevGradle,
+# loader version range, mappings, event-bus constructor, and client resource/render APIs.
+modLoader="javafml"
+loaderVersion="[OFFICIAL_26_2_LOADER_VERSION,)"
+license="Apache-2.0"
+
+[[mods]]
+modId="blendlib_neoforge_262"
+version="${mod_version}"
+displayName="BlendLib NeoForge 26.2 Adapter"
+description="WAITING official NeoForge 26.2 API binding; pure bridge artifact is not loadable."

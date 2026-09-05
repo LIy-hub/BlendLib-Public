@@ -1,0 +1,313 @@
+{
+  "format": "blendlib-x0-checkpoint-byte-preservation-correction-v1",
+  "correction_commit": "0102a9fea4e01abda19cb1975a46360a9cdf02ed",
+  "parent_commit": "183cfba1f72d3b63028bee5519efd5ddaab469f9",
+  "historical_capture": { "canonical_manifest": "docs/expansion/manifest/canonical-path-size-sha256.tsv", "files": 577, "bytes": 2890219, "canonical_sha256": "777d4616772a8f4327b8dc4146e2e55dc0ae27e73e33853283940d60d27efd09" },
+  "old_checkpoint": { "commit": "8874d0b5b85a8e5e07270d185f3c0f0e6053feac", "files": 577, "bytes": 2885898, "mismatch_count": 22, "delta_bytes": 4321, "mismatches": [
+  {
+    "relative_path": "blender-addon/LICENSE",
+    "expected_size_bytes": 35821,
+    "checkpoint_size_bytes": 35147,
+    "delta_bytes": 674,
+    "expected_sha256": "0B383D5A63DA644F628D99C33976EA6487ED89AAA59F0B3257992DEAC1171E6B",
+    "checkpoint_sha256": "8CEB4B9EE5ADEDDE47B31E975C1D90C73AD27B6B165A1DCD80C7C545EB65B903",
+    "checkpoint_blob_oid": "94a9ed024d3859793618152ea559a168bbcbb5e2"
+  },
+  {
+    "relative_path": "blendlib-showcase/src/main/resources/assets/blendlib_showcase/blend_models/fixtures/rigid_model.json",
+    "expected_size_bytes": 698,
+    "checkpoint_size_bytes": 671,
+    "delta_bytes": 27,
+    "expected_sha256": "D5EF584999ED54CE17B798E85D0E31B62B85DB89BC4EE5F820C46806A5A8852D",
+    "checkpoint_sha256": "3087A6FF5CCDA62F5AACDFFA4C12F1F4744075F61A3ACC15A9B85F841974FB7A",
+    "checkpoint_blob_oid": "54067bcc820a7357b4b683b9bc840f65d85bdf1c"
+  },
+  {
+    "relative_path": "blendlib-showcase/src/main/resources/assets/blendlib_showcase/blend_models/fixtures/skinned_model.json",
+    "expected_size_bytes": 711,
+    "checkpoint_size_bytes": 684,
+    "delta_bytes": 27,
+    "expected_sha256": "1A2B5C3B38218DF1D5F95E1D65EFE90EC89EDCCFE399FD6CE5AC2415FC42D012",
+    "checkpoint_sha256": "11097D33F049EE043196CDEA18A4E0F864F1F836D8900A638A0EEF225E1BAF75",
+    "checkpoint_blob_oid": "13ba3c7be522922aea67cd199e2f1d37bfdd1a91"
+  },
+  {
+    "relative_path": "blendlib-showcase/src/main/resources/assets/blendlib_showcase/blend_models/fixtures/static_model.json",
+    "expected_size_bytes": 471,
+    "checkpoint_size_bytes": 454,
+    "delta_bytes": 17,
+    "expected_sha256": "613A53D799AF75D2E5223AE8B601F67AD12EBE13105E1C3AD234858DBB50696A",
+    "checkpoint_sha256": "8B5BD23213E09591C48150FE3F9F0400275C54C0FE56EDB73E573B7597C2DC5C",
+    "checkpoint_blob_oid": "d1cb7452614336f8243f52e90f7681d19ccc51e6"
+  },
+  {
+    "relative_path": "blendlib-showcase/src/main/resources/assets/blendlib_showcase/blend_models/showcase_animation/showcase_actor.json",
+    "expected_size_bytes": 1412,
+    "checkpoint_size_bytes": 1360,
+    "delta_bytes": 52,
+    "expected_sha256": "D2E044E4E2C251E79DF95E6F028AE457DF76630FE3CDE05AA76ABAEA81353A94",
+    "checkpoint_sha256": "B2176D683DF0E462B100BD72C787D80DF0A956733CB4FD9ADB99D2AA555CDCEA",
+    "checkpoint_blob_oid": "209f7873a9b0417fa2ffab494e0bb3ef3b0fcf3a"
+  },
+  {
+    "relative_path": "gradlew.bat",
+    "expected_size_bytes": 2848,
+    "checkpoint_size_bytes": 2766,
+    "delta_bytes": 82,
+    "expected_sha256": "D539676C48B596AFDA64C963EC8F7EE56C7B3FE7E3B81D1DBE2D1A1E3DD9E9F8",
+    "checkpoint_sha256": "59328C7A17F673B1A63040BFB380A0C749E5D6DF3406F7F18641060314CD9AA1",
+    "checkpoint_blob_oid": "a51ec4f5886d3bb106b26724ee4507addbbe3fa8"
+  },
+  {
+    "relative_path": "test-assets/rigid/expected.json",
+    "expected_size_bytes": 490,
+    "checkpoint_size_bytes": 477,
+    "delta_bytes": 13,
+    "expected_sha256": "CEAB1DF1C49837AAAA42CDD6BA475C357C923383E92488FC1BB28683355AB341",
+    "checkpoint_sha256": "0796FCA418413B4862785638762AA906D567EC4BA315EA2A18788828CE1BDAAD",
+    "checkpoint_blob_oid": "2e6c8b0291814027472370b643ffb5b0d4cabdac"
+  },
+  {
+    "relative_path": "test-assets/rigid/export-report.json",
+    "expected_size_bytes": 4344,
+    "checkpoint_size_bytes": 4177,
+    "delta_bytes": 167,
+    "expected_sha256": "22DFA1F7443A42A8902834E1A7DF7B87E7C100DC3506164587118916779B0D3B",
+    "checkpoint_sha256": "EDA27224E2F379BC1A384823B7FF429B20180E2B3FDD082B76C68B02E80040F3",
+    "checkpoint_blob_oid": "bce9fffde5d10039afbfb57a3b5fa4f11d38e142"
+  },
+  {
+    "relative_path": "test-assets/rigid/golden/sha256.json",
+    "expected_size_bytes": 607,
+    "checkpoint_size_bytes": 597,
+    "delta_bytes": 10,
+    "expected_sha256": "0110714646B8B1CAE67459C4736F6B88D0AF547F7177E9D7A200D5258D0F0BE3",
+    "checkpoint_sha256": "5353E0B6CC27BB18D1C16B13B33C0534CA808DC90A2537130B04AD664C72417A",
+    "checkpoint_blob_oid": "d07a7ee13b596c29f5dfbae19e4fc62a148155f4"
+  },
+  {
+    "relative_path": "test-assets/rigid/golden/structure.json",
+    "expected_size_bytes": 2255,
+    "checkpoint_size_bytes": 2148,
+    "delta_bytes": 107,
+    "expected_sha256": "2976860E795F2C8773565EEDFB61AAD4581A02FB51D36284D8359FEB9D1690ED",
+    "checkpoint_sha256": "63C1481DF09CF9C6C4AEA525F990D61D5582092E37FBF2B2E9819C6FDE9DB830",
+    "checkpoint_blob_oid": "467845d34911c3c137b46eec69ddd2b28640b1a2"
+  },
+  {
+    "relative_path": "test-assets/showcase-animation/expected.json",
+    "expected_size_bytes": 1653,
+    "checkpoint_size_bytes": 1604,
+    "delta_bytes": 49,
+    "expected_sha256": "4ED82E508FB96AF8B5966CFE58DDED2380A10E2534D435191C71A4F6E43CF808",
+    "checkpoint_sha256": "5751592BDB37775502CBFA2579A54778B4811231865FCCD851D42B2B946F9B34",
+    "checkpoint_blob_oid": "b23cb563326a700e6afbf53dbf52c72c6edb2800"
+  },
+  {
+    "relative_path": "test-assets/showcase-animation/export-report.json",
+    "expected_size_bytes": 28609,
+    "checkpoint_size_bytes": 27310,
+    "delta_bytes": 1299,
+    "expected_sha256": "626F50F969B0F23122CC5A4F96F5890CBA3B77EA6BC44AD28CCB869FD0A9B180",
+    "checkpoint_sha256": "DF83703411634A3D8880D61ECA3E630ADA5F678AA4F950B489FB2DE689CC485C",
+    "checkpoint_blob_oid": "2eac30c9e1d26d1c361855e0b3338029eab120cd"
+  },
+  {
+    "relative_path": "test-assets/showcase-animation/golden/sha256.json",
+    "expected_size_bytes": 596,
+    "checkpoint_size_bytes": 587,
+    "delta_bytes": 9,
+    "expected_sha256": "967E9281B33028880139FFBA696537B053A33458A890F42824477E1715A2607B",
+    "checkpoint_sha256": "4A382F3BEE45FD9157A451BF9E05F39D24D91A96EB7DAE7AED76E0D2BDCB42A7",
+    "checkpoint_blob_oid": "2f3cc2b80272b724d8ea5cca70e5754d7c46a334"
+  },
+  {
+    "relative_path": "test-assets/showcase-animation/golden/structure.json",
+    "expected_size_bytes": 24575,
+    "checkpoint_size_bytes": 23334,
+    "delta_bytes": 1241,
+    "expected_sha256": "DC175F746749C193AC13A1626584613DEC3DB17A1D9AAB784370A6F84DDBC380",
+    "checkpoint_sha256": "7A327E20D6B0AFED9966E8B56B35C84927E598CE34AAABD4B616397CC1C3D568",
+    "checkpoint_blob_oid": "46025ab9a90b612f7c138442d33a72cd2b38c168"
+  },
+  {
+    "relative_path": "test-assets/skinned/expected.json",
+    "expected_size_bytes": 478,
+    "checkpoint_size_bytes": 465,
+    "delta_bytes": 13,
+    "expected_sha256": "C5CC3A5E3C771A0B72D9AB24207A43023B5A66DCFC7112C8A04C20A44CEFAC6F",
+    "checkpoint_sha256": "9ED56EA9528A5DA435E6B74C5A86E6B0BD325DC5B28B0A11926A3A42728510E0",
+    "checkpoint_blob_oid": "fe7a815c559f0788b7e4c6348606f3c85d53d70d"
+  },
+  {
+    "relative_path": "test-assets/skinned/export-report.json",
+    "expected_size_bytes": 4533,
+    "checkpoint_size_bytes": 4362,
+    "delta_bytes": 171,
+    "expected_sha256": "42795BF2EA3548E23DD6858EF74565F53F296A2E63B61F1CFD3E3E0F62986C69",
+    "checkpoint_sha256": "FBD664146918C6B32596968782913FBD60654A5332DA8F02CD2749EAB4DF3C6E",
+    "checkpoint_blob_oid": "30aef61cc7f82dcc5985cb435e8b25e4b48060c3"
+  },
+  {
+    "relative_path": "test-assets/skinned/golden/sha256.json",
+    "expected_size_bytes": 609,
+    "checkpoint_size_bytes": 599,
+    "delta_bytes": 10,
+    "expected_sha256": "418689ADB08A37560A895C39C1C29159441E91DF48B8D89051670B63B58B4560",
+    "checkpoint_sha256": "F5F7727A756C5730DF8ACB84A6C395C997862C43203B2AC1ECA2EF25FA58F60F",
+    "checkpoint_blob_oid": "94f1faa47c07881d3b9ed17ba56d6113ebea1b83"
+  },
+  {
+    "relative_path": "test-assets/skinned/golden/structure.json",
+    "expected_size_bytes": 2379,
+    "checkpoint_size_bytes": 2268,
+    "delta_bytes": 111,
+    "expected_sha256": "0491161C6726C1712C2E50DE2013DC6AA59AEC5C38979AE7B78620E3B84533DC",
+    "checkpoint_sha256": "6D800898E736EB7D654EED0BC56C1BD438B9F0B012DE7BC0B401EEE0B5258427",
+    "checkpoint_blob_oid": "82c399370fbdc9c5b33ebd42be2989cafec7787b"
+  },
+  {
+    "relative_path": "test-assets/static/expected.json",
+    "expected_size_bytes": 678,
+    "checkpoint_size_bytes": 644,
+    "delta_bytes": 34,
+    "expected_sha256": "852E38C5EB85914A3AA4457071168345A99ED0AF2124B6CC03B21B2928F69803",
+    "checkpoint_sha256": "752DCD677677C5F9B6D551E0D2AD9487D4416845661D30AA71E29835195D39EE",
+    "checkpoint_blob_oid": "81f7d4a601a8ba65917c6b5381552a91a64d4fb7"
+  },
+  {
+    "relative_path": "test-assets/static/export-report.json",
+    "expected_size_bytes": 3467,
+    "checkpoint_size_bytes": 3339,
+    "delta_bytes": 128,
+    "expected_sha256": "34D0245664A27230177A186CBAC2EA85C8176EF8EF4E8B9895F16453995F784E",
+    "checkpoint_sha256": "336E689C3291F38A8330645B52BCD8D007D4901374E35C6F376C31BCA5F517A1",
+    "checkpoint_blob_oid": "9de42fa7721547f44f4650a39371363e8f41c2e6"
+  },
+  {
+    "relative_path": "test-assets/static/golden/sha256.json",
+    "expected_size_bytes": 608,
+    "checkpoint_size_bytes": 598,
+    "delta_bytes": 10,
+    "expected_sha256": "3A4EE4FF15FC2AC35A6A3BEB0C7036CB7B8F230917EA161C85C0FAFDD9E08BB4",
+    "checkpoint_sha256": "905174E547F8826ECD3604C3373715A398C91CB9B1E1F47C655759953FED0816",
+    "checkpoint_blob_oid": "c93f3c00773719059c4bc5cadc1f9450819e48f4"
+  },
+  {
+    "relative_path": "test-assets/static/golden/structure.json",
+    "expected_size_bytes": 1497,
+    "checkpoint_size_bytes": 1427,
+    "delta_bytes": 70,
+    "expected_sha256": "B196BFB01DA74D198F0EAA718D07F72726D84AE86D630DFB94B3DB2351DCF14C",
+    "checkpoint_sha256": "48E5A76DFE8801DBE423CC01C7B8572E2F685A23B17EBF45E4A211A43EEF2A6E",
+    "checkpoint_blob_oid": "496dab772d6c12fd905b44acc39699dfbd2881c0"
+  }
+]
+ },
+  "corrected_tree": { "manifest": "docs/expansion/manifest/corrected-checkpoint-tree-manifest.tsv", "files": 577, "bytes": 2891800, "raw_path_size_sha256_canonical": "beabffc0294f667356c38f5b37bb4c1c0caeab8b8a3d1fbce1d0205fc17e28de", "historical_capture_matches": 576, "intentional_policy_delta_path": ".gitattributes", "unexpected_mismatches": 0, "unexpected_paths": [], "repaired_prior_mismatches": 22 },
+  "preservation_policy": { "attribute_file": ".gitattributes", "override": "-text -eol", "paths": [
+  "blender-addon/LICENSE",
+  "blendlib-showcase/src/main/resources/assets/blendlib_showcase/blend_models/fixtures/rigid_model.json",
+  "blendlib-showcase/src/main/resources/assets/blendlib_showcase/blend_models/fixtures/skinned_model.json",
+  "blendlib-showcase/src/main/resources/assets/blendlib_showcase/blend_models/fixtures/static_model.json",
+  "blendlib-showcase/src/main/resources/assets/blendlib_showcase/blend_models/showcase_animation/showcase_actor.json",
+  "gradlew.bat",
+  "test-assets/rigid/expected.json",
+  "test-assets/rigid/export-report.json",
+  "test-assets/rigid/golden/sha256.json",
+  "test-assets/rigid/golden/structure.json",
+  "test-assets/showcase-animation/expected.json",
+  "test-assets/showcase-animation/export-report.json",
+  "test-assets/showcase-animation/golden/sha256.json",
+  "test-assets/showcase-animation/golden/structure.json",
+  "test-assets/skinned/expected.json",
+  "test-assets/skinned/export-report.json",
+  "test-assets/skinned/golden/sha256.json",
+  "test-assets/skinned/golden/structure.json",
+  "test-assets/static/expected.json",
+  "test-assets/static/export-report.json",
+  "test-assets/static/golden/sha256.json",
+  "test-assets/static/golden/structure.json"
+], "check_attr_results": [
+  "blender-addon/LICENSE: text: unset",
+  "blender-addon/LICENSE: eol: unset",
+  "blendlib-showcase/src/main/resources/assets/blendlib_showcase/blend_models/fixtures/rigid_model.json: text: unset",
+  "blendlib-showcase/src/main/resources/assets/blendlib_showcase/blend_models/fixtures/rigid_model.json: eol: unset",
+  "blendlib-showcase/src/main/resources/assets/blendlib_showcase/blend_models/fixtures/skinned_model.json: text: unset",
+  "blendlib-showcase/src/main/resources/assets/blendlib_showcase/blend_models/fixtures/skinned_model.json: eol: unset",
+  "blendlib-showcase/src/main/resources/assets/blendlib_showcase/blend_models/fixtures/static_model.json: text: unset",
+  "blendlib-showcase/src/main/resources/assets/blendlib_showcase/blend_models/fixtures/static_model.json: eol: unset",
+  "blendlib-showcase/src/main/resources/assets/blendlib_showcase/blend_models/showcase_animation/showcase_actor.json: text: unset",
+  "blendlib-showcase/src/main/resources/assets/blendlib_showcase/blend_models/showcase_animation/showcase_actor.json: eol: unset",
+  "gradlew.bat: text: unset",
+  "gradlew.bat: eol: unset",
+  "test-assets/rigid/expected.json: text: unset",
+  "test-assets/rigid/expected.json: eol: unset",
+  "test-assets/rigid/export-report.json: text: unset",
+  "test-assets/rigid/export-report.json: eol: unset",
+  "test-assets/rigid/golden/sha256.json: text: unset",
+  "test-assets/rigid/golden/sha256.json: eol: unset",
+  "test-assets/rigid/golden/structure.json: text: unset",
+  "test-assets/rigid/golden/structure.json: eol: unset",
+  "test-assets/showcase-animation/expected.json: text: unset",
+  "test-assets/showcase-animation/expected.json: eol: unset",
+  "test-assets/showcase-animation/export-report.json: text: unset",
+  "test-assets/showcase-animation/export-report.json: eol: unset",
+  "test-assets/showcase-animation/golden/sha256.json: text: unset",
+  "test-assets/showcase-animation/golden/sha256.json: eol: unset",
+  "test-assets/showcase-animation/golden/structure.json: text: unset",
+  "test-assets/showcase-animation/golden/structure.json: eol: unset",
+  "test-assets/skinned/expected.json: text: unset",
+  "test-assets/skinned/expected.json: eol: unset",
+  "test-assets/skinned/export-report.json: text: unset",
+  "test-assets/skinned/export-report.json: eol: unset",
+  "test-assets/skinned/golden/sha256.json: text: unset",
+  "test-assets/skinned/golden/sha256.json: eol: unset",
+  "test-assets/skinned/golden/structure.json: text: unset",
+  "test-assets/skinned/golden/structure.json: eol: unset",
+  "test-assets/static/expected.json: text: unset",
+  "test-assets/static/expected.json: eol: unset",
+  "test-assets/static/export-report.json: text: unset",
+  "test-assets/static/export-report.json: eol: unset",
+  "test-assets/static/golden/sha256.json: text: unset",
+  "test-assets/static/golden/sha256.json: eol: unset",
+  "test-assets/static/golden/structure.json: text: unset",
+  "test-assets/static/golden/structure.json: eol: unset"
+], "check_attr_bad_lines": 0 },
+  "semantic_comparison": { "command": "git diff 183cfba1f72d3b63028bee5519efd5ddaab469f9 0102a9fea4e01abda19cb1975a46360a9cdf02ed --ignore-space-at-eol -- <22 paths>", "output_lines": 0 },
+  "descriptor_golden_matches": [
+  {
+    "fixture": "static",
+    "descriptor_path": "blendlib-showcase/src/main/resources/assets/blendlib_showcase/blend_models/fixtures/static_model.json",
+    "golden_path": "test-assets/static/golden/sha256.json",
+    "descriptor_sha256": "613a53d799af75d2e5223ae8b601f67ad12ebe13105e1c3ad234858dbb50696a",
+    "golden_descriptor_sha256": "613a53d799af75d2e5223ae8b601f67ad12ebe13105e1c3ad234858dbb50696a",
+    "matches": true
+  },
+  {
+    "fixture": "rigid",
+    "descriptor_path": "blendlib-showcase/src/main/resources/assets/blendlib_showcase/blend_models/fixtures/rigid_model.json",
+    "golden_path": "test-assets/rigid/golden/sha256.json",
+    "descriptor_sha256": "d5ef584999ed54ce17b798e85d0e31b62b85db89bc4ee5f820c46806a5a8852d",
+    "golden_descriptor_sha256": "d5ef584999ed54ce17b798e85d0e31b62b85db89bc4ee5f820c46806a5a8852d",
+    "matches": true
+  },
+  {
+    "fixture": "skinned",
+    "descriptor_path": "blendlib-showcase/src/main/resources/assets/blendlib_showcase/blend_models/fixtures/skinned_model.json",
+    "golden_path": "test-assets/skinned/golden/sha256.json",
+    "descriptor_sha256": "1a2b5c3b38218df1d5f95e1d65efe90ec89edccfe399fd6ce5ac2415fc42d012",
+    "golden_descriptor_sha256": "1a2b5c3b38218df1d5f95e1d65efe90ec89edccfe399fd6ce5ac2415fc42d012",
+    "matches": true
+  },
+  {
+    "fixture": "showcase_animation",
+    "descriptor_path": "blendlib-showcase/src/main/resources/assets/blendlib_showcase/blend_models/showcase_animation/showcase_actor.json",
+    "golden_path": "test-assets/showcase-animation/golden/sha256.json",
+    "descriptor_sha256": "d2e044e4e2c251e79df95e6f028ae457df76630fe3cde05aa76abaea81353a94",
+    "golden_descriptor_sha256": "d2e044e4e2c251e79df95e6f028ae457df76630fe3cde05aa76abaea81353a94",
+    "matches": true
+  }
+],
+  "review_state": "CORRECTION_IMPLEMENTED_AWAITING_FRESH_REVIEW"
+}

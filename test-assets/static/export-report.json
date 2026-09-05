@@ -1,9 +1,9 @@
 {
-  "blend": "test-assets/static/source.blend",
+  "blend": "D:\\BlendLib\\test-assets\\static\\source.blend",
   "collection": "BlendLibExport",
-  "descriptor_path": "blendlib-showcase/src/main/resources/assets/blendlib_showcase/blend_models/fixtures/static_model.json",
+  "descriptor_path": "D:\\BlendLib\\blendlib-showcase\\src\\main\\resources\\assets\\blendlib_showcase\\blend_models\\fixtures\\static_model.json",
   "format": "blendlib-p2-export-report-v1",
-  "mesh_path": "blendlib-showcase/src/main/resources/assets/blendlib_showcase/models3d/fixtures/static_model.glb",
+  "mesh_path": "D:\\BlendLib\\blendlib-showcase\\src\\main\\resources\\assets\\blendlib_showcase\\models3d\\fixtures\\static_model.glb",
   "model_id": "fixtures/static_model",
   "namespace": "blendlib_showcase",
   "normalized_structure": {
@@ -96,7 +96,7 @@
     ]
   },
   "texture_paths": {
-    "StaticSurface": "blendlib-showcase/src/main/resources/assets/blendlib_showcase/textures/blendlib/fixtures_static_model__staticsurface.png"
+    "StaticSurface": "D:\\BlendLib\\blendlib-showcase\\src\\main\\resources\\assets\\blendlib_showcase\\textures\\blendlib\\fixtures_static_model__staticsurface.png"
   },
   "validation": {
     "animation_names": [],

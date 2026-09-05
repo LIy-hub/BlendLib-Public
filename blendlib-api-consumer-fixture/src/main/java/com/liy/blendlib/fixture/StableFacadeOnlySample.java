@@ -1,7 +1,9 @@
 package com.liy.blendlib.fixture;
 
 import com.liy.blendlib.api.AnimationRequest;
+import com.liy.blendlib.api.BlendAnimationKey;
 import com.liy.blendlib.api.BlendLib;
+import com.liy.blendlib.api.BlendModelKey;
 import com.liy.blendlib.api.HostRegistrationSpec;
 
 /**
@@ -12,6 +14,9 @@ import com.liy.blendlib.api.HostRegistrationSpec;
  * renderer, or platform package.</p>
  */
 public final class StableFacadeOnlySample {
+    private static final BlendModelKey MODEL = BlendModelKey.parse("consumer:examples/clockwork");
+    private static final BlendAnimationKey IDLE = BlendAnimationKey.parse("consumer:idle");
+
     private StableFacadeOnlySample() {
     }
 
@@ -22,8 +27,8 @@ public final class StableFacadeOnlySample {
      */
     public static HostRegistrationSpec<String> entitySpecification() {
         return BlendLib.entity("stable-only-entity")
-                .model(ApiConsumerFixture.MODEL)
-                .animation(host -> AnimationRequest.loop(ApiConsumerFixture.IDLE))
+                .model(MODEL)
+                .animation(host -> AnimationRequest.loop(IDLE))
                 .build();
     }
 
@@ -34,8 +39,8 @@ public final class StableFacadeOnlySample {
      */
     public static HostRegistrationSpec<String> itemSpecification() {
         return BlendLib.item("stable-only-item")
-                .model(ApiConsumerFixture.MODEL)
-                .animation(host -> AnimationRequest.loop(ApiConsumerFixture.IDLE))
+                .model(MODEL)
+                .animation(host -> AnimationRequest.loop(IDLE))
                 .build();
     }
 }

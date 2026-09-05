@@ -2,6 +2,7 @@
 """Verify that the shared X9 descriptor corpus agrees with the JSON Schema."""
 
 import json
+from copy import deepcopy
 from pathlib import Path
 from typing import Any
 
@@ -40,6 +41,33 @@ for path in sorted((Path(__file__).resolve().parent / "schema-corpus").glob("*.j
     if valid != expected_valid:
         failures.append(f"{path.name}: expected valid={expected_valid}, got valid={valid}")
 
+boundary = json.loads(
+    (Path(__file__).resolve().parent / "schema-corpus" / "valid-standard.json").read_text(encoding="utf-8"),
+    object_pairs_hook=reject_duplicate_keys,
+)
+while len(boundary["capabilities"]) < 32:
+    index = len(boundary["capabilities"])
+    boundary["capabilities"][f"example:metadata/schema-boundary-{index}"] = {
+        "requirement": "optional",
+        "min_version": "1.0.0",
+        "max_version": "2.0.0",
+        "fallback": "metadata_ignore",
+    }
+if list(validator.iter_errors(boundary)):
+    failures.append("generated-capability-boundary-32: expected valid=True, got valid=False")
+over_boundary = deepcopy(boundary)
+over_boundary["capabilities"]["example:metadata/schema-boundary-32"] = {
+    "requirement": "optional",
+    "min_version": "1.0.0",
+    "max_version": "2.0.0",
+    "fallback": "metadata_ignore",
+}
+if not list(validator.iter_errors(over_boundary)):
+    failures.append("generated-capability-boundary-33: expected valid=False, got valid=True")
+
 if failures:
     raise SystemExit("\n".join(failures))
-print(f"X9 schema corpus: {valid_count} valid and {invalid_count} invalid cases matched")
+print(
+    f"X9 schema corpus: {valid_count} valid and {invalid_count} invalid cases matched; "
+    "generated capability boundary accepted 32 and rejected 33"
+)

@@ -1,9 +1,9 @@
 {
-  "blend": "test-assets/showcase-animation/source.blend",
+  "blend": "D:\\BlendLib\\test-assets\\showcase-animation\\source.blend",
   "collection": "BlendLibShowcaseAnimation",
-  "descriptor_path": "blendlib-showcase/src/main/resources/assets/blendlib_showcase/blend_models/showcase_animation/showcase_actor.json",
+  "descriptor_path": "D:\\BlendLib\\blendlib-showcase\\src\\main\\resources\\assets\\blendlib_showcase\\blend_models\\showcase_animation\\showcase_actor.json",
   "format": "blendlib-p2-export-report-v1",
-  "mesh_path": "blendlib-showcase/src/main/resources/assets/blendlib_showcase/models3d/showcase_animation/showcase_actor.glb",
+  "mesh_path": "D:\\BlendLib\\blendlib-showcase\\src\\main\\resources\\assets\\blendlib_showcase\\models3d\\showcase_animation\\showcase_actor.glb",
   "model_id": "showcase_animation/showcase_actor",
   "namespace": "blendlib_showcase",
   "normalized_structure": {
@@ -1266,7 +1266,7 @@
     ]
   },
   "texture_paths": {
-    "ShowcaseAnimationSurface": "blendlib-showcase/src/main/resources/assets/blendlib_showcase/textures/blendlib/showcase_animation/showcase_actor__showcaseanimationsurface.png"
+    "ShowcaseAnimationSurface": "D:\\BlendLib\\blendlib-showcase\\src\\main\\resources\\assets\\blendlib_showcase\\textures\\blendlib\\showcase_animation\\showcase_actor__showcaseanimationsurface.png"
   },
   "validation": {
     "animation_names": [

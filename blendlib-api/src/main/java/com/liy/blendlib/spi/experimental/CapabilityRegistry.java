@@ -18,9 +18,11 @@ import java.util.function.Supplier;
 /**
  * Thread-safe controlled registry implementing metadata-only discovery and deterministic freeze.
  *
- * <p>The registry follows {@code register -> discover -> freeze}. It snapshots provider metadata
- * at registration, performs no provider lifecycle callback during discovery, and permanently rejects
- * all registration/discovery/freeze mutation after a plan is frozen. Untrusted metadata callbacks run
+ * <p>The registry follows {@code register -> discover -> freeze}. Registration safely captures a
+ * provider identity, reserves that ID and provider object before it touches offers, and commits only
+ * a fully copied immutable offer snapshot. A same-ID contender therefore fails before its offer
+ * callback runs, while registrations for distinct IDs may collect metadata concurrently. Discovery
+ * starts only after every reservation has committed or rolled back. Untrusted metadata callbacks run
  * outside the registry monitor; an epoch-checked transition commits their result only if the registry
  * operation is still current.</p>
  */
@@ -36,12 +38,17 @@ public final class CapabilityRegistry {
 
     private final Map<BlendResourceId, RegisteredProvider> providers = new HashMap<>();
     private final IdentityHashMap<BlendProvider, BlendResourceId> providerInstances = new IdentityHashMap<>();
+    private final Map<BlendResourceId, Long> providerReservations = new HashMap<>();
+    private final IdentityHashMap<BlendProvider, Long> providerInstanceReservations = new IdentityHashMap<>();
+    private final Map<Long, BlendResourceId> activeRegistrations = new HashMap<>();
+    private final Map<Long, BlendProvider> activeRegistrationInstances = new HashMap<>();
     private RegistryState state = RegistryState.REGISTERING;
     private List<CapabilityRequest> discoveredRequests = List.of();
     private CapabilityPlan frozenPlan;
     private Object frozenEvent;
     private long frozenGeneration = -1L;
-    private boolean mutationActive;
+    private boolean discoveryActive;
+    private long discoveryEpoch = -1L;
     private long mutationEpoch;
 
     /** Creates an empty registry in its registration phase. */
@@ -57,7 +64,7 @@ public final class CapabilityRegistry {
      */
     public void register(BlendProvider provider) {
         provider = Objects.requireNonNull(provider, "provider");
-        long epoch = beginRegistration();
+        long operationEpoch = beginRegistration();
         boolean committed = false;
         try {
             BlendResourceId providerId;
@@ -77,6 +84,8 @@ public final class CapabilityRegistry {
                         BlendDiagnosticSeverity.ERROR,
                         "Provider identity is outside the bounded canonical Experimental SPI identity policy"));
             }
+
+            reserveRegistration(operationEpoch, providerId, provider);
 
             Collection<CapabilityOffer> suppliedOffers;
             try {
@@ -119,31 +128,12 @@ public final class CapabilityRegistry {
                 }
                 offers.add(offer);
             }
-            synchronized (this) {
-                verifyRegistration(epoch);
-                if (providers.containsKey(providerId)) {
-                    throw failure(CapabilityDiagnostic.provider(
-                            CapabilityErrorCode.DUPLICATE_PROVIDER_ID,
-                            BlendDiagnosticSeverity.ERROR,
-                            providerId,
-                            "Provider identity is already registered"));
-                }
-                BlendResourceId previousIdentity = providerInstances.get(provider);
-                if (previousIdentity != null) {
-                    throw failure(CapabilityDiagnostic.provider(
-                            CapabilityErrorCode.DUPLICATE_PROVIDER_ID,
-                            BlendDiagnosticSeverity.ERROR,
-                            providerId,
-                            "Provider object identity is already registered"));
-                }
-                providers.put(providerId, new RegisteredProvider(providerId, provider, offers));
-                providerInstances.put(provider, providerId);
-                mutationActive = false;
-                committed = true;
-            }
+            RegisteredProvider registeredProvider = new RegisteredProvider(providerId, provider, offers);
+            commitRegistration(operationEpoch, providerId, provider, registeredProvider);
+            committed = true;
         } finally {
             if (!committed) {
-                abortRegistration(epoch);
+                abortRegistration(operationEpoch);
             }
         }
     }
@@ -199,28 +189,29 @@ public final class CapabilityRegistry {
                         .filter(offer -> requestedIds.contains(offer.capabilityId()))
                         .sorted(OFFER_ORDER)
                         .toList();
-                mutationActive = false;
+                completeDiscovery(epoch);
                 committed = true;
             }
             return discovered;
         } finally {
             if (!committed) {
-                abortRegistration(epoch);
+                abortDiscovery(epoch);
             }
         }
     }
 
     private synchronized long beginDiscovery() {
         rejectMutationDuringCallback("discover");
-        requireNoMutation("discover");
+        requireRegistryQuiescent("discover");
         if (state == RegistryState.FROZEN) {
             throw frozenFailure();
         }
         if (state != RegistryState.REGISTERING) {
             throw invalidState("discover may only be called once after registration");
         }
-        mutationActive = true;
-        return ++mutationEpoch;
+        discoveryActive = true;
+        discoveryEpoch = ++mutationEpoch;
+        return discoveryEpoch;
     }
 
     /**
@@ -231,7 +222,7 @@ public final class CapabilityRegistry {
      */
     public synchronized CapabilityPlan freeze(long generation) {
         rejectMutationDuringCallback("freeze");
-        requireNoMutation("freeze");
+        requireRegistryQuiescent("freeze");
         if (state == RegistryState.FROZEN) {
             throw frozenFailure();
         }
@@ -289,37 +280,134 @@ public final class CapabilityRegistry {
 
     private synchronized long beginRegistration() {
         rejectMutationDuringCallback("register");
-        requireNoMutation("register");
         if (state == RegistryState.FROZEN) {
             throw frozenFailure();
         }
         if (state != RegistryState.REGISTERING) {
             throw invalidState("register is only legal before discovery");
         }
-        mutationActive = true;
-        return ++mutationEpoch;
+        if (discoveryActive) {
+            throw invalidState("register is unavailable during an active registry operation");
+        }
+        long operationEpoch = ++mutationEpoch;
+        activeRegistrations.put(operationEpoch, null);
+        return operationEpoch;
     }
 
-    private synchronized void verifyRegistration(long epoch) {
-        if (!mutationActive || mutationEpoch != epoch || state != RegistryState.REGISTERING) {
+    private synchronized void reserveRegistration(
+            long operationEpoch,
+            BlendResourceId providerId,
+            BlendProvider provider) {
+        verifyRegistration(operationEpoch);
+        if (providers.containsKey(providerId) || providerReservations.containsKey(providerId)) {
+            throw failure(CapabilityDiagnostic.provider(
+                    CapabilityErrorCode.DUPLICATE_PROVIDER_ID,
+                    BlendDiagnosticSeverity.ERROR,
+                    providerId,
+                    "Provider identity is already registered or being registered"));
+        }
+        if (providerInstances.containsKey(provider) || providerInstanceReservations.containsKey(provider)) {
+            throw failure(CapabilityDiagnostic.provider(
+                    CapabilityErrorCode.DUPLICATE_PROVIDER_ID,
+                    BlendDiagnosticSeverity.ERROR,
+                    providerId,
+                    "Provider object identity is already registered or being registered"));
+        }
+        Long reservationEpoch = operationEpoch;
+        providerReservations.put(providerId, reservationEpoch);
+        providerInstanceReservations.put(provider, reservationEpoch);
+        activeRegistrations.put(operationEpoch, providerId);
+        activeRegistrationInstances.put(operationEpoch, provider);
+    }
+
+    private synchronized void commitRegistration(
+            long operationEpoch,
+            BlendResourceId providerId,
+            BlendProvider provider,
+            RegisteredProvider registeredProvider) {
+        verifyRegistration(operationEpoch);
+        if (!providerId.equals(activeRegistrations.get(operationEpoch))
+                || activeRegistrationInstances.get(operationEpoch) != provider
+                || !Long.valueOf(operationEpoch).equals(providerReservations.get(providerId))
+                || !Long.valueOf(operationEpoch).equals(providerInstanceReservations.get(provider))) {
+            throw invalidState("register reservation changed before immutable metadata publication");
+        }
+        providers.put(providerId, registeredProvider);
+        providerInstances.put(provider, providerId);
+        completeRegistration(operationEpoch, providerId, provider);
+    }
+
+    private synchronized void verifyRegistration(long operationEpoch) {
+        if (!activeRegistrations.containsKey(operationEpoch)
+                || state != RegistryState.REGISTERING
+                || discoveryActive) {
             throw invalidState("register callback changed the registry operation identity");
         }
     }
 
     private synchronized void verifyDiscovery(long epoch) {
-        if (!mutationActive || mutationEpoch != epoch || state != RegistryState.REGISTERING) {
+        if (!discoveryActive
+                || discoveryEpoch != epoch
+                || state != RegistryState.REGISTERING
+                || !activeRegistrations.isEmpty()) {
             throw invalidState("discover callback changed the registry operation identity");
         }
     }
 
-    private synchronized void abortRegistration(long epoch) {
-        if (mutationActive && mutationEpoch == epoch) {
-            mutationActive = false;
+    private synchronized void completeRegistration(
+            long operationEpoch,
+            BlendResourceId providerId,
+            BlendProvider provider) {
+        releaseRegistrationReservation(operationEpoch, providerId, provider);
+        activeRegistrationInstances.remove(operationEpoch);
+        activeRegistrations.remove(operationEpoch);
+    }
+
+    private synchronized void abortRegistration(long operationEpoch) {
+        if (!activeRegistrations.containsKey(operationEpoch)) {
+            return;
+        }
+        BlendResourceId providerId = activeRegistrations.get(operationEpoch);
+        BlendProvider provider = activeRegistrationInstances.get(operationEpoch);
+        releaseRegistrationReservation(operationEpoch, providerId, provider);
+        activeRegistrationInstances.remove(operationEpoch);
+        activeRegistrations.remove(operationEpoch);
+    }
+
+    private synchronized void releaseRegistrationReservation(
+            long operationEpoch,
+            BlendResourceId providerId,
+            BlendProvider provider) {
+        if (providerId != null) {
+            Long reservedEpoch = providerReservations.get(providerId);
+            if (reservedEpoch != null && reservedEpoch.longValue() == operationEpoch) {
+                providerReservations.remove(providerId);
+            }
+        }
+        if (provider != null) {
+            Long reservedEpoch = providerInstanceReservations.get(provider);
+            if (reservedEpoch != null && reservedEpoch.longValue() == operationEpoch) {
+                providerInstanceReservations.remove(provider);
+            }
         }
     }
 
-    private void requireNoMutation(String operation) {
-        if (mutationActive) {
+    private synchronized void completeDiscovery(long epoch) {
+        if (discoveryActive && discoveryEpoch == epoch) {
+            discoveryActive = false;
+            discoveryEpoch = -1L;
+        }
+    }
+
+    private synchronized void abortDiscovery(long epoch) {
+        if (discoveryActive && discoveryEpoch == epoch) {
+            discoveryActive = false;
+            discoveryEpoch = -1L;
+        }
+    }
+
+    private void requireRegistryQuiescent(String operation) {
+        if (discoveryActive || !activeRegistrations.isEmpty()) {
             throw invalidState(operation + " is unavailable during an active registry operation");
         }
     }

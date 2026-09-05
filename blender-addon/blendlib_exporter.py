@@ -386,8 +386,29 @@ def _validate_source_objects(objects: Sequence[Any], profile: str) -> None:
                 modifier for modifier in obj.modifiers if modifier.type == "ARMATURE"
             ]
             if armature_modifiers:
+                if len(armature_modifiers) != 1:
+                    raise ExportError(
+                        "BLENDLIB-EXPORT-005",
+                        f"Skinned mesh '{obj.name}' must have exactly one Armature modifier.",
+                    )
+                armature = armature_modifiers[0].object
+                if (
+                    armature is None
+                    or armature.type != "ARMATURE"
+                    or not any(armature is candidate for candidate in objects)
+                ):
+                    raise ExportError(
+                        "BLENDLIB-EXPORT-005",
+                        f"Skinned mesh '{obj.name}' must target one exported Armature.",
+                    )
+                bone_names = tuple(bone.name for bone in armature.data.bones)
+                if not bone_names or len(set(bone_names)) != len(bone_names):
+                    raise ExportError(
+                        "BLENDLIB-EXPORT-005",
+                        f"Skinned mesh '{obj.name}' targets an Armature without a unique bone set.",
+                    )
                 skin_meshes += 1
-                _validate_skin_weights(obj)
+                _validate_skin_weights(obj, bone_names)
             elif profile == "blendlib:skinned_v1":
                 raise ExportError(
                     "BLENDLIB-EXPORT-005",
@@ -455,14 +476,29 @@ def _validate_mesh(obj: Any) -> None:
             )
 
 
-def _validate_skin_weights(obj: Any) -> None:
+def _validate_skin_weights(obj: Any, target_bone_names: Sequence[str]) -> None:
     if not obj.vertex_groups:
         raise ExportError(
             "BLENDLIB-EXPORT-005", f"Skinned mesh '{obj.name}' has no vertex groups."
         )
+    target_bones = frozenset(target_bone_names)
+    group_names = {int(group.index): group.name for group in obj.vertex_groups}
     for vertex in obj.data.vertices:
-        weights = [group.weight for group in vertex.groups if group.weight > EPSILON]
-        if not weights or len(weights) > 4:
+        weights: list[float] = []
+        seen_bones: set[str] = set()
+        invalid = False
+        for assignment in vertex.groups:
+            group_name = group_names.get(int(assignment.group))
+            if group_name not in target_bones:
+                continue
+            weight = float(assignment.weight)
+            if group_name in seen_bones or not math.isfinite(weight) or weight < 0.0:
+                invalid = True
+                continue
+            seen_bones.add(group_name)
+            if weight > EPSILON:
+                weights.append(weight)
+        if invalid or not weights or len(weights) > 4:
             raise ExportError(
                 "BLENDLIB-EXPORT-005",
                 f"Vertex {vertex.index} in '{obj.name}' must have one to four effective weights.",
@@ -625,7 +661,7 @@ def _copy_external_material_textures(
                 "BLENDLIB-EXPORT-010",
                 f"Material '{material_name}' texture must be an external PNG: {source}",
             )
-        texture_name = f"{_path_slug(options.model_id)}__{_path_slug(material_name)}.png"
+        texture_name = strict_v1_texture_filename(options.model_id, material_name)
         target = assets_root / "textures" / "blendlib" / texture_name
         target.parent.mkdir(parents=True, exist_ok=True)
         _copy_bounded_file(
@@ -697,9 +733,55 @@ def _material_texture_source(material: Any) -> Path:
     return Path(filepath).resolve()
 
 
-def _path_slug(value: str) -> str:
+def canonical_path_slug(value: str) -> str:
+    """Return the one strict-v1 filename slug shared with X5 planning.
+
+    The exporter owns this naming rule.  X5 imports this pure helper when it
+    predicts a publication bundle, so a batch preflight cannot drift from the
+    texture filename that the strict exporter will actually create.
+    """
+
     normalized = value.lower().replace("/", "_")
     return re.sub(r"[^a-z0-9._-]", "_", normalized)
+
+
+def strict_v1_texture_filename(model_id: str, material_name: str) -> str:
+    """Return one canonical external-PNG filename for a strict-v1 material."""
+
+    return f"{canonical_path_slug(model_id)}__{canonical_path_slug(material_name)}.png"
+
+
+def strict_v1_artifact_paths(
+    options: ExportOptions,
+    material_names: Sequence[str],
+) -> dict[str, str]:
+    """Predict the strict-v1 publication paths without touching Blender or disk.
+
+    Keys identify the artifact kind.  Values are portable project-relative
+    paths and deliberately retain a model id's slash hierarchy for descriptor
+    and GLB files, while external PNGs use :func:`canonical_path_slug`.
+    """
+
+    output_root = _require_safe_relative(options.output_resource_root, "output resource root").as_posix()
+    namespace = _require_resource_token(options.namespace, "namespace")
+    model_id = _require_resource_token(options.model_id, "model id")
+    paths = {
+        "descriptor": f"{output_root}/assets/{namespace}/blend_models/{model_id}.json",
+        "glb": f"{output_root}/assets/{namespace}/models3d/{model_id}.glb",
+    }
+    for material_name in sorted(material_names):
+        if not isinstance(material_name, str) or not material_name:
+            raise ExportError("BLENDLIB-EXPORT-007", "Strict-v1 material names must be non-empty strings.")
+        paths[f"texture:{material_name}"] = (
+            f"{output_root}/assets/{namespace}/textures/blendlib/"
+            f"{strict_v1_texture_filename(model_id, material_name)}"
+        )
+    return paths
+
+
+# Keep the historical private spelling for P2-internal callers while making
+# the canonical helper available to the X5 preflight graph.
+_path_slug = canonical_path_slug
 
 
 def _build_descriptor(

@@ -1,0 +1,75 @@
+# Encoded inherited diff --check transcript
+#
+# This is not a raw byte-for-byte copy of the command output. It is a whitespace-clean, reversible display encoding.
+# Command: git -C D:\BlendLib-agentloop diff --cached --check
+# Original transcript: 66 output lines; 16 diagnostics; 7 files; command exit code 2.
+# Count rule: lines matching ^.+:[0-9]+: trailing whitespace\.$ are diagnostics; each is followed by its offending-content display line.
+# Encoding: every trailing ASCII U+0020 in an original display line is replaced at end-of-line by one literal <SP> token; remove those terminal tokens to recover the original displayed line.
+# The staged inherited files themselves remain byte-identical to the authoritative source capture; this evidence encoding does not alter them.
+
+docs/adr/ADR-016-p7-material-extension-and-public-render-pipeline-revalidation.md:3: trailing whitespace.
++Status: Accepted<SP><SP>
+docs/adr/ADR-016-p7-material-extension-and-public-render-pipeline-revalidation.md:4: trailing whitespace.
++Proposed: 2026-07-29 by the root coordinator<SP><SP>
+docs/adr/ADR-016-p7-material-extension-and-public-render-pipeline-revalidation.md:5: trailing whitespace.
++Accepted: 2026-07-30 by the local project owner<SP><SP>
+docs/adr/ADR-018-p5-showcase-schedule-provenance.md:3: trailing whitespace.
++Status: Accepted<SP><SP>
+docs/adr/ADR-018-p5-showcase-schedule-provenance.md:4: trailing whitespace.
++Proposed: 2026-07-30 by the root coordinator<SP><SP>
+docs/adr/ADR-018-p5-showcase-schedule-provenance.md:5: trailing whitespace.
++Accepted: 2026-07-30 by the local project owner<SP><SP>
+docs/evidence/P6-deferred-receiver-epoch-investigation.md:3: trailing whitespace.
++Status: `PROPOSED / NOT A BEHAVIORAL REPRODUCTION`<SP><SP>
+docs/evidence/P6-implementation.md:3: trailing whitespace.
++Date: 2026-07-29 (corrected 2026-07-30)<SP><SP>
+docs/evidence/P7-implementation.md:3: trailing whitespace.
++Date: 2026-07-29<SP><SP>
+docs/evidence/P8-current-manifest-server-consumer-rebind-2026-07-30.md:3: trailing whitespace.
++状态：**CURRENT-MANIFEST LIMITED SERVER/CONSUMER SMOKE PASS / CLIENT REBIND PENDING / P8 GATE WAITING**。<SP><SP>
+test-assets/p4-resource-packs/material-matrix/rejected-additive-double-sided-emissive/assets/blendlib_showcase/blend_models/fixtures/static_model.json:18: new blank line at EOF.
+test-assets/p4-resource-packs/material-matrix/rejected-additive-double-sided-emissive/pack.mcmeta:8: new blank line at EOF.
+test-assets/p4-resource-packs/material-matrix/rejected-additive-double-sided-lit/assets/blendlib_showcase/blend_models/fixtures/static_model.json:18: new blank line at EOF.
+test-assets/p4-resource-packs/material-matrix/rejected-additive-double-sided-lit/pack.mcmeta:8: new blank line at EOF.
+test-assets/p4-resource-packs/material-matrix/rejected-additive-single-sided-emissive/assets/blendlib_showcase/blend_models/fixtures/static_model.json:18: new blank line at EOF.
+test-assets/p4-resource-packs/material-matrix/rejected-additive-single-sided-emissive/pack.mcmeta:8: new blank line at EOF.
+test-assets/p4-resource-packs/material-matrix/rejected-additive-single-sided-lit/assets/blendlib_showcase/blend_models/fixtures/static_model.json:18: new blank line at EOF.
+test-assets/p4-resource-packs/material-matrix/rejected-additive-single-sided-lit/pack.mcmeta:8: new blank line at EOF.
+test-assets/p4-resource-packs/material-matrix/rejected-cutout-double-sided-threshold-025-emissive/assets/blendlib_showcase/blend_models/fixtures/static_model.json:19: new blank line at EOF.
+test-assets/p4-resource-packs/material-matrix/rejected-cutout-double-sided-threshold-025-emissive/pack.mcmeta:8: new blank line at EOF.
+test-assets/p4-resource-packs/material-matrix/rejected-cutout-double-sided-threshold-025-lit/assets/blendlib_showcase/blend_models/fixtures/static_model.json:19: new blank line at EOF.
+test-assets/p4-resource-packs/material-matrix/rejected-cutout-double-sided-threshold-025-lit/pack.mcmeta:8: new blank line at EOF.
+test-assets/p4-resource-packs/material-matrix/rejected-opaque-double-sided-emissive/assets/blendlib_showcase/blend_models/fixtures/static_model.json:18: new blank line at EOF.
+test-assets/p4-resource-packs/material-matrix/rejected-opaque-double-sided-emissive/pack.mcmeta:8: new blank line at EOF.
+test-assets/p4-resource-packs/material-matrix/rejected-opaque-double-sided-lit/assets/blendlib_showcase/blend_models/fixtures/static_model.json:18: new blank line at EOF.
+test-assets/p4-resource-packs/material-matrix/rejected-opaque-double-sided-lit/pack.mcmeta:8: new blank line at EOF.
+test-assets/p4-resource-packs/material-matrix/rejected-translucent-single-sided-emissive/assets/blendlib_showcase/blend_models/fixtures/static_model.json:18: new blank line at EOF.
+test-assets/p4-resource-packs/material-matrix/rejected-translucent-single-sided-emissive/pack.mcmeta:8: new blank line at EOF.
+test-assets/p4-resource-packs/material-matrix/rejected-translucent-single-sided-lit/assets/blendlib_showcase/blend_models/fixtures/static_model.json:18: new blank line at EOF.
+test-assets/p4-resource-packs/material-matrix/rejected-translucent-single-sided-lit/pack.mcmeta:8: new blank line at EOF.
+test-assets/p4-resource-packs/material-matrix/supported-cutout-double-sided-threshold-010-emissive/assets/blendlib_showcase/blend_models/fixtures/static_model.json:19: new blank line at EOF.
+test-assets/p4-resource-packs/material-matrix/supported-cutout-double-sided-threshold-010-emissive/pack.mcmeta:8: new blank line at EOF.
+test-assets/p4-resource-packs/material-matrix/supported-cutout-double-sided-threshold-010-lit/assets/blendlib_showcase/blend_models/fixtures/static_model.json:19: new blank line at EOF.
+test-assets/p4-resource-packs/material-matrix/supported-cutout-double-sided-threshold-010-lit/pack.mcmeta:8: new blank line at EOF.
+test-assets/p4-resource-packs/material-matrix/supported-cutout-single-sided-threshold-010-emissive/assets/blendlib_showcase/blend_models/fixtures/static_model.json:19: new blank line at EOF.
+test-assets/p4-resource-packs/material-matrix/supported-cutout-single-sided-threshold-010-lit/assets/blendlib_showcase/blend_models/fixtures/static_model.json:19: new blank line at EOF.
+test-assets/p4-resource-packs/material-matrix/supported-opaque-single-sided-emissive/assets/blendlib_showcase/blend_models/fixtures/static_model.json:18: new blank line at EOF.
+test-assets/p4-resource-packs/material-matrix/supported-opaque-single-sided-emissive/pack.mcmeta:8: new blank line at EOF.
+test-assets/p4-resource-packs/material-matrix/supported-opaque-single-sided-lit/assets/blendlib_showcase/blend_models/fixtures/static_model.json:18: new blank line at EOF.
+test-assets/p4-resource-packs/material-matrix/supported-opaque-single-sided-lit/pack.mcmeta:8: new blank line at EOF.
+test-assets/p4-resource-packs/material-matrix/supported-translucent-double-sided-emissive/assets/blendlib_showcase/blend_models/fixtures/static_model.json:18: new blank line at EOF.
+test-assets/p4-resource-packs/material-matrix/supported-translucent-double-sided-emissive/pack.mcmeta:8: new blank line at EOF.
+test-assets/p4-resource-packs/material-matrix/supported-translucent-double-sided-lit/assets/blendlib_showcase/blend_models/fixtures/static_model.json:18: new blank line at EOF.
+test-assets/p4-resource-packs/material-matrix/supported-translucent-double-sided-lit/pack.mcmeta:8: new blank line at EOF.
+test-assets/third_party/khronos/glTF-Sample-Assets/5109ab2a499c5a2c784b86e460fa491d52256e25/raw/SimpleSkin/glTF/SimpleSkin.gltf:6: trailing whitespace.
++<SP><SP>
+test-assets/third_party/khronos/glTF-Sample-Assets/5109ab2a499c5a2c784b86e460fa491d52256e25/raw/SimpleSkin/glTF/SimpleSkin.gltf:16: trailing whitespace.
++<SP><SP>
+test-assets/third_party/khronos/glTF-Sample-Assets/5109ab2a499c5a2c784b86e460fa491d52256e25/raw/SimpleSkin/glTF/SimpleSkin.gltf:32: trailing whitespace.
++<SP><SP>
+test-assets/third_party/khronos/glTF-Sample-Assets/5109ab2a499c5a2c784b86e460fa491d52256e25/raw/SimpleSkin/glTF/SimpleSkin.gltf:47: trailing whitespace.
++<SP><SP>
+test-assets/third_party/khronos/glTF-Sample-Assets/5109ab2a499c5a2c784b86e460fa491d52256e25/raw/SimpleSkin/glTF/SimpleSkin.gltf:61: trailing whitespace.
++<SP><SP>
+test-assets/third_party/khronos/glTF-Sample-Assets/5109ab2a499c5a2c784b86e460fa491d52256e25/raw/SimpleSkin/glTF/SimpleSkin.gltf:127: trailing whitespace.
++<SP>

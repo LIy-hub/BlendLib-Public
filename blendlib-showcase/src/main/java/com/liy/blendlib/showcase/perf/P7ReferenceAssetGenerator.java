@@ -333,10 +333,8 @@ public final class P7ReferenceAssetGenerator {
     }
 
     private static void appendAccessors(StringBuilder builder, P7ReferenceScenario.Asset asset, int vertices) {
-        float[] positionMaximum = positionMaximum(vertices / 3);
         builder.append("\"accessors\":[")
-                .append(accessorWithBounds(0, FLOAT, vertices, "VEC3", "[0.0,0.0,0.0]",
-                        "[" + positionMaximum[0] + "," + positionMaximum[1] + ",0.0]")).append(',')
+                .append(accessor(0, FLOAT, vertices, "VEC3")).append(',')
                 .append(accessor(1, FLOAT, vertices, "VEC3")).append(',')
                 .append(accessor(2, FLOAT, vertices, "VEC2"));
         if (asset.kind() == P7ReferenceScenario.Kind.RIGID) {
@@ -346,7 +344,7 @@ public final class P7ReferenceAssetGenerator {
                     .append(',').append(accessor(4, FLOAT, vertices, "VEC4"))
                     .append(',').append(accessor(5, UNSIGNED_SHORT, vertices, "SCALAR"))
                     .append(',').append(accessor(6, FLOAT, asset.jointsPerInstance(), "MAT4"))
-                    .append(',').append(accessorWithBounds(7, FLOAT, 2, "SCALAR", "[0.0]", "[1.0]"))
+                    .append(',').append(accessor(7, FLOAT, 2, "SCALAR"))
                     .append(',').append(accessor(8, FLOAT, 2, "VEC4"));
         }
         builder.append(']');
@@ -355,22 +353,6 @@ public final class P7ReferenceAssetGenerator {
     private static String accessor(int bufferView, int componentType, int count, String type) {
         return "{\"bufferView\":" + bufferView + ",\"componentType\":" + componentType
                 + ",\"count\":" + count + ",\"type\":\"" + type + "\"}";
-    }
-
-    private static String accessorWithBounds(
-            int bufferView, int componentType, int count, String type, String minimum, String maximum) {
-        String accessor = accessor(bufferView, componentType, count, type);
-        return accessor.substring(0, accessor.length() - 1) + ",\"min\":" + minimum + ",\"max\":" + maximum + "}";
-    }
-
-    private static float[] positionMaximum(int triangles) {
-        int columns = Math.max(1, (int) Math.ceil(Math.sqrt(triangles)));
-        int highestColumn = triangles > columns ? columns - 1 : triangles - 1;
-        int highestRow = (triangles - 1) / columns;
-        return new float[] {
-                highestColumn / (float) columns + 0.004f,
-                highestRow / (float) columns + 0.004f
-        };
     }
 
     private static String descriptorJson(P7ReferenceScenario.Asset asset) {

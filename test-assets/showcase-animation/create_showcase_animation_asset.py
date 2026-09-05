@@ -9,7 +9,7 @@ Run with Blender 5.x:
 
     & 'D:\\Program Files\\Blender\\blender.exe' --background \
         --python test-assets\\showcase-animation\\create_showcase_animation_asset.py -- \
-        --project-root .
+        --project-root D:\\BlendLib
 """
 
 from __future__ import annotations

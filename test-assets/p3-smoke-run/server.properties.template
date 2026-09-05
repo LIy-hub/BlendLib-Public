@@ -1,0 +1,12 @@
+# Generated only in D:\BlendLib\blendlib-showcase\run\p3-smoke-server by
+# prepareP3SmokeServerRun. This profile is loopback-only and must not be copied into a
+# formal server or world.
+server-ip=127.0.0.1
+server-port=25571
+online-mode=false
+enforce-secure-profile=false
+enable-rcon=false
+white-list=false
+enforce-whitelist=false
+level-name=blendlib-p3-smoke-world
+motd=BlendLib P3 isolated local loader smoke

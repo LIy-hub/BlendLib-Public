@@ -1,6 +1,6 @@
 # Diagnostics, Error Codes, and Safety Limits v1
 
-Status: public diagnostic baseline; new assignments require a documented compatibility review.
+Status: P0 baseline frozen; later assignments require an Accepted ADR.
 
 ## Stable diagnostic shape
 
@@ -38,11 +38,12 @@ Codes use the stable form BLENDLIB-FAMILY-NNN. New code assignments must preserv
 | BLENDLIB-PERF-001 | Asset exceeds a non-fatal performance-warning threshold |
 | BLENDLIB-EXT-001 | Required extension is unsupported |
 
-`BlendDiagnosticCodes.MAT_004` is emitted during reload when the 26.1.2 adapter
-cannot represent a descriptor material intent through an exact verified public
-render path. The result is a missing-model handle; it is not a silent material
-fallback. Future extension or backend support must not change this code's stable
-meaning.
+`BLENDLIB-MAT-004` was assigned by accepted ADR-014 on 2026-07-29. The P4
+implementation now declares `BlendDiagnosticCodes.MAT_004` and emits this
+diagnostic during reload when the 26.1.2 adapter cannot represent a descriptor
+material intent through an exact verified public render path. The result is a
+missing-model handle; it is not a silent material fallback. P7 may add a
+verified extension/backend path, but must not change this code's stable meaning.
 
 ## Default hard limits
 
@@ -67,8 +68,6 @@ meaning.
 | Loop cycles crossed by one `advance` | 4,096 |
 | Automatic state transitions in one `advance` | 4,096 |
 | Visual events returned by one `advance` | 16,384 |
-| Accessor declarations in one GLB | 16,384 |
-| Components scanned for declared accessor bounds | `maxIndices + 16*maxVertices + 4*maxKeyframeSamples + 16*maxSkinJoints` (23,008,192 by default) |
 
 Descriptor/state-count and declaration-event violations use `BLENDLIB-LIMIT-001`
 with the exact descriptor field pointer. Runtime `advance` validates loop-cycle,
@@ -76,21 +75,6 @@ automatic-transition, and emitted-event counts with closed-form preflight
 arithmetic before it mutates controller state or allocates the event result. A
 call beyond those budgets fails explicitly; it never truncates or silently
 drops visual events.
-
-Strict GLB loading performs a deterministic all-accessor declaration preflight,
-including unreferenced accessors, before following mesh/skin/animation
-references. Layout and metadata are cached once. If any accessor declares
-`min` or `max`, the aggregate number of components whose BIN extrema would be
-scanned must fit the formula above before the first scan begins. Violations use
-`BLENDLIB-LIMIT-001` at the accessor `count`; malformed accessor semantics keep
-their existing `BLENDLIB-GLB-014`/`BLENDLIB-GLB-015` meanings and exact fields.
-
-Load-time conservative animated-bounds preparation is also a hard finite-range
-operation. Hierarchy translation/scale recurrences, inverse-bind point transforms,
-and the outward-rounded float envelope must remain finite and representable. An
-overflow or non-finite result rejects the asset with `BLENDLIB-LIMIT-001` at
-`/animations`, or at `/skins` for a clip-free skin/IBM envelope; it never
-publishes a rest-only or unbounded culling fallback.
 
 The loader should issue performance warnings before hard failure where useful, including above 100,000 vertices or 128 skin joints. Warnings never relax a hard limit.
 

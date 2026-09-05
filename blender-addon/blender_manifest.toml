@@ -1,7 +1,7 @@
 schema_version = "1.0.0"
 
 id = "blendlib_exporter"
-version = "1.0.0"
+version = "1.0.1"
 name = "BlendLib v1 Exporter"
 tagline = "Deterministic strict-GLB exporter for BlendLib v1"
 maintainer = "LIy-hub <2734855720@qq.com>"

@@ -136,7 +136,7 @@ class ClientAnimationPoseModifierPipelineTest {
                 "com", "liy", "blendlib", "fabric", "client", "animation", "extract",
                 "ClientSkinnedExtractionBridge.java")));
         assertTrue(bridge.indexOf("NodePalette.fromCanonicalScene(") < bridge.indexOf("SkinPalette.from("));
-        assertTrue(bridge.indexOf("SkinPalette.from(") < bridge.indexOf("CpuSkinner.skin("));
+        assertTrue(bridge.indexOf("SkinPalette.from(") < bridge.indexOf("X7SkinnedFrameProvenance.capture("));
     }
 
     private static RuntimeHarness harness() {

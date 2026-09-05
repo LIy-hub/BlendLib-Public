@@ -22,7 +22,7 @@ class ClientDiagnosticsCommandRegistryTest {
     private static final BlendModelKey UNKNOWN = BlendModelKey.parse("command_test:unknown");
 
     @Test
-    void registryExposesAllThreeCommandLiteralsAndParsesModelKeysThroughPublicKeyContract() {
+    void registryExposesCanonicalCommandLiteralsAndParsesModelKeysThroughPublicKeyContract() {
         ClientDiagnosticsCommandRegistry commands = commands();
         assertEquals(List.of("assets", "inspect", "diagnostics"), commands.commandLiterals());
 
@@ -56,6 +56,7 @@ class ClientDiagnosticsCommandRegistryTest {
         ClientDiagnosticsCommandRegistry commands = commands();
         assertInstanceOf(ClientDiagnosticsCommandResult.Error.class, commands.execute("assets", List.of("extra")));
         assertInstanceOf(ClientDiagnosticsCommandResult.Error.class, commands.execute("diagnostics", List.of("a:b", "c:d")));
+        assertInstanceOf(ClientDiagnosticsCommandResult.Error.class, commands.execute("x7", List.of()));
         assertInstanceOf(ClientDiagnosticsCommandResult.Error.class, commands.execute("unknown", List.of()));
     }
 

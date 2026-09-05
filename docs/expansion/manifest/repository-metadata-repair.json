@@ -1,0 +1,42 @@
+{
+  "schema": "blendlib-x0-repository-metadata-repair-v1",
+  "generated_utc": "2026-07-31T21:00:15.2251078Z",
+  "repository": "D:\\BlendLib-agentloop",
+  "head": "0102a9fea4e01abda19cb1975a46360a9cdf02ed",
+  "before": {
+    "remote_v": [],
+    "alternates_present": false,
+    "remote_refs": [],
+    "origin_head_ref_file_present": true,
+    "origin_head_ref_content": "ref: refs/remotes/origin/Liy/blendlib-v1",
+    "symbolic_ref_command": "git symbolic-ref -q refs/remotes/origin/HEAD",
+    "symbolic_ref_output": "refs/remotes/origin/Liy/blendlib-v1",
+    "symbolic_ref_exit_code": 0,
+    "fsck_command": "git fsck --full --no-dangling",
+    "fsck_output": [
+      "error: refs/remotes/origin/HEAD: invalid sha1 pointer 0000000000000000000000000000000000000000"
+    ],
+    "fsck_exit_code": 2
+  },
+  "operation": {
+    "command": "git symbolic-ref -d refs/remotes/origin/HEAD",
+    "scope": "Git metadata only; no tracked worktree path changed"
+  },
+  "after": {
+    "remote_v": [],
+    "remote_v_exit_code": 0,
+    "alternates_present": false,
+    "remote_refs": [],
+    "remote_refs_exit_code": 0,
+    "origin_head_ref_file_present": false,
+    "symbolic_ref_command": "git symbolic-ref -q refs/remotes/origin/HEAD",
+    "symbolic_ref_output": [],
+    "symbolic_ref_exit_code": 1,
+    "fsck_command": "git fsck --full --no-dangling",
+    "fsck_output": [],
+    "fsck_exit_code": 0,
+    "worktree_status_entries": [],
+    "worktree_status_exit_code": 0
+  },
+  "review_state": "METADATA_REPAIR_RECORDED_AWAITING_FRESH_REVIEW"
+}

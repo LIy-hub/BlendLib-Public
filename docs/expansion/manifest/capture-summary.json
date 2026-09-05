@@ -1,0 +1,94 @@
+{
+  "capture_id": "x0-stable-overlay-2026-07-31T19:13:45.8567039Z",
+  "captured_at_utc": "2026-07-31T19:13:45.8567039Z",
+  "source": {
+    "path": "D:\\BlendLib",
+    "head": "7d88c85d77a25667ad45bd5a792f4918429e979e",
+    "branch": "Liy/blendlib-v1",
+    "status_pre_entries": 490,
+    "status_post_entries": 490,
+    "untracked_nonignored_files": 471,
+    "candidate_files": 579,
+    "tracked_modified": 19,
+    "staged_paths": 0,
+    "tracked_candidate_files": 108
+  },
+  "target": {
+    "path": "D:\\BlendLib-agentloop",
+    "initial_head": "7d88c85d77a25667ad45bd5a792f4918429e979e",
+    "branch": "agentloop/blendlib-expansion",
+    "checkpoint_commit": "8874d0b5b85a8e5e07270d185f3c0f0e6053feac"
+  },
+  "included": {
+    "files": 577,
+    "bytes": 2890219,
+    "canonical_tab_sha256": "777d4616772a8f4327b8dc4146e2e55dc0ae27e73e33853283940d60d27efd09",
+    "canonical_nul_sha256": "fa08eeacc39d8518d1ac60a688a7aed66c9043691df344209da6fef2181e9ef1",
+    "path_list_sha256": "ab071cf53b6d5a843b4d4048b318c41dd9f18297f0c1b42c57c03bb58eddd585",
+    "categories": [
+      {
+        "category": "build",
+        "files": 17,
+        "bytes": 180609.0
+      },
+      {
+        "category": "docs",
+        "files": 45,
+        "bytes": 270731.0
+      },
+      {
+        "category": "evidence",
+        "files": 37,
+        "bytes": 259380.0
+      },
+      {
+        "category": "production",
+        "files": 236,
+        "bytes": 800429.0
+      },
+      {
+        "category": "resource",
+        "files": 115,
+        "bytes": 617948.0
+      },
+      {
+        "category": "schema",
+        "files": 1,
+        "bytes": 4919.0
+      },
+      {
+        "category": "test",
+        "files": 109,
+        "bytes": 618647.0
+      },
+      {
+        "category": "tool",
+        "files": 17,
+        "bytes": 137556.0
+      }
+    ]
+  },
+  "excluded": {
+    "files": 2,
+    "bytes": 3094838,
+    "reason": "crash logs; intentionally excluded from source snapshot"
+  },
+  "byte_identity": {
+    "target_overlay_mismatches": 0,
+    "implementation_progress_sha256": "E8DE72E2C83D71B90BA28FE965818135E6FB76BDA97405C9D4CA2116D7471D2C"
+  },
+  "inherited_whitespace": {
+    "command": "git -C D:\\BlendLib-agentloop diff --cached --check",
+    "exit_code": 2,
+    "proof": "all 577 candidate files were SHA-256 equal to the captured source and a live source equivalence probe found 0 target mismatches; transcript is whitespace-clean display encoding with <SP> tokens",
+    "output_lines": 66,
+    "diagnostics": 16,
+    "files": 7
+  },
+  "scope": {
+    "goal_sha256": "233AC7AFDC85A21CBA67330E51007BAA55D74DEA2DF4ED833C848695E8113E06",
+    "non_stable": true,
+    "no_gate_promotion": true,
+    "no_release": true
+  }
+}

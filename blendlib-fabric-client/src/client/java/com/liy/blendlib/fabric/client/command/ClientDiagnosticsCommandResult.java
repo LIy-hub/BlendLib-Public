@@ -13,6 +13,7 @@ public sealed interface ClientDiagnosticsCommandResult
         permits ClientDiagnosticsCommandResult.Assets,
                 ClientDiagnosticsCommandResult.Inspect,
                 ClientDiagnosticsCommandResult.Diagnostics,
+                ClientDiagnosticsCommandResult.X7,
                 ClientDiagnosticsCommandResult.Error {
     String command();
 
@@ -48,6 +49,22 @@ public sealed interface ClientDiagnosticsCommandResult
         @Override
         public String command() {
             return "diagnostics";
+        }
+    }
+
+    /**
+     * Retained for binary compatibility with the alpha API; no in-game command creates this
+     * phase-specific result anymore.
+     */
+    @Deprecated(forRemoval = true)
+    record X7(List<String> lines) implements ClientDiagnosticsCommandResult {
+        public X7 {
+            lines = List.copyOf(Objects.requireNonNull(lines, "lines"));
+        }
+
+        @Override
+        public String command() {
+            return "x7";
         }
     }
 

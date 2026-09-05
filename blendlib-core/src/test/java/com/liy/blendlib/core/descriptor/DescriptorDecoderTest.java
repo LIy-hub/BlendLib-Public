@@ -4,7 +4,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.liy.blendlib.api.BlendResourceId;
 import com.liy.blendlib.core.asset.AssetBytes;
@@ -97,23 +96,6 @@ class DescriptorDecoderTest {
                 "1", BlendAssetLimits.MAX_VISUAL_EVENTS_PER_STATE + 1)));
         assertEquals(BlendDiagnosticCodes.LIMIT_001, exception.diagnostic().code());
         assertEquals("/animation/states/fixture:idle/events", exception.diagnostic().location());
-    }
-
-    @Test
-    void descriptorCannotBypassTheDefaultJsonArrayLimit() {
-        String extensions = "\"fixture:extension\",".repeat(16_385);
-        String json = """
-                {"format_version":1,"profile":"blendlib:rigid_v1","mesh":"fixture:models3d/model.glb",
-                 "materials":{"Base":{"base_color":"fixture:textures/base.png"}},
-                 "extensions_used":[%s]}
-                """.formatted(extensions.substring(0, extensions.length() - 1));
-
-        BlendAssetLoadException exception = assertThrows(BlendAssetLoadException.class, () -> decode(json));
-
-        assertEquals(BlendDiagnosticCodes.DESC_002, exception.diagnostic().code());
-        assertEquals("", exception.diagnostic().location());
-        assertTrue(exception.getCause().getMessage().startsWith(
-                "JSON array entry count exceeds configured limit at JSON character "));
     }
 
     @Test

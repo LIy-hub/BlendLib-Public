@@ -1,0 +1,7 @@
+{
+  "format": "blendlib-x8-example-features-v1",
+  "x3_presentation_event": "blendlib_ecosystem_example:attack_whoosh",
+  "x4_host_adapter": "required experimental capability; external lifecycle owner required",
+  "x6_variant_material": "optional standard-route capability with explicit CPU fallback; production integration WAITING",
+  "x7_backend": "standard-public-route with CPU fallback; hardware validation WAITING"
+}

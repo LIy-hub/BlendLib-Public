@@ -10,13 +10,13 @@ import com.liy.blendlib.fabric.client.render.RenderVisibility;
 import java.util.Objects;
 import net.minecraft.client.renderer.texture.OverlayTexture;
 
-/** Internal extraction-only construction for a block-local static or rigid pose. */
+/** Internal extraction-only construction for a block-local static or rigid rest pose. */
 final class StaticRestPoseBlockEntitySnapshotFactory {
     private StaticRestPoseBlockEntitySnapshotFactory() {
     }
 
     /**
-     * Resolves and binds the current immutable handle and its all-clip culling envelope before submit.
+     * Resolves and binds the current immutable handle before submit.
      *
      * <p>Minecraft has already translated the block-entity pose stack to the block position when
      * submit runs, so the captured root transform remains block-local identity.</p>

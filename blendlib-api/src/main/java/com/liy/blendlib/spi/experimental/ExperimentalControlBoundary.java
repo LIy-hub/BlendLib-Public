@@ -69,32 +69,29 @@ final class ExperimentalControlBoundary {
 
     static String safeThrowableType(Throwable throwable) {
         Objects.requireNonNull(throwable, "throwable");
+        rethrowIfFatal(throwable);
         String type = FALLBACK_THROWABLE_TYPE;
         try {
             String candidate = throwable.getClass().getSimpleName();
             if (candidate != null && !candidate.isBlank()) {
                 type = sanitize(candidate, 96, FALLBACK_THROWABLE_TYPE);
             }
-        } catch (Throwable ignored) {
-            // Class metadata is diagnostic-only; a secondary failure must never replace the primary failure.
+        } catch (Throwable failure) {
+            rethrowIfFatal(failure);
+            // Ordinary class-metadata failures are diagnostic-only.
         }
         return type;
     }
 
     /** Returns whether control-flow should be restored after in-scope state has been made terminal. */
-    @SuppressWarnings("removal")
     static boolean isFatal(Throwable throwable) {
-        return throwable instanceof VirtualMachineError || throwable instanceof ThreadDeath;
+        return throwable instanceof Error;
     }
 
-    /** Rethrows VM-fatal failures after the caller has restored its invariants and released ownership. */
-    @SuppressWarnings("removal")
+    /** Rethrows fatal failures after the caller has restored its invariants and released ownership. */
     static void rethrowIfFatal(Throwable throwable) {
-        if (throwable instanceof VirtualMachineError error) {
+        if (throwable instanceof Error error) {
             throw error;
-        }
-        if (throwable instanceof ThreadDeath death) {
-            throw death;
         }
     }
 

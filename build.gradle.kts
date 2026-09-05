@@ -2,11 +2,14 @@ import java.nio.charset.StandardCharsets
 import java.security.MessageDigest
 import java.util.zip.ZipFile
 import org.gradle.api.artifacts.component.ModuleComponentIdentifier
+import org.gradle.api.artifacts.repositories.MavenArtifactRepository
 import org.gradle.api.plugins.JavaPluginExtension
 import org.gradle.api.publish.PublishingExtension
 import org.gradle.api.publish.maven.MavenPublication
+import org.gradle.api.tasks.GradleBuild
 import org.gradle.api.tasks.compile.JavaCompile
 import org.gradle.api.tasks.bundling.Jar
+import org.gradle.api.tasks.bundling.Zip
 import org.gradle.api.tasks.javadoc.Javadoc
 import org.gradle.api.tasks.Sync
 import org.gradle.api.tasks.testing.Test
@@ -97,7 +100,7 @@ val releaseDirectory = layout.buildDirectory.dir("release")
 val localMavenDirectory = layout.buildDirectory.dir("local-maven")
 val blenderExecutable = providers.gradleProperty("blender_executable")
 val blenderAddonDirectory = layout.projectDirectory.dir("blender-addon")
-val blenderAddonZip = releaseDirectory.map { it.file("blendlib-exporter-1.0.0.zip") }
+val blenderAddonZip = releaseDirectory.map { it.file("blendlib-exporter-1.0.1.zip") }
 val stagedBlenderAddonDirectory = layout.buildDirectory.dir("staged-blender-addon")
 
 /**
@@ -786,6 +789,16 @@ fun staticReleaseInventoryRows(
     javadocEntries: Set<String>,
     addonEntries: Set<String>,
 ): List<ReleaseInventoryRow> {
+    val expectedOuterRuntimeResources = setOf(
+        "assets/blendlib/icon.png",
+        "assets/blendlib/shaders/core/x7_skinned.fsh",
+        "assets/blendlib/shaders/core/x7_skinned.vsh",
+        "assets/blendlib/shaders/core/x7_static_direct.fsh",
+        "assets/blendlib/shaders/core/x7_static_direct.vsh",
+        "assets/blendlib/shaders/core/x7_static_rigid.fsh",
+        "assets/blendlib/shaders/core/x7_static_rigid.vsh",
+        "blendlib.client.mixins.json",
+    )
     val expectedNested = setOf(
         "META-INF/jars/blendlib-api-$releaseVersion.jar",
         "META-INF/jars/blendlib-core-$releaseVersion.jar",
@@ -795,8 +808,12 @@ fun staticReleaseInventoryRows(
     check(nested == expectedNested) {
         "Runtime archive must contain exactly the expected local nested modules; actual=$nested"
     }
+    check(expectedOuterRuntimeResources.all(runtimeEntries::contains)) {
+        "Outer runtime archive is missing a required BlendLib resource: " +
+                (expectedOuterRuntimeResources - runtimeEntries)
+    }
     check(runtimeEntries.filterNot { it.endsWith("/") }.all { entry ->
-        entry == "fabric.mod.json" || entry == "assets/blendlib/icon.png" ||
+        entry == "fabric.mod.json" || entry in expectedOuterRuntimeResources ||
                 entry.startsWith("META-INF/") || entry.startsWith("com/liy/blendlib/")
     }) {
         "Outer runtime archive contains unaccounted non-BlendLib payload: $runtimeEntries"
@@ -913,7 +930,7 @@ fun staticReleaseInventoryRows(
     return listOf(
         ReleaseInventoryRow(
             "packaged-local", "$group:$releaseArtifactId", releaseVersion,
-            "bundled:release-runtime", "runtime fabric.mod.json + assets/blendlib/icon.png + outer archive",
+            "bundled:release-runtime", "runtime Fabric metadata + client mixin + X7 shaders + outer archive",
             projectLicenseId, "fabric.mod.json + META-INF/MANIFEST.MF + META-INF/LICENSE",
             "PRESENT", "META-INF/NOTICE",
             "none",
@@ -950,7 +967,7 @@ fun staticReleaseInventoryRows(
             "none",
         ),
         ReleaseInventoryRow(
-            "packaged-addon", "$group:blendlib-exporter", "1.0.0",
+            "packaged-addon", "$group:blendlib-exporter", "1.0.1",
             "bundled:Blender Add-on ZIP", "blender_manifest.toml",
             "GPL-3.0-or-later", "Add-on manifest SPDX declaration",
             "PRESENT", "ZIP:LICENSE",
@@ -1061,7 +1078,7 @@ fun expectedStaticInventoryKeys(javadocLegalCoordinate: String): Set<String> = s
     "packaged-local\t$group:blendlib-core\t$releaseVersion",
     "packaged-local\t$group:blendlib-fabric-common\t$releaseVersion",
     "packaged-local\t$group:blendlib-showcase\t$releaseVersion",
-    "packaged-addon\t$group:blendlib-exporter\t1.0.0",
+    "packaged-addon\t$group:blendlib-exporter\t1.0.1",
     "host-provided\tcom.mojang:minecraft\t26.1.2",
     "host-provided\torg.openjdk:java\t25",
     "packaged-javadoc\t$javadocLegalCoordinate\t25",
@@ -1527,7 +1544,7 @@ val verifyLocalMavenConsumer = tasks.register<Exec>("verifyLocalMavenConsumer") 
 
 val buildPublicAlpha = tasks.register("buildPublicAlpha") {
     group = "build"
-    description = "Builds and verifies all BlendLib 1.0.0-alpha.1 public alpha artifacts."
+    description = "Builds and verifies all BlendLib public Alpha artifacts for the configured version."
     dependsOn(
         verifyReleaseSha256,
         verifyLocalMavenConsumer,
@@ -1540,4 +1557,512 @@ tasks.named("buildRelease") {
     // A finalizer runs after buildRelease and every direct dependency, rather
     // than racing an unrelated packaging task earlier in the lifecycle graph.
     finalizedBy(verifyReleaseSha256AtBuildReleaseEnd)
+}
+/**
+ * X8 local-candidate assembly is deliberately separate from the 26.1.2 alpha lifecycle above.
+ * It has no remote publication task and never nests a 26.2 or NeoForge artifact into the 26.1.2
+ * Fabric runtime JAR.  The tasks are declarations only until an owner separately authorizes them.
+ */
+val x8CandidateVersion = providers.gradleProperty("x8_candidate_version").get()
+val x8DatagenVersion = providers.gradleProperty("x8_datagen_version").get()
+val x8Fabric262Version = providers.gradleProperty("x8_fabric262_version").get()
+val x8NeoForge262Version = providers.gradleProperty("x8_neoforge262_version").get()
+val x8CandidateDirectory = layout.buildDirectory.dir("x8-candidate")
+
+data class X8LocalCandidateArtifact(
+    val source: java.io.File,
+    val archivePath: String,
+    val role: String,
+    val version: String,
+    val target: String,
+    val state: String,
+)
+
+val x8AssertLocalOnlyPublication = tasks.register("x8AssertLocalOnlyPublication") {
+    group = "x8"
+    description = "Fails if an X8 aggregate prerequisite declares a remote Maven publication repository."
+    doLast {
+        val allowedRoot = layout.buildDirectory.get().asFile.toPath().toAbsolutePath().normalize()
+        allprojects.forEach { candidateProject ->
+            val publishing = candidateProject.extensions.findByType(PublishingExtension::class.java) ?: return@forEach
+            publishing.repositories.withType(MavenArtifactRepository::class.java).forEach { repository ->
+                check(repository.url.scheme == "file") {
+                    "X8 local candidate forbids remote publication repository ${repository.name}: ${repository.url}"
+                }
+                val repositoryPath = java.nio.file.Paths.get(repository.url).toAbsolutePath().normalize()
+                check(repositoryPath.startsWith(allowedRoot)) {
+                    "X8 local candidate repository must stay below $allowedRoot: ${repository.url}"
+                }
+            }
+        }
+    }
+}
+
+val x8BuildRootModules = tasks.register("x8BuildRootModules") {
+    group = "x8"
+    description = "Builds only root pure-Java X8 prerequisites and datagen artifacts; it does not run checks or publish remotely."
+    dependsOn(
+        ":blendlib-api:jar",
+        ":blendlib-api:sourcesJar",
+        ":blendlib-core:jar",
+        ":blendlib-core:sourcesJar",
+        ":blendlib-datagen:jar",
+        ":blendlib-datagen:sourcesJar",
+        ":blendlib-datagen:javadocJar",
+    )
+}
+
+val x8PrepareLocalConsumerCoordinates = tasks.register("x8PrepareLocalConsumerCoordinates") {
+    group = "x8"
+    description = "Creates only the existing build/local-maven prerequisite used by detached X8 examples; no remote publication is configured."
+    dependsOn(x8AssertLocalOnlyPublication, publishPublicAlpha)
+}
+
+fun registerX8StandaloneBuild(
+    name: String,
+    projectDirectory: String,
+    requestedTasks: List<String>,
+    taskDescription: String,
+) = tasks.register<GradleBuild>(name) {
+    group = "x8"
+    description = taskDescription
+    dir = layout.projectDirectory.dir(projectDirectory).asFile
+    tasks = requestedTasks
+}
+
+fun GradleBuild.bindX8AlphaConsumerCoordinates() {
+    startParameter.projectProperties = mapOf(
+        "blendlib_alpha_version" to releaseVersion,
+        "blendlib_local_maven_repo" to localMavenDirectory.get().asFile.absolutePath,
+    )
+}
+
+val x8BuildFabric262 = registerX8StandaloneBuild(
+    "x8BuildFabric262",
+    "platforms/fabric-26.2",
+    listOf("remapJar", "sourcesJar", "javadocJar"),
+    "Builds the standalone Fabric 26.2 candidate JAR and its sources/Javadoc without touching the 26.1.2 runtime JAR.",
+)
+val x8BuildNeoForge262Bridge = registerX8StandaloneBuild(
+    "x8BuildNeoForge262Bridge",
+    "platforms/neoforge-26.2",
+    listOf("jar", "sourcesJar", "javadocJar"),
+    "Builds the standalone NeoForge 26.2 WAITING bridge and metadata-template guard only.",
+)
+val x8BuildEcosystemExample = registerX8StandaloneBuild(
+    "x8BuildEcosystemExample",
+    "examples/blendlib-ecosystem-example",
+    listOf("remapJar", "sourcesJar", "javadocJar"),
+    "Builds the detached ecosystem example against build/local-maven only.",
+)
+val x8BuildIndependentConsumer = registerX8StandaloneBuild(
+    "x8BuildIndependentConsumer",
+    "examples/independent-consumer",
+    listOf("remapJar", "sourcesJar", "javadocJar"),
+    "Builds the detached independent consumer against build/local-maven only.",
+)
+val x8BuildThirdPartyProviders = registerX8StandaloneBuild(
+    "x8BuildThirdPartyProviders",
+    "examples/third-party-providers",
+    listOf(
+        ":asset-profile-provider:jar", ":asset-profile-provider:sourcesJar", ":asset-profile-provider:javadocJar",
+        ":material-provider:jar", ":material-provider:sourcesJar", ":material-provider:javadocJar",
+        ":render-backend-provider:jar", ":render-backend-provider:sourcesJar", ":render-backend-provider:javadocJar",
+        ":host-renderer-provider:jar", ":host-renderer-provider:sourcesJar", ":host-renderer-provider:javadocJar",
+        ":host-adapter:jar", ":host-adapter:sourcesJar", ":host-adapter:javadocJar",
+    ),
+    "Builds the five detached pure-Java Experimental SPI example artifacts only.",
+)
+x8BuildEcosystemExample.configure {
+    bindX8AlphaConsumerCoordinates()
+    dependsOn(x8PrepareLocalConsumerCoordinates)
+}
+x8BuildIndependentConsumer.configure {
+    bindX8AlphaConsumerCoordinates()
+    dependsOn(x8PrepareLocalConsumerCoordinates)
+}
+x8BuildThirdPartyProviders.configure {
+    bindX8AlphaConsumerCoordinates()
+    dependsOn(x8PrepareLocalConsumerCoordinates)
+}
+
+val x8ConverterPackage = tasks.register<Zip>("x8PackageOfflineConverter") {
+    group = "x8"
+    description = "Packages the offline-only X8 converter source without executing Python or adding runtime dependencies."
+    destinationDirectory.set(x8CandidateDirectory)
+    archiveFileName.set("blendlib-model-converter-$x8CandidateVersion-local.zip")
+    from(layout.projectDirectory.dir("tools/model-converter")) {
+        include("blendlib_model_converter.py", "README.md", "NOTICE")
+    }
+}
+
+val modelPackTemplateDirectory = layout.projectDirectory.dir("templates/model-pack").asFile
+val x8ModelPackTemplatePackage = tasks.register<Zip>("x8PackageModelPackTemplate") {
+    group = "x8"
+    description = "Packages the strict X8 model-pack template while rejecting authoring-format files."
+    destinationDirectory.set(x8CandidateDirectory)
+    archiveFileName.set("blendlib-model-pack-template-$x8CandidateVersion-local.zip")
+    from(modelPackTemplateDirectory) {
+        exclude("**/*.blend", "**/*.fbx", "**/*.obj")
+    }
+    doFirst {
+        val forbidden = fileTree(modelPackTemplateDirectory).files.filter { file ->
+            file.extension.lowercase() in setOf("blend", "fbx", "obj")
+        }
+        check(forbidden.isEmpty()) {
+            "X8 model-pack template must not include runtime authoring files: $forbidden"
+        }
+    }
+}
+
+val x8ExampleVersion = releaseVersion
+val x8CandidateArtifacts = listOf(
+    X8LocalCandidateArtifact(
+        layout.projectDirectory.file("blendlib-api/build/libs/blendlib-api-$x8ExampleVersion.jar").asFile,
+        "artifacts/pure-java/blendlib-api-$x8ExampleVersion.jar",
+        "pure-java-api-runtime",
+        x8ExampleVersion,
+        "Java 25 / no platform runtime",
+        "candidate-unverified",
+    ),
+    X8LocalCandidateArtifact(
+        layout.projectDirectory.file("blendlib-api/build/libs/blendlib-api-$x8ExampleVersion-sources.jar").asFile,
+        "artifacts/pure-java/blendlib-api-$x8ExampleVersion-sources.jar",
+        "pure-java-api-sources",
+        x8ExampleVersion,
+        "Java 25 / no platform runtime",
+        "candidate-unverified",
+    ),
+    X8LocalCandidateArtifact(
+        layout.projectDirectory.file("blendlib-core/build/libs/blendlib-core-$x8ExampleVersion.jar").asFile,
+        "artifacts/pure-java/blendlib-core-$x8ExampleVersion.jar",
+        "pure-java-core-runtime",
+        x8ExampleVersion,
+        "Java 25 / no platform runtime",
+        "candidate-unverified",
+    ),
+    X8LocalCandidateArtifact(
+        layout.projectDirectory.file("blendlib-core/build/libs/blendlib-core-$x8ExampleVersion-sources.jar").asFile,
+        "artifacts/pure-java/blendlib-core-$x8ExampleVersion-sources.jar",
+        "pure-java-core-sources",
+        x8ExampleVersion,
+        "Java 25 / no platform runtime",
+        "candidate-unverified",
+    ),
+    X8LocalCandidateArtifact(
+        layout.projectDirectory.file("blendlib-datagen/build/libs/blendlib-datagen-$x8DatagenVersion.jar").asFile,
+        "artifacts/datagen/blendlib-datagen-$x8DatagenVersion.jar",
+        "pure-java-datagen",
+        x8DatagenVersion,
+        "Java 25 / no platform runtime",
+        "candidate-unverified",
+    ),
+    X8LocalCandidateArtifact(
+        layout.projectDirectory.file("blendlib-datagen/build/libs/blendlib-datagen-$x8DatagenVersion-sources.jar").asFile,
+        "artifacts/datagen/blendlib-datagen-$x8DatagenVersion-sources.jar",
+        "pure-java-datagen-sources",
+        x8DatagenVersion,
+        "Java 25 / no platform runtime",
+        "candidate-unverified",
+    ),
+    X8LocalCandidateArtifact(
+        layout.projectDirectory.file("blendlib-datagen/build/libs/blendlib-datagen-$x8DatagenVersion-javadoc.jar").asFile,
+        "artifacts/datagen/blendlib-datagen-$x8DatagenVersion-javadoc.jar",
+        "pure-java-datagen-javadoc",
+        x8DatagenVersion,
+        "Java 25 / no platform runtime",
+        "candidate-unverified",
+    ),
+    X8LocalCandidateArtifact(
+        layout.projectDirectory.file("platforms/fabric-26.2/build/libs/blendlib-fabric-26.2-$x8Fabric262Version.jar").asFile,
+        "artifacts/fabric-26.2/blendlib-fabric-26.2-$x8Fabric262Version.jar",
+        "fabric-26.2-adapter",
+        x8Fabric262Version,
+        "Fabric / Minecraft 26.2 / Java 25",
+        "candidate-unverified",
+    ),
+    X8LocalCandidateArtifact(
+        layout.projectDirectory.file("platforms/fabric-26.2/build/libs/blendlib-fabric-26.2-$x8Fabric262Version-sources.jar").asFile,
+        "artifacts/fabric-26.2/blendlib-fabric-26.2-$x8Fabric262Version-sources.jar",
+        "fabric-26.2-adapter-sources",
+        x8Fabric262Version,
+        "Fabric / Minecraft 26.2 / Java 25",
+        "candidate-unverified",
+    ),
+    X8LocalCandidateArtifact(
+        layout.projectDirectory.file("platforms/fabric-26.2/build/libs/blendlib-fabric-26.2-$x8Fabric262Version-javadoc.jar").asFile,
+        "artifacts/fabric-26.2/blendlib-fabric-26.2-$x8Fabric262Version-javadoc.jar",
+        "fabric-26.2-adapter-javadoc",
+        x8Fabric262Version,
+        "Fabric / Minecraft 26.2 / Java 25",
+        "candidate-unverified",
+    ),
+    X8LocalCandidateArtifact(
+        layout.projectDirectory.file("platforms/neoforge-26.2/build/libs/blendlib-neoforge-26.2-waiting-$x8NeoForge262Version.jar").asFile,
+        "artifacts/neoforge-26.2-waiting/blendlib-neoforge-26.2-waiting-$x8NeoForge262Version.jar",
+        "neoforge-26.2-bridge",
+        x8NeoForge262Version,
+        "NeoForge / Minecraft 26.2 / Java 25",
+        "waiting-official-binding",
+    ),
+    X8LocalCandidateArtifact(
+        layout.projectDirectory.file("platforms/neoforge-26.2/build/libs/blendlib-neoforge-26.2-waiting-$x8NeoForge262Version-sources.jar").asFile,
+        "artifacts/neoforge-26.2-waiting/blendlib-neoforge-26.2-waiting-$x8NeoForge262Version-sources.jar",
+        "neoforge-26.2-bridge-sources",
+        x8NeoForge262Version,
+        "NeoForge / Minecraft 26.2 / Java 25",
+        "waiting-official-binding",
+    ),
+    X8LocalCandidateArtifact(
+        layout.projectDirectory.file("platforms/neoforge-26.2/build/libs/blendlib-neoforge-26.2-waiting-$x8NeoForge262Version-javadoc.jar").asFile,
+        "artifacts/neoforge-26.2-waiting/blendlib-neoforge-26.2-waiting-$x8NeoForge262Version-javadoc.jar",
+        "neoforge-26.2-bridge-javadoc",
+        x8NeoForge262Version,
+        "NeoForge / Minecraft 26.2 / Java 25",
+        "waiting-official-binding",
+    ),
+    X8LocalCandidateArtifact(
+        layout.projectDirectory.file("examples/blendlib-ecosystem-example/build/libs/blendlib-ecosystem-example-$x8ExampleVersion.jar").asFile,
+        "artifacts/ecosystem-example/blendlib-ecosystem-example-$x8ExampleVersion.jar",
+        "detached-ecosystem-example",
+        x8ExampleVersion,
+        "Fabric / Minecraft 26.1.2 / Java 25",
+        "example-unverified",
+    ),
+    X8LocalCandidateArtifact(
+        layout.projectDirectory.file("examples/blendlib-ecosystem-example/build/libs/blendlib-ecosystem-example-$x8ExampleVersion-sources.jar").asFile,
+        "artifacts/ecosystem-example/blendlib-ecosystem-example-$x8ExampleVersion-sources.jar",
+        "detached-ecosystem-example-sources",
+        x8ExampleVersion,
+        "Fabric / Minecraft 26.1.2 / Java 25",
+        "example-unverified",
+    ),
+    X8LocalCandidateArtifact(
+        layout.projectDirectory.file("examples/blendlib-ecosystem-example/build/libs/blendlib-ecosystem-example-$x8ExampleVersion-javadoc.jar").asFile,
+        "artifacts/ecosystem-example/blendlib-ecosystem-example-$x8ExampleVersion-javadoc.jar",
+        "detached-ecosystem-example-javadoc",
+        x8ExampleVersion,
+        "Fabric / Minecraft 26.1.2 / Java 25",
+        "example-unverified",
+    ),
+    X8LocalCandidateArtifact(
+        layout.projectDirectory.file("examples/independent-consumer/build/libs/blendlib-independent-consumer-$x8ExampleVersion.jar").asFile,
+        "artifacts/independent-consumer/blendlib-independent-consumer-$x8ExampleVersion.jar",
+        "detached-independent-consumer",
+        x8ExampleVersion,
+        "Fabric / Minecraft 26.1.2 / Java 25",
+        "example-unverified",
+    ),
+    X8LocalCandidateArtifact(
+        layout.projectDirectory.file("examples/independent-consumer/build/libs/blendlib-independent-consumer-$x8ExampleVersion-sources.jar").asFile,
+        "artifacts/independent-consumer/blendlib-independent-consumer-$x8ExampleVersion-sources.jar",
+        "detached-independent-consumer-sources",
+        x8ExampleVersion,
+        "Fabric / Minecraft 26.1.2 / Java 25",
+        "example-unverified",
+    ),
+    X8LocalCandidateArtifact(
+        layout.projectDirectory.file("examples/independent-consumer/build/libs/blendlib-independent-consumer-$x8ExampleVersion-javadoc.jar").asFile,
+        "artifacts/independent-consumer/blendlib-independent-consumer-$x8ExampleVersion-javadoc.jar",
+        "detached-independent-consumer-javadoc",
+        x8ExampleVersion,
+        "Fabric / Minecraft 26.1.2 / Java 25",
+        "example-unverified",
+    ),
+)
+
+val x8ProviderArtifactNames = listOf(
+    "blendlib-asset-profile-provider-example",
+    "blendlib-material-provider-example",
+    "blendlib-render-backend-provider-example",
+    "blendlib-host-renderer-provider-example",
+    "blendlib-host-adapter-example",
+)
+val x8ProviderArtifactDirectories = listOf(
+    "asset-profile-provider",
+    "material-provider",
+    "render-backend-provider",
+    "host-renderer-provider",
+    "host-adapter",
+)
+val x8ProviderArtifacts = x8ProviderArtifactNames.zip(x8ProviderArtifactDirectories).flatMap { (artifactName, projectName) ->
+    listOf("", "-sources", "-javadoc").map { classifier ->
+        X8LocalCandidateArtifact(
+            layout.projectDirectory.file(
+                "examples/third-party-providers/$projectName/build/libs/$artifactName-$x8ExampleVersion$classifier.jar").asFile,
+            "artifacts/providers/$artifactName/$artifactName-$x8ExampleVersion$classifier.jar",
+            "experimental-spi-provider${if (classifier.isEmpty()) "" else classifier}",
+            x8ExampleVersion,
+            "pure Java 25 / no platform runtime",
+            "example-unverified",
+        )
+    }
+}
+val x8AllCandidateArtifacts = x8CandidateArtifacts + x8ProviderArtifacts
+val x8ConverterPackagePath = "packages/blendlib-model-converter-$x8CandidateVersion-local.zip"
+val x8ModelPackTemplatePackagePath = "packages/blendlib-model-pack-template-$x8CandidateVersion-local.zip"
+
+val x8LocalCandidateZip = tasks.register<Zip>("x8PackageLocalCandidate") {
+    group = "distribution"
+    description = "Packages the explicitly separate X8 local candidate artifacts without remote publication or cross-target nesting."
+    dependsOn(
+        x8BuildRootModules,
+        x8BuildFabric262,
+        x8BuildNeoForge262Bridge,
+        x8ConverterPackage,
+        x8ModelPackTemplatePackage,
+        x8PrepareLocalConsumerCoordinates,
+        x8BuildEcosystemExample,
+        x8BuildIndependentConsumer,
+        x8BuildThirdPartyProviders,
+    )
+    destinationDirectory.set(x8CandidateDirectory)
+    archiveFileName.set("blendlib-x8-local-candidate-$x8CandidateVersion-local.zip")
+    x8AllCandidateArtifacts.forEach { artifact ->
+        from(artifact.source) {
+            into(artifact.archivePath.substringBeforeLast('/'))
+            rename { artifact.archivePath.substringAfterLast('/') }
+        }
+    }
+    from(x8ConverterPackage.flatMap { it.archiveFile }) {
+        into("packages")
+    }
+    from(x8ModelPackTemplatePackage.flatMap { it.archiveFile }) {
+        into("packages")
+    }
+    doFirst {
+        val missing = x8AllCandidateArtifacts.map(X8LocalCandidateArtifact::source).filterNot(java.io.File::isFile)
+        check(missing.isEmpty()) { "Missing X8 local-candidate artifacts: $missing" }
+        check(x8ConverterPackage.get().archiveFile.get().asFile.isFile) { "Missing X8 converter package" }
+        check(x8ModelPackTemplatePackage.get().archiveFile.get().asFile.isFile) { "Missing X8 model-pack template package" }
+    }
+}
+
+val x8InventoryFile = x8CandidateDirectory.map { it.file("x8-local-candidate-inventory.txt") }
+val x8WriteLocalCandidateInventory = tasks.register("x8WriteLocalCandidateInventory") {
+    group = "distribution"
+    description = "Writes an exact local-only X8 artifact inventory after checking the aggregate archive boundaries."
+    dependsOn(x8LocalCandidateZip)
+    inputs.file(x8LocalCandidateZip.flatMap { it.archiveFile })
+    outputs.file(x8InventoryFile)
+    doLast {
+        val expectedPaths = x8AllCandidateArtifacts.map(X8LocalCandidateArtifact::archivePath) + listOf(
+            x8ConverterPackagePath,
+            x8ModelPackTemplatePackagePath,
+        )
+        check(expectedPaths.size == expectedPaths.toSet().size) { "X8 inventory contains duplicate archive paths" }
+        val actualPaths = linkedSetOf<String>()
+        ZipFile(x8LocalCandidateZip.get().archiveFile.get().asFile).use { archive ->
+            val entries = archive.entries()
+            while (entries.hasMoreElements()) {
+                val entry = entries.nextElement()
+                if (!entry.isDirectory) {
+                    actualPaths += entry.name
+                }
+            }
+        }
+        check(actualPaths == expectedPaths.toSet()) {
+            "X8 aggregate archive paths differ; missing=${expectedPaths.toSet() - actualPaths} extra=${actualPaths - expectedPaths.toSet()}"
+        }
+        check(actualPaths.none { path ->
+            val normalized = path.lowercase()
+            normalized.endsWith(".blend") || normalized.endsWith(".fbx") || normalized.endsWith(".obj")
+        }) { "X8 aggregate archive contains prohibited runtime authoring formats" }
+        x8AllCandidateArtifacts.forEach { artifact ->
+            ZipFile(artifact.source).use { nestedArchive ->
+                val nestedEntries = nestedArchive.entries()
+                while (nestedEntries.hasMoreElements()) {
+                    val entry = nestedEntries.nextElement()
+                    val normalized = entry.name.lowercase()
+                    check(
+                        entry.isDirectory
+                                || (!normalized.endsWith(".blend")
+                                && !normalized.endsWith(".fbx")
+                                && !normalized.endsWith(".obj"))
+                    ) { "X8 JAR contains prohibited runtime authoring format: ${artifact.source} -> ${entry.name}" }
+                    if (artifact.target.startsWith("NeoForge")) {
+                        check(entry.name != "META-INF/neoforge.mods.toml") {
+                            "X8 NeoForge WAITING bridge must not package loadable metadata: ${artifact.source}"
+                        }
+                    }
+                }
+            }
+        }
+        x8InventoryFile.get().asFile.apply {
+            parentFile.mkdirs()
+            writeText(buildString {
+                appendLine("# BlendLib X8 local candidate inventory; not a release or publication grant.")
+                appendLine("path\trole\tversion\ttarget\tstate\tlicense")
+                x8AllCandidateArtifacts.forEach { artifact ->
+                    appendLine("${artifact.archivePath}\t${artifact.role}\t${artifact.version}\t${artifact.target}\t${artifact.state}\tApache-2.0")
+                }
+                appendLine("$x8ConverterPackagePath\toffline-converter-source-package\t$x8CandidateVersion\thost-independent\tcandidate-unverified\tApache-2.0")
+                appendLine("$x8ModelPackTemplatePackagePath\tstrict-model-pack-template\t$x8CandidateVersion\tresource-pack-template\tcandidate-unverified\tApache-2.0")
+            }, StandardCharsets.UTF_8)
+        }
+    }
+}
+
+val x8Sha256SumsFile = x8CandidateDirectory.map { it.file("SHA256SUMS") }
+val x8WriteLocalCandidateSha256 = tasks.register("x8WriteLocalCandidateSha256") {
+    group = "distribution"
+    description = "Writes SHA-256 records for the X8 aggregate, its two source packages, and its inventory."
+    dependsOn(x8WriteLocalCandidateInventory)
+    inputs.files(
+        x8LocalCandidateZip.flatMap { it.archiveFile },
+        x8ConverterPackage.flatMap { it.archiveFile },
+        x8ModelPackTemplatePackage.flatMap { it.archiveFile },
+        x8InventoryFile,
+    )
+    outputs.file(x8Sha256SumsFile)
+    doLast {
+        val files = listOf(
+            x8LocalCandidateZip.get().archiveFile.get().asFile,
+            x8ConverterPackage.get().archiveFile.get().asFile,
+            x8ModelPackTemplatePackage.get().archiveFile.get().asFile,
+            x8InventoryFile.get().asFile,
+        )
+        check(files.all(java.io.File::isFile)) { "Cannot hash missing X8 local-candidate files: $files" }
+        x8Sha256SumsFile.get().asFile.apply {
+            parentFile.mkdirs()
+            writeText(files.joinToString(separator = System.lineSeparator(), postfix = System.lineSeparator()) { file ->
+                "${sha256(file)}  ${file.name}"
+            }, StandardCharsets.UTF_8)
+        }
+    }
+}
+
+val x8VerifyLocalCandidate = tasks.register("x8VerifyLocalCandidate") {
+    group = "verification"
+    description = "Verifies the exact X8 local-candidate SHA-256 inventory without treating it as build or runtime evidence."
+    dependsOn(x8WriteLocalCandidateSha256)
+    inputs.file(x8Sha256SumsFile)
+    doLast {
+        val files = listOf(
+            x8LocalCandidateZip.get().archiveFile.get().asFile,
+            x8ConverterPackage.get().archiveFile.get().asFile,
+            x8ModelPackTemplatePackage.get().archiveFile.get().asFile,
+            x8InventoryFile.get().asFile,
+        )
+        val pattern = Regex("^([0-9a-f]{64})  ([^\\\\/]+)$")
+        val recorded = linkedMapOf<String, String>()
+        x8Sha256SumsFile.get().asFile.readLines(StandardCharsets.UTF_8).filter(String::isNotBlank).forEach { line ->
+            val match = pattern.matchEntire(line) ?: error("Malformed X8 SHA256SUMS line: $line")
+            check(recorded.put(match.groupValues[2], match.groupValues[1]) == null) {
+                "Duplicate X8 SHA256SUMS filename: ${match.groupValues[2]}"
+            }
+        }
+        check(recorded.keys == files.map(java.io.File::getName).toSet()) {
+            "X8 SHA256SUMS files differ; expected=${files.map(java.io.File::getName)} actual=${recorded.keys}"
+        }
+        files.forEach { file ->
+            check(recorded[file.name] == sha256(file)) { "X8 SHA-256 mismatch for ${file.name}" }
+        }
+    }
+}
+
+val x8AssembleLocalCandidate = tasks.register("x8AssembleLocalCandidate") {
+    group = "distribution"
+    description = "Runs the explicit local-only X8 candidate assembly and inventory chain; it does not publish, tag, or change P8 gates."
+    dependsOn(x8VerifyLocalCandidate)
 }

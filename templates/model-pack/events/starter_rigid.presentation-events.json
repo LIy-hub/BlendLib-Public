@@ -1,0 +1,11 @@
+{
+  "format": "blendlib-x8-presentation-event-intent-v1",
+  "model": "blendlib_template:starter_rigid",
+  "events": [
+    {
+      "id": "blendlib_template:idle_pulse",
+      "meaning": "client presentation cue only"
+    }
+  ],
+  "status": "authoring-reference-only; no gameplay authority or network payload is defined"
+}

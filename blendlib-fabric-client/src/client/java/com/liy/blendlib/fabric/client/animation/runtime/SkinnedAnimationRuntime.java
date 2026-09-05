@@ -83,8 +83,11 @@ public final class SkinnedAnimationRuntime {
      * @return count returned by the lifecycle registry removal
      */
     public int onEntityUnload(int entityId) {
+        // Negative ids are never bound as instance keys (BlendInstanceKey.Entity requires a
+        // non-negative id), so nothing can be retired for them. They arrive only from synthetic
+        // or replay entities (e.g. Flashback's Replay Viewer) and must not abort teardown.
         if (entityId < 0) {
-            throw new IllegalArgumentException("entityId must be non-negative");
+            return 0;
         }
         int removed = lifecycle.onEntityUnload(entityId);
         Iterator<BlendInstanceKey> keys = clocks.keySet().iterator();
@@ -121,8 +124,11 @@ public final class SkinnedAnimationRuntime {
      * returns a missing snapshot instead of binding state to an entity id after disconnect.</p>
      */
     public Optional<BlendInstanceKey.Entity> activeEntityKey(int entityId) {
+        // Synthetic/replay entities never bound an instance (their ids are negative and rejected
+        // by BlendInstanceKey.Entity), so resolve them to an absent key instead of aborting the
+        // render callback that queries this per-frame.
         if (entityId < 0) {
-            throw new IllegalArgumentException("entityId must be non-negative");
+            return Optional.empty();
         }
         return lifecycle.activeEntityKey(entityId);
     }
@@ -315,7 +321,7 @@ public final class SkinnedAnimationRuntime {
                 state.sequence(),
                 SYNCHRONIZED_SNAP_THRESHOLD_SECONDS));
         if (correction != AnimationCorrectionResult.STALE_DROPPED) {
-            clock.acceptSynchronizedState(state.sequence(), state.speed());
+            clock.acceptSynchronizedState(state);
             clock.resetAt(sampleTick, input.updateBucket());
             clock.incrementSampleRevision();
             return instance.advance(0.0d);
@@ -323,7 +329,20 @@ public final class SkinnedAnimationRuntime {
         if (!clock.hasActiveSynchronizedState()) {
             return advanceFallback(instance, clock, input);
         }
-        return advanceAt(instance, clock, sampleTick, input.updateBucket(), clock.synchronizedSpeed());
+        // A repeated accepted sync state is an absolute client timeline, not an instruction to
+        // replay every loop since this instance was last extracted. Reappearing after a long
+        // cull interval would otherwise exceed the controller's deliberately bounded loop work.
+        if (clock.dueForAdvance(sampleTick, input.updateBucket())) {
+            AnimationAdvance synchronizedAdvance = instance.controller().synchronizeTimeline(
+                    clock.synchronizedAnimationKey(),
+                    synchronizedControllerTimeSeconds(
+                            clock.synchronizedStartGameTick(), (float) clock.synchronizedSpeed(), sampleTick));
+            clock.recordAdvanceAt(sampleTick, input.updateBucket());
+            clock.incrementSampleRevision();
+            return synchronizedAdvance;
+        }
+        return new AnimationAdvance(
+                instance.controller().currentState(), instance.controller().currentTimeSeconds(), List.of());
     }
 
     private static AnimationAdvance advanceFallback(
@@ -370,8 +389,13 @@ public final class SkinnedAnimationRuntime {
      */
     private static double synchronizedControllerTimeSeconds(
             SyncedAnimationState state, double clientGameTimeInTicks) {
-        double elapsedTicks = Math.max(0.0d, clientGameTimeInTicks - state.startGameTick());
-        return elapsedTicks / TICKS_PER_SECOND * state.speed();
+        return synchronizedControllerTimeSeconds(state.startGameTick(), state.speed(), clientGameTimeInTicks);
+    }
+
+    private static double synchronizedControllerTimeSeconds(
+            long startGameTick, float speed, double clientGameTimeInTicks) {
+        double elapsedTicks = Math.max(0.0d, clientGameTimeInTicks - startGameTick);
+        return elapsedTicks / TICKS_PER_SECOND * speed;
     }
 
     private void clearRuntimeState() {
@@ -408,6 +432,8 @@ public final class SkinnedAnimationRuntime {
         private long sampleRevision;
         private long synchronizedSequence = -1L;
         private float synchronizedSpeed = 1.0F;
+        private BlendAnimationKey synchronizedAnimationKey;
+        private long synchronizedStartGameTick;
         private boolean synchronizedStateActive;
         private boolean initialized;
 
@@ -462,9 +488,11 @@ public final class SkinnedAnimationRuntime {
             sampleRevision = Math.incrementExact(sampleRevision);
         }
 
-        private void acceptSynchronizedState(long sequence, float speed) {
-            synchronizedSequence = sequence;
-            synchronizedSpeed = speed;
+        private void acceptSynchronizedState(SyncedAnimationState state) {
+            synchronizedSequence = state.sequence();
+            synchronizedSpeed = state.speed();
+            synchronizedAnimationKey = state.animationKey();
+            synchronizedStartGameTick = state.startGameTick();
             synchronizedStateActive = true;
         }
 
@@ -474,6 +502,14 @@ public final class SkinnedAnimationRuntime {
 
         private double synchronizedSpeed() {
             return synchronizedSpeed;
+        }
+
+        private BlendAnimationKey synchronizedAnimationKey() {
+            return Objects.requireNonNull(synchronizedAnimationKey, "synchronizedAnimationKey");
+        }
+
+        private long synchronizedStartGameTick() {
+            return synchronizedStartGameTick;
         }
 
         private void deactivateSynchronizedState() {

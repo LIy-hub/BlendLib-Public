@@ -5,7 +5,7 @@
 
 Run through Blender, never through the BlendLib Java runtime:
 
-    blender --background --python create_canonical_fixtures.py -- --project-root .
+    blender --background --python create_canonical_fixtures.py -- --project-root D:\\BlendLib
 """
 
 from __future__ import annotations

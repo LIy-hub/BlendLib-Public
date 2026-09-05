@@ -1,5 +1,5 @@
 {
-  "status": "Experimental; compatibility may change",
+  "status": "Proposed/Experimental validation candidate; X9 single-track r6 PASS; original X1/X5/X9 integration r1 FAIL; remediation PENDING fresh integration review",
   "profiles": ["blendlib:skinned_v2", "blendlib:morph_v1"],
   "positive": ["skinned-v2-all-features", "morph-v1-all-features"],
   "negative": [
@@ -11,5 +11,36 @@
     "morph-target-bound",
     "non-finite-accessor"
   ],
+  "r5_buffer_view_usage_graph": {
+    "positive": [
+      "target-absent-legal",
+      "vertex-target-34962",
+      "index-target-34963",
+      "vertex-u8-stride-4",
+      "vertex-u8-vec3-stride-4",
+      "vertex-u16-vec3-stride-8",
+      "interleaved-vertex-stride-24",
+      "vertex-u8-view-offset-121",
+      "vertex-u8-view-offset-121-accessor-offset-4",
+      "vertex-u16-accessor-offset-4",
+      "index-accessor-offset-2"
+    ],
+    "negative": [
+      "vertex-target-34963",
+      "index-target-34962",
+      "nonvertex-target",
+      "shared-vertex-index-view",
+      "vertex-stride-5",
+      "index-stride",
+      "animation-input-output-stride",
+      "inverse-bind-stride",
+      "vertex-u8-vec2-tight-stride",
+      "vertex-u8-vec3-tight-stride",
+      "vertex-u16-vec3-tight-stride",
+      "vertex-u8-accessor-offset-1",
+      "vertex-u16-accessor-offset-2",
+      "shared-animation-inverse-bind-view"
+    ]
+  },
   "v1_regression": ["rigid_v1-remains-v1-only", "skinned_v1-remains-v1-only"]
 }

@@ -18,5 +18,12 @@ class FabricMetadataBoundaryTest {
         assertTrue(json.contains("com.liy.blendlib.fabric.common.BlendLibCommonEntrypoint"));
         assertTrue(json.contains("\"client\""));
         assertTrue(json.contains("com.liy.blendlib.fabric.client.BlendLibClientEntrypoint"));
+        assertTrue(json.contains("\"config\": \"blendlib.client.mixins.json\""));
+        assertTrue(json.contains("\"environment\": \"client\""));
+
+        Path clientMixin = Path.of(
+                System.getProperty("blendlib.projectDir"), "src", "client", "resources", "blendlib.client.mixins.json");
+        assertTrue(Files.isRegularFile(clientMixin));
+        assertTrue(Files.readString(clientMixin).contains("Minecraft2612FinalPresentMixin"));
     }
 }

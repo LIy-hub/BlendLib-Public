@@ -1,0 +1,9 @@
+BlendLib X8 offline converter
+
+Copyright 2026 LIy-hub.
+Licensed under the Apache License, Version 2.0. See LICENSE and NOTICE at the repository
+root and docs/expansion/x8/licenses-and-sources.md for provenance.
+
+No third-party source code, GeckoLib code, Blockbench code, libraries, assets, or binary
+dependencies are included in this directory. "GeckoLib" and "Blockbench" are used only to name
+documented external JSON input dialects.

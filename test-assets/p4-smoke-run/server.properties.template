@@ -1,0 +1,12 @@
+# Generated only in D:\BlendLib\blendlib-showcase\run\p4-smoke-server by
+# prepareP4SmokeServerRun. This profile is loopback-only and must not be copied into a
+# formal server or world.
+server-ip=127.0.0.1
+server-port=25572
+online-mode=false
+enforce-secure-profile=false
+enable-rcon=false
+white-list=false
+enforce-whitelist=false
+level-name=blendlib-p4-smoke-world
+motd=BlendLib P4 isolated local rendering smoke

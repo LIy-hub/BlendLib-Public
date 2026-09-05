@@ -1,0 +1,12 @@
+# Generated only in D:\BlendLib\blendlib-showcase\run\p7-smoke-server by
+# prepareP7SmokeServerRun. This profile is loopback-only and must not be copied into a
+# formal server or world.
+server-ip=127.0.0.1
+server-port=25574
+online-mode=false
+enforce-secure-profile=false
+enable-rcon=false
+white-list=false
+enforce-whitelist=false
+level-name=blendlib-p7-smoke-world
+motd=BlendLib P7 isolated local hardening smoke

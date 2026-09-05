@@ -1,0 +1,7 @@
+{
+  "format": "blendlib-x8-material-intent-v1",
+  "material": "StaticSurface",
+  "model": "blendlib_template:starter_rigid",
+  "standard_route": "opaque",
+  "status": "authoring-reference-only; custom shaders, additive blending, and PBR are outside strict v1"
+}

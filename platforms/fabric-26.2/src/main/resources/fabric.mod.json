@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "id": "blendlib_fabric_262",
+  "version": "${version}",
+  "name": "BlendLib Fabric 26.2 Adapter",
+  "description": "Minecraft 26.2 Fabric production-candidate adapter for strict Blender/GLB BlendLib rendering.",
+  "license": "Apache-2.0",
+  "environment": "client",
+  "entrypoints": {
+    "main": [
+      "com.liy.blendlib.fabric.v262.BlendLibFabric262CommonEntrypoint"
+    ],
+    "client": [
+      "com.liy.blendlib.fabric.v262.BlendLibFabric262ClientEntrypoint"
+    ]
+  },
+  "depends": {
+    "fabricloader": ">=0.19.3",
+    "minecraft": "26.2",
+    "java": ">=25",
+    "fabric-api": ">=0.153.0+26.2"
+  }
+}

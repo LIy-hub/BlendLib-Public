@@ -1,25 +1,43 @@
-# BlendLib Public Alpha 发布包
+# BlendLib Beta 发布与集成文档
 
-目标版本：`1.0.0-alpha.1+26.1.2`。计划公开渠道为
-[GitHub](https://github.com/LIy-hub/BlendLib-Public) 与
-[CurseForge](https://www.curseforge.com/minecraft/mc-mods/blendlib)。完整源码公开：非 Add-on
-源码按 Apache-2.0 授权，`blender-addon/` 继续单独使用 GPL-3.0-or-later。
+当前源线版本为 `1.0.0-beta.1+26.1.2`。本目录提供 Beta 发布材料，并为同一源线的
+X1–X9 合并候选提供接口文档；两者都不替代制品清单、SHA-256、客户端视觉证据、性能证据、
+用户审核或发布授权。
 
-## 发布材料
+## 入口
 
-- [Alpha 发布说明](./alpha-release-notes.md)
+- [Beta.1 发布核验](./beta1-verification-2026-09-06.md)
+- [Beta 发布说明](./beta-release-notes.md)
 - [CurseForge 项目描述](./curseforge-project-description.md)
 - [Schema 与公共 API Alpha 冻结记录](./schema-and-api-freeze-v1.md)
-- [许可证与元数据](./local-license-metadata.md)
+- [许可证与发布元数据](./local-license-metadata.md)
 - [第三方许可证库存](./third-party-license-inventory.md)
 - [Fabric 26.1.2 开发者教程](./developer-tutorial-26.1.2.md)
 - [Blender 导出清单](./blender-export-checklist-v1.md)
 - [诊断与排错](./diagnostic-troubleshooting-v1.md)
+- [X1–X9 alpha 合并记录](../expansion/integration/x1-x9-alpha-merge.md)
+- [X8 平台与生态候选](../expansion/x8/README.md)
+- [P8 当前本地制品 rebind（历史 evidence）](../evidence/P8-current-artifact-rebind.md)
 
-## Alpha 提示
+## Alpha 与本地制品边界
 
 这是早期测试版本，API 与行为可能变化，请勿用于关键生产环境。只支持声明的 Minecraft
 26.1.2、Fabric Loader 0.19.3、Fabric API `0.154.2+26.1.2` 与 Java 25 环境。
 
 26.1.2 runtime、sources、Javadoc、Showcase、Blender Add-on ZIP、Local Maven 与库存文件由
-`buildRelease` 生成。
+`buildRelease`/Alpha 本地发布任务生成。aggregate Javadoc、sources、runtime、Showcase 和
+Add-on ZIP 都是构建输出，不是本目录的 checked-in 文档；每次构建后的身份只能由当次
+`build/release/SHA256SUMS` 和对应 evidence 确认。
+
+`publishPublicAlpha` 只准备 `build/local-maven/` 中的 Alpha runtime 与纯 API 坐标，供
+独立消费者验证；它不是远端 Maven 发布。X8 的
+`x8AssembleLocalCandidate` 保持为独立本地候选入口，不能把 Fabric 26.2 或 NeoForge
+内容嵌入 26.1.2 runtime JAR，也不能单独构成发布、兼容性或 Gate 结论。
+
+## 保留的验收边界
+
+- X1–X9 源内容被纳入合并候选，不等于所有轨道、P0–P8、动态验证、性能或视觉通过。
+- X7 的正式集成记录仍要求新独立静态审查；X8 的 standalone candidate、NeoForge binding、
+  runtime、visual、hardware、Iris/Sodium 和 release 条件保持各自的 `WAITING`/`PENDING` 状态。
+- 历史 smoke、RC 文字和旧制品 rebind 仅是其产生时的 evidence，不能被本文当作当前 Beta
+  安装、运行、视觉或发布证明。

@@ -109,9 +109,24 @@ class SkinnedRenderBackendContractsTest {
     @Test
     void staleHandleOrForeignCpuTopologyIsRejectedBeforeRenderSubmit() {
         Fixture original = fixture(KEY, 13L, material(MaterialDefinition.Mode.OPAQUE, false));
+        Fixture sameVersionDifferentHandle = fixture(KEY, 13L, material(MaterialDefinition.Mode.OPAQUE, false));
         Fixture newerGeneration = fixture(KEY, 14L, material(MaterialDefinition.Mode.OPAQUE, false));
         Fixture otherModel = fixture(OTHER_KEY, 13L, material(MaterialDefinition.Mode.OPAQUE, false));
         SkinnedRenderSnapshot originalSnapshot = SkinnedRenderSnapshot.capture(original.handle(), List.of(original.output()));
+        SkinnedRenderSnapshot sameVersionForeignSnapshot = SkinnedRenderSnapshot.capture(
+                sameVersionDifferentHandle.handle(), List.of(sameVersionDifferentHandle.output()));
+
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> ModelRenderSnapshot.skinned(
+                        original.handle(),
+                        Transform.IDENTITY,
+                        0,
+                        0,
+                        0xFFFFFFFF,
+                        RenderVisibility.VISIBLE,
+                        new CullingMetadata(original.handle().bounds(), true),
+                        sameVersionForeignSnapshot));
 
         assertThrows(
                 IllegalArgumentException.class,
@@ -140,6 +155,9 @@ class SkinnedRenderBackendContractsTest {
                 () -> SkinnedRenderSnapshot.capture(original.handle(), List.of(newerGeneration.output())));
         assertThrows(
                 IllegalArgumentException.class,
+                () -> SkinnedRenderSnapshot.capture(original.handle(), List.of()));
+        assertThrows(
+                IllegalArgumentException.class,
                 () -> new ModelRenderSnapshot(
                         original.handle(),
                         Transform.IDENTITY,
@@ -148,6 +166,31 @@ class SkinnedRenderBackendContractsTest {
                         0xFFFFFFFF,
                         RenderVisibility.VISIBLE,
                         new CullingMetadata(original.handle().bounds(), true)));
+    }
+
+    @Test
+    void skinnedCaptureIdentityFenceLeavesStaticAndMissingSnapshotsUnaffected() {
+        X6TestRenderHandle staticHandle = new X6TestRenderHandle(KEY, 13L, List.of(), Map.of(), false);
+        ModelRenderSnapshot staticSnapshot = new ModelRenderSnapshot(
+                staticHandle,
+                Transform.IDENTITY,
+                0,
+                0,
+                0xFFFFFFFF,
+                RenderVisibility.VISIBLE,
+                new CullingMetadata(staticHandle.bounds(), true));
+        assertSame(staticHandle, staticSnapshot.handle());
+
+        MissingModelRenderHandle missingHandle = new MissingModelRenderHandle(KEY, 13L);
+        ModelRenderSnapshot missingSnapshot = new ModelRenderSnapshot(
+                missingHandle,
+                Transform.IDENTITY,
+                0,
+                0,
+                0xFFFFFFFF,
+                RenderVisibility.VISIBLE,
+                new CullingMetadata(missingHandle.bounds(), true));
+        assertSame(missingHandle, missingSnapshot.handle());
     }
 
     @Test

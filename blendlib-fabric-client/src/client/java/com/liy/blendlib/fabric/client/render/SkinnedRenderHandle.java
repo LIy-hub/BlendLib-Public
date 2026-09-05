@@ -8,6 +8,7 @@ import com.liy.blendlib.core.model.ModelAsset;
 import com.liy.blendlib.core.model.ModelNode;
 import com.liy.blendlib.core.model.ModelPrimitive;
 import com.liy.blendlib.core.model.ModelProfile;
+import com.liy.blendlib.core.model.Skin;
 import com.liy.blendlib.core.model.Transform;
 import java.util.ArrayList;
 import java.util.List;
@@ -17,16 +18,17 @@ import java.util.Objects;
 /**
  * Immutable reload-time handle for a strict {@code skinned_v1} asset generation.
  *
- * <p>It owns only prepared source geometry, material routing, rest-node transforms, the core
- * asset's conservative all-clip culling envelope, and immutable generation metadata. CPU skinning
- * belongs to extraction, and render submit accepts only the resulting {@link SkinnedRenderSnapshot};
- * this handle performs no resource access or temporal bounds work after preparation.</p>
+ * <p>It owns only prepared source geometry, material routing, rest-node transforms, and immutable
+ * generation metadata. CPU skinning belongs to extraction, and render submit accepts only the
+ * resulting {@link SkinnedRenderSnapshot}; this handle performs no resource access or animation
+ * work after preparation.</p>
  */
 public final class SkinnedRenderHandle implements ModelRenderHandle {
     private final BlendModelKey modelKey;
     private final long generation;
     private final List<Transform> nodeWorldTransforms;
     private final List<PreparedSkinnedRenderPrimitive> skinnedPrimitives;
+    private final int[][] skinJointNodeIndexes;
     private final Bounds bounds;
     private final float unitsToBlocksScale;
 
@@ -35,6 +37,7 @@ public final class SkinnedRenderHandle implements ModelRenderHandle {
             long generation,
             List<Transform> nodeWorldTransforms,
             List<PreparedSkinnedRenderPrimitive> skinnedPrimitives,
+            int[][] skinJointNodeIndexes,
             Bounds bounds,
             float unitsToBlocksScale) {
         this.modelKey = Objects.requireNonNull(modelKey, "modelKey");
@@ -44,6 +47,7 @@ public final class SkinnedRenderHandle implements ModelRenderHandle {
         this.generation = generation;
         this.nodeWorldTransforms = List.copyOf(Objects.requireNonNull(nodeWorldTransforms, "nodeWorldTransforms"));
         this.skinnedPrimitives = List.copyOf(Objects.requireNonNull(skinnedPrimitives, "skinnedPrimitives"));
+        this.skinJointNodeIndexes = copySkinJointNodeIndexes(skinJointNodeIndexes);
         if (this.skinnedPrimitives.isEmpty()) {
             throw new IllegalArgumentException("A skinned render handle needs at least one primitive");
         }
@@ -70,6 +74,7 @@ public final class SkinnedRenderHandle implements ModelRenderHandle {
         }
 
         List<Transform> transforms = StaticRigidRenderHandle.calculateWorldTransforms(asset.nodes());
+        int[][] skinJointNodeIndexes = prepareSkinJointNodeIndexes(asset);
         float unitsToBlocksScale = StaticRigidRenderHandle.unitsToBlocksScale(asset.unitsPerBlock());
         Bounds bounds = asset.bounds().transformed(StaticRigidRenderHandle.uniformScale(unitsToBlocksScale));
         Map<String, MaterialDefinition> materials = asset.materials();
@@ -102,7 +107,8 @@ public final class SkinnedRenderHandle implements ModelRenderHandle {
                     PreparedSkinnedGeometry.prepare(primitive.geometry()),
                     ((MaterialMapping.Supported) mapping).material()));
         }
-        return new SkinnedRenderHandle(modelKey, asset.generation(), transforms, prepared, bounds, unitsToBlocksScale);
+        return new SkinnedRenderHandle(
+                modelKey, asset.generation(), transforms, prepared, skinJointNodeIndexes, bounds, unitsToBlocksScale);
     }
 
     @Override
@@ -149,8 +155,57 @@ public final class SkinnedRenderHandle implements ModelRenderHandle {
         return nodeWorldTransforms.get(nodeIndex);
     }
 
+    /**
+     * Returns the exact canonical node retained for one prepared skin joint.
+     *
+     * <p>This package-private lookup exposes no mutable skeleton data. X6 uses it only while
+     * binding a catalog to this exact reload-time handle, before provider pinning; submit never
+     * resolves bone identities.</p>
+     */
+    int skinJointNodeIndex(int skinIndex, int jointIndex) {
+        if (skinIndex < 0 || skinIndex >= skinJointNodeIndexes.length) {
+            throw new IndexOutOfBoundsException("skinIndex outside prepared skinned handle: " + skinIndex);
+        }
+        int[] joints = skinJointNodeIndexes[skinIndex];
+        if (jointIndex < 0 || jointIndex >= joints.length) {
+            throw new IndexOutOfBoundsException("jointIndex outside prepared skinned handle skin: " + jointIndex);
+        }
+        return joints[jointIndex];
+    }
+
     @Override
     public boolean missingModel() {
         return false;
+    }
+
+    private static int[][] prepareSkinJointNodeIndexes(ModelAsset asset) {
+        List<Skin> skins = asset.skeleton().skins();
+        int[][] result = new int[skins.size()][];
+        for (int skinIndex = 0; skinIndex < skins.size(); skinIndex++) {
+            List<Integer> joints = skins.get(skinIndex).joints();
+            int[] nodes = new int[joints.size()];
+            for (int jointIndex = 0; jointIndex < joints.size(); jointIndex++) {
+                int nodeIndex = Objects.requireNonNull(joints.get(jointIndex), "skin joint node index");
+                if (nodeIndex < 0 || nodeIndex >= asset.nodes().size()) {
+                    throw new IllegalArgumentException("Skinned handle skin joint references a missing node");
+                }
+                nodes[jointIndex] = nodeIndex;
+            }
+            result[skinIndex] = nodes;
+        }
+        return result;
+    }
+
+    private static int[][] copySkinJointNodeIndexes(int[][] source) {
+        Objects.requireNonNull(source, "skinJointNodeIndexes");
+        int[][] copy = new int[source.length][];
+        for (int skinIndex = 0; skinIndex < source.length; skinIndex++) {
+            int[] joints = Objects.requireNonNull(source[skinIndex], "skin joint node indexes");
+            if (joints.length == 0) {
+                throw new IllegalArgumentException("Prepared skinned handle may not retain an empty skin joint table");
+            }
+            copy[skinIndex] = java.util.Arrays.copyOf(joints, joints.length);
+        }
+        return copy;
     }
 }

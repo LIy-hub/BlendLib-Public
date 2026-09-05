@@ -8,8 +8,8 @@ sources carry `SPDX-License-Identifier: GPL-3.0-or-later` headers.
 
 This scope is deliberately directory-limited. It does **not** license the
 BlendLib root project, `blendlib-*` modules, Showcase, test assets, runtime
-artifacts, or any file outside `blender-addon/`; the root project and Java
-modules are separately licensed under Apache-2.0.
+artifacts, or any file outside `blender-addon/`. Non-Add-on project code and first-party
+assets use the root Apache-2.0 LICENSE and NOTICE; third-party material retains its own terms.
 
 This local Blender 5.x add-on exports the strict BlendLib v1 runtime asset set:
 
@@ -32,5 +32,5 @@ The exporter accepts only Blender CLI arguments after `--`. Example:
 
 The exporter deliberately filters cameras/lights, rejects physics and unsafe
 resource paths, preserves named material slots, and requests no runtime image
-export from Blender. Its post-export validator checks the strict GLB 2.0 shape
+export from Blender. Its post-export validator checks the strict P2 GLB shape
 before a descriptor is written.

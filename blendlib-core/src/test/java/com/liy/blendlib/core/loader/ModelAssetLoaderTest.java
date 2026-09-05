@@ -228,26 +228,6 @@ class ModelAssetLoaderTest {
         return asset;
     }
 
-    private static ModelAsset loadRigid(byte[] glbBytes) {
-        AssetBytes descriptor = new AssetBytes(DESCRIPTOR_ID, descriptorJson("FixtureMaterial", "blendlib:rigid_v1"));
-        AssetBytes glb = new AssetBytes(MESH_ID, glbBytes);
-        return new ModelAssetLoader().load(MODEL_KEY, descriptor, id -> glb);
-    }
-
-    private static ModelAsset loadP2(String name, byte[] glbBytes) throws IOException {
-        Path assetRoot = showcaseAssetRoot();
-        BlendResourceId descriptorId = BlendResourceId.parse("blendlib_showcase:blend_models/fixtures/" + name + ".json");
-        BlendResourceId meshId = BlendResourceId.parse("blendlib_showcase:models3d/fixtures/" + name + ".glb");
-        AssetBytes descriptor = new AssetBytes(descriptorId,
-                Files.readAllBytes(assetRoot.resolve("blend_models/fixtures/" + name + ".json")));
-        AssetBytes glb = new AssetBytes(meshId, glbBytes);
-        return new ModelAssetLoader().load(BlendResourceId.parse("blendlib_showcase:fixtures/" + name), descriptor, id -> glb);
-    }
-
-    private static byte[] p2Glb(String name) throws IOException {
-        return Files.readAllBytes(showcaseAssetRoot().resolve("models3d/fixtures/" + name + ".glb"));
-    }
-
     private static Path showcaseAssetRoot() {
         Path repo = Path.of(System.getProperty("blendlib.projectDir")).getParent();
         return repo.resolve("blendlib-showcase/src/main/resources/assets/blendlib_showcase");
@@ -267,6 +247,26 @@ class ModelAssetLoaderTest {
         return ("{\"format_version\":1,\"profile\":\"" + profile + "\",\"mesh\":\"" + MESH_ID.value()
                 + "\",\"materials\":{\"" + materialName
                 + "\":{\"base_color\":\"fixture:textures/fixture.png\"}}}").getBytes(StandardCharsets.UTF_8);
+    }
+
+    private static ModelAsset loadRigid(byte[] glbBytes) {
+        AssetBytes descriptor = new AssetBytes(DESCRIPTOR_ID, descriptorJson("FixtureMaterial", "blendlib:rigid_v1"));
+        AssetBytes glb = new AssetBytes(MESH_ID, glbBytes);
+        return new ModelAssetLoader().load(MODEL_KEY, descriptor, id -> glb);
+    }
+
+    private static ModelAsset loadP2(String name, byte[] glbBytes) throws IOException {
+        Path assetRoot = showcaseAssetRoot();
+        BlendResourceId descriptorId = BlendResourceId.parse("blendlib_showcase:blend_models/fixtures/" + name + ".json");
+        BlendResourceId meshId = BlendResourceId.parse("blendlib_showcase:models3d/fixtures/" + name + ".glb");
+        AssetBytes descriptor = new AssetBytes(descriptorId,
+                Files.readAllBytes(assetRoot.resolve("blend_models/fixtures/" + name + ".json")));
+        AssetBytes glb = new AssetBytes(meshId, glbBytes);
+        return new ModelAssetLoader().load(BlendResourceId.parse("blendlib_showcase:fixtures/" + name), descriptor, id -> glb);
+    }
+
+    private static byte[] p2Glb(String name) throws IOException {
+        return Files.readAllBytes(showcaseAssetRoot().resolve("models3d/fixtures/" + name + ".glb"));
     }
 
     private static void assertDiagnostic(String code, String location, ThrowingRunnable action) {

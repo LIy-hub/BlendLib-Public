@@ -1,0 +1,7 @@
+{
+  "variants": {
+    "": {
+      "model": "blendlib_ecosystem_example:block/animated_altar"
+    }
+  }
+}
