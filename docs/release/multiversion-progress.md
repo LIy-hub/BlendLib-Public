@@ -77,29 +77,32 @@ matches the final runtime in the artifact matrix. The project description was up
 15-version scope and persisted across a page reload; its source is
 [curseforge-description-beta2.md](curseforge-description-beta2.md).
 
-Author-portal status observed at **2026-09-07 18:17:34 UTC**. Upload/CDN integrity and public moderation are separate.
+Author-portal status observed at **2026-09-07 18:34:37 UTC**. Upload/CDN integrity and public moderation are separate.
+
+**All 15 primary files are Approved. GitHub and CurseForge publication are complete.**
 
 | Minecraft | Primary file | CDN SHA-256 | Moderation |
 | --- | --- | --- | --- |
-| 1.21.1 | [8831926](https://www.curseforge.com/minecraft/mc-mods/blendlib/files/8831926) | PASS | Under Review |
-| 1.21.2 | [8831914](https://www.curseforge.com/minecraft/mc-mods/blendlib/files/8831914) | PASS | Under Review |
-| 1.21.3 | [8831898](https://www.curseforge.com/minecraft/mc-mods/blendlib/files/8831898) | PASS | Under Review |
-| 1.21.4 | [8831889](https://www.curseforge.com/minecraft/mc-mods/blendlib/files/8831889) | PASS | Under Review |
-| 1.21.5 | [8831884](https://www.curseforge.com/minecraft/mc-mods/blendlib/files/8831884) | PASS | Under Review |
-| 1.21.6 | [8831877](https://www.curseforge.com/minecraft/mc-mods/blendlib/files/8831877) | PASS | Under Review |
-| 1.21.7 | [8831863](https://www.curseforge.com/minecraft/mc-mods/blendlib/files/8831863) | PASS | Under Review |
-| 1.21.8 | [8831860](https://www.curseforge.com/minecraft/mc-mods/blendlib/files/8831860) | PASS | Under Review |
-| 1.21.9 | [8831850](https://www.curseforge.com/minecraft/mc-mods/blendlib/files/8831850) | PASS | Under Review |
+| 1.21.1 | [8831926](https://www.curseforge.com/minecraft/mc-mods/blendlib/files/8831926) | PASS | Approved |
+| 1.21.2 | [8831914](https://www.curseforge.com/minecraft/mc-mods/blendlib/files/8831914) | PASS | Approved |
+| 1.21.3 | [8831898](https://www.curseforge.com/minecraft/mc-mods/blendlib/files/8831898) | PASS | Approved |
+| 1.21.4 | [8831889](https://www.curseforge.com/minecraft/mc-mods/blendlib/files/8831889) | PASS | Approved |
+| 1.21.5 | [8831884](https://www.curseforge.com/minecraft/mc-mods/blendlib/files/8831884) | PASS | Approved |
+| 1.21.6 | [8831877](https://www.curseforge.com/minecraft/mc-mods/blendlib/files/8831877) | PASS | Approved |
+| 1.21.7 | [8831863](https://www.curseforge.com/minecraft/mc-mods/blendlib/files/8831863) | PASS | Approved |
+| 1.21.8 | [8831860](https://www.curseforge.com/minecraft/mc-mods/blendlib/files/8831860) | PASS | Approved |
+| 1.21.9 | [8831850](https://www.curseforge.com/minecraft/mc-mods/blendlib/files/8831850) | PASS | Approved |
 | 1.21.10 | [8831839](https://www.curseforge.com/minecraft/mc-mods/blendlib/files/8831839) | PASS | Approved |
 | 1.21.11 | [8831824](https://www.curseforge.com/minecraft/mc-mods/blendlib/files/8831824) | PASS | Approved |
 | 26.1 | [8831810](https://www.curseforge.com/minecraft/mc-mods/blendlib/files/8831810) | PASS | Approved |
 | 26.1.1 | [8831617](https://www.curseforge.com/minecraft/mc-mods/blendlib/files/8831617) | PASS | Approved |
-| 26.1.2 | [8831955](https://www.curseforge.com/minecraft/mc-mods/blendlib/files/8831955) | PASS | Processing |
+| 26.1.2 | [8831955](https://www.curseforge.com/minecraft/mc-mods/blendlib/files/8831955) | PASS | Approved |
 | 26.2 | [8831776](https://www.curseforge.com/minecraft/mc-mods/blendlib/files/8831776) | PASS | Approved |
 
 Two early records are excluded from the primary release set: `8831612` (an incomplete 26.1.1
-duplicate in Baking, no CDN file) and `8831576` (26.1.2 Processing File for over 50 minutes, despite
-valid CDN bytes). The latter was replaced by one controlled upload, `8831955`, with identical bytes.
+duplicate in Baking, no CDN file) and `8831576` (26.1.2 stalled in Processing File for over 50 minutes,
+now Processing, despite valid CDN bytes). The latter was replaced by one controlled upload,
+`8831955`, with identical bytes.
 The legacy management page exposes Archive, but disables the selection checkbox for both stalled
 records, so they could not be archived. Their states are preserved as platform limitations; they are
 not counted as additional supported versions or successful public releases.
