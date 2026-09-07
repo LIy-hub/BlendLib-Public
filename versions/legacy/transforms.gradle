@@ -1,0 +1,44 @@
+// Only platform-name/signature adaptations are generated. Semantic API/core sources remain shared.
+def source = { String path -> new File(legacyGeneratedRoot, path) }
+def edit = { String path, Closure transform ->
+    def target = source(path)
+    target.setText(transform(target.getText('UTF-8')), 'UTF-8')
+}
+def client = 'client/com/liy/blendlib/fabric/client/'
+edit(client + 'BlendLibClientEntrypoint.java') { s ->
+    s.replace('import net.fabricmc.fabric.api.resource.v1.ResourceLoader;', 'import net.fabricmc.fabric.api.resource.ResourceManagerHelper;')
+        .replace('ResourceLoader.get(PackType.CLIENT_RESOURCES)', 'ResourceManagerHelper.get(PackType.CLIENT_RESOURCES)')
+        .replace('.registerReloadListener(MODEL_RELOAD_LISTENER_ID, new ClientModelReloadListener(', '.registerReloadListener(new ClientModelReloadListener(')
+        .replace('    private static final X7Minecraft2612PassOwnerHost X7_PASS_OWNER_HOST =\n            X7Minecraft2612PassOwnerHost.production(X7_DEFERRED_SUBMISSION_ENDPOINT);\n', '')
+        .replace('        X7_PASS_OWNER_HOST.install();\n', '')
+        .replace('ClientModelRegistry.createMinecraft2612Client()', 'new ClientModelRegistry()')
+}
+edit(client + 'reload/ClientModelReloadListener.java') { s ->
+    s.replace('import net.fabricmc.fabric.api.resource.v1.reloader.SimpleReloadListener;',
+        'import net.fabricmc.fabric.api.resource.IdentifiableResourceReloadListener;\nimport net.minecraft.server.packs.resources.SimplePreparableReloadListener;\nimport net.minecraft.util.profiling.ProfilerFiller;')
+      .replace('extends SimpleReloadListener<PreparedModelGeneration>', 'extends SimplePreparableReloadListener<PreparedModelGeneration> implements IdentifiableResourceReloadListener')
+      .replace('protected PreparedModelGeneration prepare(PreparableReloadListener.SharedState state) {\n        ResourceManager resourceManager = Objects.requireNonNull(state, "state").resourceManager();',
+        'public ResourceLocation getFabricId() { return ResourceLocation.fromNamespaceAndPath("blendlib", "model_registry"); }\n\n    @Override\n    protected PreparedModelGeneration prepare(ResourceManager resourceManager, ProfilerFiller profiler) {')
+      .replace('protected void apply(PreparedModelGeneration prepared, PreparableReloadListener.SharedState state)',
+        'protected void apply(PreparedModelGeneration prepared, ResourceManager resourceManager, ProfilerFiller profiler)')
+}
+edit(client + 'render/Minecraft2612StaticRigidRenderBackend.java') { s ->
+    s.replace('RenderType.entityCutout(texture, false)', 'RenderType.entityCutoutNoCull(texture, false)')
+      .replace('RenderType.entityCutoutCull(texture)', 'RenderType.entityCutout(texture)')
+}
+edit(client + 'reload/Minecraft2612GenerationRenderOwner.java') { s ->
+    s.replace('RenderSystem::queueFencedTask', 'callback -> { RenderSystem.assertOnRenderThread(); org.lwjgl.opengl.GL11.glFinish(); callback.run(); }')
+}
+edit(client + 'item/BlendLibItemModelBindings.java') { s ->
+    s.replace('binding.baseModelId(), Optional.empty(), new BlendLibItemSpecialRenderer.Unbaked(binding)',
+              'binding.baseModelId(), new BlendLibItemSpecialRenderer.Unbaked(binding)')
+}
+edit(client + 'blockentity/BlendBlockEntityRenderers.java') { s ->
+    s.replace('BlockEntityRendererProvider<T, BlendBlockEntityRenderState>', 'BlockEntityRendererProvider<T>')
+}
+edit(client + 'render/SkinnedSocketMarkerSubmitter.java') { s ->
+    s.replace('\n                .setLineWidth(MARKER_LINE_WIDTH)', '')
+}
+edit(client + 'reload/StaticDirectInstanceUpload.java') { s ->
+    s.replace('StaticDirectBatch.MAX_INSTANCES', '16')
+}

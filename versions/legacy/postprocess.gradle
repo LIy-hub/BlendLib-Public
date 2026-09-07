@@ -1,0 +1,9 @@
+def client = new File(legacyGeneratedRoot, 'client/com/liy/blendlib/fabric/client')
+if (legacyMinecraft in ['1.21.1', '1.21.2', '1.21.3']) {
+    assert new File(client, 'item/BlendLibItemSpecialRenderer.java').delete()
+}
+if (legacyMinecraft in ['1.21.1', '1.21.2', '1.21.3', '1.21.4']) {
+    def ber = new File(client, 'blockentity/BlendBlockEntityRenderer.java')
+    ber.setText(ber.getText('UTF-8').replace('int packedLight, int packedOverlay, Vec3 cameraPos) {',
+            'int packedLight, int packedOverlay) {\n        Vec3 cameraPos = Minecraft.getInstance().gameRenderer.getMainCamera().getPosition();'), 'UTF-8')
+}

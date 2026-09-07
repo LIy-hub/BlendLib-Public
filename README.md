@@ -4,9 +4,12 @@
 
 [项目 Logo 与品牌资源](./docs/assets/branding/README.md)
 
-BlendLib 是面向 Minecraft Fabric 模组的严格 GLB 2.0 模型与动画运行库。当前公开 Beta
-版本为 `1.0.0-beta.1+26.1.2`，只支持 Minecraft 26.1.2、Fabric Loader 0.19.3、
-Fabric API `0.154.2+26.1.2` 与 Java 25。
+BlendLib 是面向 Minecraft Fabric 模组的严格 GLB 2.0 模型与动画运行库。
+Beta.2 按 Minecraft 版本提供独立的 `1.0.0-beta.2+<Minecraft版本>` JAR，覆盖
+1.21.1–1.21.11、26.1、26.1.1、26.1.2 和 26.2，共 15 个正式游戏版本。
+1.21.x 使用 Java 21，26.x 使用 Java 25；所有版本使用 Fabric Loader 0.19.3 或更新版本，
+并需要各自匹配的 Fabric API。请只安装一个对应游戏版本的 BlendLib JAR。
+完整依赖与移植边界见 [Beta.2 发布说明](./docs/release/beta2-release-notes.md)。
 
 ## 当前状态
 
@@ -16,7 +19,7 @@ Fabric API `0.154.2+26.1.2` 与 Java 25。
 已知限制：
 
 - 运行时只接受严格 GLB 2.0，不读取 `.blend`、FBX、OBJ 或外部 `.gltf` + `.bin`。
-- 本 JAR 只适配 Minecraft 26.1.2；26.2 必须使用独立 adapter JAR。
+- 各版本 JAR 不可混装，也不跨 Minecraft 版本通用；当前发布范围为 Fabric。
 - 视觉模型和动画事件不参与服务端权威碰撞、伤害、命中、掉落或其他玩法判定。
 - 当前 Beta 不提供稳定 API/ABI 承诺；不兼容变更会记录在 Changelog 与发布说明中。
 
@@ -26,6 +29,9 @@ Beta.1 纳入 X1–X9 扩展的合并代码，包含动画、程序化姿态、�
 这不是稳定 `1.0.0` 或 X1–X9 全轨道验收通过。具体能力与限制见
 [Beta.1 发布说明](./docs/release/beta-release-notes.md) 和
 [X1–X9 alpha 合并记录](./docs/expansion/integration/x1-x9-alpha-merge.md)。
+
+Beta.2 为上述能力提供版本适配。构建、CPU 测试和客户端启动均不替代新版本的游戏内视觉验收；
+旧版平台不提供 26.x 专用的实验 GPU 通道。详见 [版本验证记录](./docs/release/multiversion-progress.md)。
 
 ## 导航
 
@@ -47,6 +53,17 @@ Beta.1 纳入 X1–X9 扩展的合并代码，包含动画、程序化姿态、�
 X8 历史 `LICENSE-PENDING`/LicenseRef 记录恢复为当前法律状态。
 
 ## 本地构建与制品参考
+
+Beta.2 的独立构建入口（需安装 Java 21 和 Java 25 工具链）：
+
+```powershell
+.\gradlew.bat -p versions/legacy "-Pminecraft_version=1.21.1" build
+.\gradlew.bat -p versions/modern "-Pminecraft_version=1.21.11" build
+.\gradlew.bat -p versions/modern "-Pminecraft_version=26.2" build
+```
+
+运行 JAR 与源码 JAR 位于相应 `versions/<legacy或modern>/build/<Minecraft版本>/libs/`。
+根目录旧构建保留为 26.1.2 Beta.1 基线；以下历史工具链入口继续用于基线与 Blender 工具验证。
 
 `buildRelease` 和以下命令是本地入口，不是本次合并执行记录，也不能单独证明当前制品、
 客户端视觉或任何 Gate：

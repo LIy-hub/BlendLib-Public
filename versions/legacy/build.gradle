@@ -1,0 +1,230 @@
+plugins {
+    id 'net.fabricmc.fabric-loom-remap' version '1.16.2'
+}
+
+def targets = [
+    '1.21.1': '0.116.17+1.21.1', '1.21.2': '0.106.1+1.21.2',
+    '1.21.3': '0.114.1+1.21.3', '1.21.4': '0.119.4+1.21.4',
+    '1.21.5': '0.128.2+1.21.5', '1.21.6': '0.128.2+1.21.6',
+    '1.21.7': '0.129.0+1.21.7', '1.21.8': '0.136.1+1.21.8'
+]
+def mc = providers.gradleProperty('minecraft_version').getOrElse('1.21.8')
+if (!targets.containsKey(mc)) throw new GradleException("Unsupported legacy target: $mc")
+def upstream = file('../..')
+group = 'com.liy.blendlib'
+version = "1.0.0-beta.2+$mc"
+base { archivesName = 'blendlib-fabric' }
+layout.buildDirectory = file("build/$mc")
+
+repositories { mavenCentral(); maven { url = 'https://maven.fabricmc.net/' } }
+def fabricCacheReceipt = file('build/fabric-maven/receipt.json')
+if (fabricCacheReceipt.exists() && new groovy.json.JsonSlurper().parse(fabricCacheReceipt).coordinates
+        .contains("net.fabricmc.fabric-api:fabric-api:${targets[mc]}".toString())) {
+    // Optional SHA-verified transport cache; versions and official upstream origin do not change.
+    repositories.exclusiveContent {
+        forRepository { repositories.maven { url = file('build/fabric-maven') } }
+        filter { includeGroup 'net.fabricmc.fabric-api' }
+    }
+}
+def cachedIntermediary = file("build/fabric-maven/net/fabricmc/intermediary/$mc/intermediary-$mc-v2.jar")
+if (cachedIntermediary.exists()) {
+    repositories.exclusiveContent {
+        forRepository { repositories.maven { url = file('build/fabric-maven') } }
+        filter { includeModule 'net.fabricmc', 'intermediary' }
+    }
+}
+// Fabric's repository is authoritative for Fabric, not a mirror for Maven Central libraries.
+repositories.withType(MavenArtifactRepository).configureEach { repo ->
+    if (repo.url.toString().contains('maven.fabricmc.net')) {
+        repo.content { filter -> filter.includeGroupByRegex('net\\.fabricmc(\\..*)?') }
+    }
+}
+java { toolchain.languageVersion = JavaLanguageVersion.of(21); withSourcesJar() }
+loom {
+    splitEnvironmentSourceSets()
+    mods { blendlib { sourceSet sourceSets.main; sourceSet sourceSets.client } }
+}
+dependencies {
+    minecraft "com.mojang:minecraft:$mc"
+    mappings loom.officialMojangMappings()
+    modImplementation 'net.fabricmc:fabric-loader:0.19.3'
+    modImplementation "net.fabricmc.fabric-api:fabric-api:${targets[mc]}"
+    testImplementation platform('org.junit:junit-bom:5.12.2')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+def prepared = layout.buildDirectory.dir('generated/sources')
+def prepareSources = tasks.register('prepareSources') {
+    def roots = [
+        main: ['blendlib-api/src/main/java', 'blendlib-core/src/main/java',
+               'blendlib-fabric-common/src/main/java', 'blendlib-fabric-client/src/main/java'],
+        client: ['blendlib-fabric-client/src/client/java']
+    ]
+    inputs.property('minecraft', mc)
+    inputs.files(roots.values().flatten().collect { new File(upstream, it) }, file('overrides'), file('transforms.gradle'), file('postprocess.gradle'))
+    outputs.dir(prepared)
+    doLast {
+        delete(prepared)
+        roots.each { environment, sourceRoots ->
+            sourceRoots.each { sourceRoot ->
+                fileTree(new File(upstream, sourceRoot)).matching { include '**/*.java' }.each { source ->
+                    def relative = new File(upstream, sourceRoot).toPath().relativize(source.toPath()).toString().replace('\\', '/')
+                    // These private 26.1.2 native prototypes have no production admission path on
+                    // the baseline. Legacy releases retain its CPU renderer and explicit refusal.
+                    def nativePrototypes = [
+                        'X7Minecraft2612PassOwnerHost', 'X7Minecraft2612SkinnedPassSubmitter',
+                        'X7Minecraft2612SkinnedPipeline', 'X7Minecraft2612StaticPipeline',
+                        'X7Minecraft2612SubmissionReceipt', 'X7Minecraft2612TargetScope',
+                        'X7T3cClientGateway', 'X7T3cReloadGateway', 'X7Minecraft2612GpuDevice',
+                        'StaticDirectDrawExecutor', 'StaticDirectFenceReceipt', 'StaticDirectGenerationResources',
+                        'StaticDirectPipeline', 'StaticDirectResourceFactory', 'StaticDirectBatch',
+                        'SkinnedTexelGenerationResources', 'SkinnedTexelResourceFactory', 'SkinnedTexelUploadStaging',
+                        'X7AfterSolidQueueDriver', 'Minecraft2612FinalPresentMixin'
+                    ]
+                    if (nativePrototypes.contains(source.name.replace('.java', ''))) return
+                    def target = new File(prepared.get().asFile, "$environment/$relative")
+                    target.parentFile.mkdirs()
+                    def content = source.getText('UTF-8').replace('\r\n', '\n')
+                    content = content.replace('net.minecraft.resources.Identifier', 'net.minecraft.resources.ResourceLocation')
+                        .replaceAll('\\bIdentifier\\b', 'ResourceLocation')
+                        .replace('.identifier()', '.location()')
+                        .replace('ServerLevelEvents', 'ServerWorldEvents')
+                        .replace('END_LEVEL_TICK', 'END_WORLD_TICK')
+                        .replace('PayloadTypeRegistry.clientboundPlay()', 'PayloadTypeRegistry.playS2C()')
+                        .replace('net.fabricmc.fabric.api.client.command.v2.ClientCommands', 'net.fabricmc.fabric.api.client.command.v2.ClientCommandManager')
+                        .replace('ClientCommands.', 'ClientCommandManager.')
+                        .replace('net.minecraft.client.renderer.rendertype.RenderTypes', 'net.minecraft.client.renderer.RenderType')
+                        .replace('net.minecraft.client.renderer.rendertype.RenderType', 'net.minecraft.client.renderer.RenderType')
+                        .replace('RenderTypes.', 'RenderType.')
+                        .replace('net.minecraft.client.renderer.SubmitNodeCollector', 'com.liy.blendlib.fabric.client.compat.LegacySubmitNodeCollector')
+                        .replaceAll('\\bSubmitNodeCollector\\b', 'LegacySubmitNodeCollector')
+                    target.setText(content, 'UTF-8')
+                }
+            }
+        }
+        if (file('transforms.gradle').exists()) {
+            project.ext.legacyGeneratedRoot = prepared.get().asFile
+            project.ext.legacyMinecraft = mc
+            apply from: 'transforms.gradle'
+        }
+        def variants = ['shared']
+        if (mc in ['1.21.1', '1.21.2', '1.21.3']) variants += 'pre-1.21.4'
+        variants += mc
+        variants.each { variant ->
+            if (file("overrides/$variant").exists()) copy { from "overrides/$variant"; into prepared }
+        }
+        if (file('postprocess.gradle').exists()) apply from: 'postprocess.gradle'
+    }
+}
+sourceSets {
+    main { java.setSrcDirs([prepared.map { it.dir('main') }]); resources.setSrcDirs([new File(upstream, 'blendlib-fabric-client/src/main/resources')]) }
+    client { java.setSrcDirs([prepared.map { it.dir('client') }]); resources.setSrcDirs([new File(upstream, 'blendlib-fabric-client/src/client/resources'), file('resources')]) }
+    test {
+        java.srcDir("src/test/$mc/java")
+        compileClasspath += sourceSets.client.output + sourceSets.client.compileClasspath
+        runtimeClasspath += sourceSets.client.output + sourceSets.client.runtimeClasspath
+    }
+}
+tasks.named('test') { useJUnitPlatform(); systemProperty 'blendlib.test.minecraft', mc }
+tasks.withType(JavaCompile).configureEach {
+    dependsOn prepareSources
+    options.encoding = 'UTF-8'
+    options.release = 21
+    options.compilerArgs += ['-Xmaxerrs', '500']
+}
+tasks.withType(ProcessResources).configureEach {
+    doFirst {
+        def resourceOutput = destinationDir.canonicalFile
+        def selectedBuildRoot = layout.buildDirectory.get().asFile.canonicalPath + File.separator
+        if (!resourceOutput.canonicalPath.startsWith(selectedBuildRoot)) throw new GradleException('Resource output escaped selected build directory')
+        // ProcessResources is a Copy task; remove only its verified generated output so newly
+        // excluded resources cannot survive a change from an earlier port attempt.
+        project.delete(resourceOutput)
+    }
+    inputs.property('minecraft', mc)
+    inputs.property('version', version)
+    filesMatching('fabric.mod.json') {
+        filter { line -> line.replace('${version}', version.toString()).replace('26.1.2', mc).replace('"25"', '"21"').replace('0.154.2+' + mc, targets[mc]) }
+    }
+    filesMatching('blendlib.client.mixins.json') { filter { line -> line.replace('JAVA_25', 'JAVA_21') } }
+    exclude 'blendlib.client.mixins.json'
+    // Vanilla eagerly preprocesses shader sources even when the private X7 pipeline is disabled.
+    // Its 26.1.2 sample_lightmap.glsl ABI does not exist in these releases.
+    exclude 'assets/blendlib/shaders/**'
+    doLast {
+        def metadataFile = new File(destinationDir, 'fabric.mod.json')
+        if (metadataFile.exists()) {
+            def metadata = new groovy.json.JsonSlurper().parse(metadataFile)
+            metadata.remove('mixins')
+            if (mc in ['1.21.1', '1.21.2', '1.21.3', '1.21.4']) metadata.mixins = [[config: 'blendlib.legacy.mixins.json', environment: 'client']]
+            metadata.custom = [blendlib_runtime: 'cpu-static-rigid-skinned', blendlib_gpu_pipeline: 'unavailable-legacy-abi']
+            metadataFile.setText(groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson(metadata)), 'UTF-8')
+        }
+    }
+}
+
+tasks.named('processClientResources') {
+    filesMatching('blendlib.legacy.mixins.json') {
+        filter { line -> mc == '1.21.4' ? line.replace('LegacyItemRendererMixin', 'LegacyItemModelManagerMixin') : line }
+    }
+}
+tasks.withType(Jar).configureEach {
+    from(new File(upstream, 'LICENSE')) { into 'META-INF' }
+    from(new File(upstream, 'NOTICE')) { into 'META-INF' }
+    manifest.attributes('BlendLib-Minecraft-Target': mc, 'Implementation-Version': version)
+}
+tasks.named('sourcesJar') { dependsOn prepareSources }
+tasks.register('verifyRuntimeJar') {
+    dependsOn tasks.named('remapJar')
+    doLast {
+        def artifact = tasks.named('remapJar').get().archiveFile.get().asFile
+        def zip = new java.util.zip.ZipFile(artifact)
+        try {
+            def metadata = new groovy.json.JsonSlurper().parseText(zip.getInputStream(zip.getEntry('fabric.mod.json')).getText('UTF-8'))
+            assert metadata.id == 'blendlib'
+            assert metadata.version == version.toString()
+            assert metadata.depends.minecraft == mc
+            assert metadata.depends.java == '21'
+            assert metadata.depends['fabric-api'] == targets[mc]
+            assert (metadata.containsKey('mixins')) == (mc in ['1.21.1', '1.21.2', '1.21.3', '1.21.4'])
+            assert !metadata.containsKey('jars') // API/core/common are compiled into the outer remapped artifact.
+            ['api/BlendResourceId', 'core/loader/ModelAssetLoader', 'fabric/common/BlendLibCommonEntrypoint',
+             'fabric/client/BlendLibClientEntrypoint', 'fabric/client/entity/BlendEntityRenderer',
+             'fabric/client/blockentity/BlendBlockEntityRenderer', 'fabric/client/item/BlendLibItemModelBindings',
+             'fabric/client/render/Minecraft2612StaticRigidRenderBackend',
+             'fabric/client/animation/runtime/SkinnedAnimationRuntime'].each { name ->
+                assert zip.getEntry("com/liy/blendlib/${name}.class") != null : "Missing production class $name"
+            }
+            int sourceCount = 0
+            ['main', 'client'].each { environment ->
+                def generatedEnvironment = new File(prepared.get().asFile, environment)
+                fileTree(generatedEnvironment).matching { include '**/*.java'; exclude '**/package-info.java' }.each { sourceFile ->
+                    def relative = generatedEnvironment.toPath().relativize(sourceFile.toPath()).toString().replace('\\', '/')
+                    def classEntry = relative.replaceAll('\\.java$', '.class')
+                    assert zip.getEntry(classEntry) != null : "Generated production source omitted from runtime: $relative"
+                    sourceCount++
+                }
+            }
+            int count = 0
+            zip.entries().each { entry ->
+                assert !entry.name.startsWith('assets/blendlib/shaders/') : 'Legacy runtime leaked a 26.1.2-only X7 shader'
+                if (entry.name.endsWith('.class')) {
+                    assert entry.name.startsWith('com/liy/blendlib/') : "Foreign class ${entry.name}"
+                    def data = new DataInputStream(zip.getInputStream(entry))
+                    assert data.readInt() == 0xCAFEBABE as int
+                    data.readUnsignedShort()
+                    assert data.readUnsignedShort() == 65 : "Non-Java-21 class ${entry.name}"
+                    data.close()
+                    count++
+                }
+            }
+            assert count > 700 : "Incomplete production class inventory: $count"
+            def sha = java.security.MessageDigest.getInstance('SHA-256').digest(artifact.bytes).encodeHex().toString()
+            def receipt = [minecraft: mc, version: version.toString(), java: 21, classes: count, productionSources: sourceCount,
+                           sha256: sha, artifact: artifact.name, gpu: 'unavailable-legacy-abi']
+            new File(artifact.parentFile, 'verification.json').setText(groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson(receipt)), 'UTF-8')
+            println "VERIFIED $mc $count classes SHA256=$sha"
+        } finally { zip.close() }
+    }
+}
