@@ -54,14 +54,56 @@ Final artifact hashes above bind the subsequent passing checks. The legacy detai
 
 ## Publication record
 
-Publication target: [LIy-hub/BlendLib-Public](https://github.com/LIy-hub/BlendLib-Public),
-CurseForge project [1638315](https://www.curseforge.com/minecraft/mc-mods/blendlib).
-Only the task-owned source delta is transferred to a fresh public checkout. Public baseline
-`c72bb55fd35e423a8a08f496439e222471208159` has the same tracked tree as the private source baseline;
-private commit history and the user's existing dirty public checkout are not transferred or reset.
+Public source commit: `bd9ee5f9e7aca0a08b085e5667408475ef60a968`.
+[GitHub Beta.2](https://github.com/LIy-hub/BlendLib-Public/releases/tag/v1.0.0-beta.2) was published
+on 2026-09-07 at 18:00:07 UTC as a prerelease. The tag points to that exact source commit.
+All 32 assets (15 runtime JARs, 15 source JARs, SHA256SUMS and verification manifest) have GitHub
+uploaded-state, size and SHA-256 matching the local release package.
 
-At this record's creation, GitHub publication is pending. CurseForge 26.1.1 file `8831617` is
-Under Review; its CDN download SHA-256 matches the final artifact. File `8831612` is an earlier
-duplicate in Baking state. The 26.1.2 file `8831576` is Processing File. Remaining targets are pending
-upload. Processing, Baking and Under Review do not establish public approval. Final publication
-receipts will be added after verification.
+Both public clean-checkout workflows passed for the source commit:
+[all 15 version jobs](https://github.com/LIy-hub/BlendLib-Public/actions/runs/34149417016) and
+[the original baseline check](https://github.com/LIy-hub/BlendLib-Public/actions/runs/34149417010).
+The version workflow explicitly invokes `build verifyRuntimeJar` for both port families.
+
+Only the task-owned source delta was transferred to a fresh public checkout. Public baseline
+`c72bb55fd35e423a8a08f496439e222471208159` had the same tracked tree as the private source baseline;
+private commit history and the user's existing dirty public checkout were not transferred or reset.
+
+### CurseForge
+
+Project [1638315](https://www.curseforge.com/minecraft/mc-mods/blendlib/files/all) has received all
+15 target files. Each primary file below was downloaded from the platform CDN and its SHA-256
+matches the final runtime in the artifact matrix. The project description was updated to the
+15-version scope and persisted across a page reload; its source is
+[curseforge-description-beta2.md](curseforge-description-beta2.md).
+
+Author-portal status observed at **2026-09-07 18:17:34 UTC**. Upload/CDN integrity and public moderation are separate.
+
+| Minecraft | Primary file | CDN SHA-256 | Moderation |
+| --- | --- | --- | --- |
+| 1.21.1 | [8831926](https://www.curseforge.com/minecraft/mc-mods/blendlib/files/8831926) | PASS | Under Review |
+| 1.21.2 | [8831914](https://www.curseforge.com/minecraft/mc-mods/blendlib/files/8831914) | PASS | Under Review |
+| 1.21.3 | [8831898](https://www.curseforge.com/minecraft/mc-mods/blendlib/files/8831898) | PASS | Under Review |
+| 1.21.4 | [8831889](https://www.curseforge.com/minecraft/mc-mods/blendlib/files/8831889) | PASS | Under Review |
+| 1.21.5 | [8831884](https://www.curseforge.com/minecraft/mc-mods/blendlib/files/8831884) | PASS | Under Review |
+| 1.21.6 | [8831877](https://www.curseforge.com/minecraft/mc-mods/blendlib/files/8831877) | PASS | Under Review |
+| 1.21.7 | [8831863](https://www.curseforge.com/minecraft/mc-mods/blendlib/files/8831863) | PASS | Under Review |
+| 1.21.8 | [8831860](https://www.curseforge.com/minecraft/mc-mods/blendlib/files/8831860) | PASS | Under Review |
+| 1.21.9 | [8831850](https://www.curseforge.com/minecraft/mc-mods/blendlib/files/8831850) | PASS | Under Review |
+| 1.21.10 | [8831839](https://www.curseforge.com/minecraft/mc-mods/blendlib/files/8831839) | PASS | Approved |
+| 1.21.11 | [8831824](https://www.curseforge.com/minecraft/mc-mods/blendlib/files/8831824) | PASS | Approved |
+| 26.1 | [8831810](https://www.curseforge.com/minecraft/mc-mods/blendlib/files/8831810) | PASS | Approved |
+| 26.1.1 | [8831617](https://www.curseforge.com/minecraft/mc-mods/blendlib/files/8831617) | PASS | Approved |
+| 26.1.2 | [8831955](https://www.curseforge.com/minecraft/mc-mods/blendlib/files/8831955) | PASS | Processing |
+| 26.2 | [8831776](https://www.curseforge.com/minecraft/mc-mods/blendlib/files/8831776) | PASS | Approved |
+
+Two early records are excluded from the primary release set: `8831612` (an incomplete 26.1.1
+duplicate in Baking, no CDN file) and `8831576` (26.1.2 Processing File for over 50 minutes, despite
+valid CDN bytes). The latter was replaced by one controlled upload, `8831955`, with identical bytes.
+The legacy management page exposes Archive, but disables the selection checkbox for both stalled
+records, so they could not be archived. Their states are preserved as platform limitations; they are
+not counted as additional supported versions or successful public releases.
+
+Processing, Baking and Under Review do not establish approval. No file is marked Approved here
+without the author portal showing that state. Local publication receipts are stored with the release
+package under `build/release-beta2/` and are excluded from the source tree.
