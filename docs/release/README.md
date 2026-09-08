@@ -6,6 +6,7 @@
 ## 当前版本与入门
 
 - [安装与项目简介](../../README.md)
+- [模组开发者手册](../developer-handbook.md)（22 章：依赖、资源、实体/方块实体/物品、动画同步、姿态、诊断和 API 参考；完整 Java 示例以 26.1.2 为基线）
 - [Beta.2 发布说明与依赖表](./beta2-release-notes.md)
 - [Beta.2 版本验证与发布记录](./multiversion-progress.md)
 - [CurseForge 当前项目描述](./curseforge-description-beta2.md)

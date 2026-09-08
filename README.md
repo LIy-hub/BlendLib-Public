@@ -56,6 +56,7 @@ Runtime JARs, sources and SHA-256 checksums are available in the GitHub release.
 
 | Start here | What you will find |
 | --- | --- |
+| [Developer handbook / 模组开发者手册](./docs/developer-handbook.md) | Complete Chinese guide: dependencies, assets, entities, block entities, items, animation, synchronization, poses, diagnostics and API reference |
 | [Documentation](./docs/release/README.md) | Release, integration and troubleshooting links |
 | [Blender export checklist](./docs/release/blender-export-checklist-v1.md) | Supported profiles, asset layout and export validation |
 | [Fabric 26.1.2 integration tutorial](./docs/release/developer-tutorial-26.1.2.md) | Model keys, animation calls and host integration; examples originate from the Alpha API baseline |
@@ -67,6 +68,47 @@ Compile against the runtime for your target Minecraft version: native rendering 
 signatures differ between releases. The separate Blender exporter requires **Blender 5.1+**;
 Beta.2 leaves it unchanged, and its package remains available in the
 [Beta.1 release](https://github.com/LIy-hub/BlendLib-Public/releases/tag/v1.0.0-beta.1%2B26.1.2).
+
+### Developer quick start · Fabric 26.1.2
+
+1. Add the matching runtime JAR to your existing Fabric project and declare the `blendlib`
+   dependency. See the handbook's [dependency setup](./docs/developer-handbook.md#dependencies)
+   for the different 1.21.x and 26.x Loom configurations.
+2. Copy the [complete static asset template](./templates/model-pack/README.md) into your mod's
+   resources, rename its namespace to `example`, and update its descriptor references.
+3. Register a renderer from your **client initializer** for an entity type your mod already owns:
+
+```java
+import com.liy.blendlib.api.BlendModelKey;
+import com.liy.blendlib.fabric.client.entity.BlendEntityRenderer;
+import com.liy.blendlib.fabric.client.entity.BlendEntityRenderers;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EntityType;
+
+public final class ExampleBlendRendererRegistration {
+    private ExampleBlendRendererRegistration() {}
+
+    public static <E extends Entity> void register(EntityType<E> entityType) {
+        BlendEntityRenderers.register(entityType, context ->
+                BlendEntityRenderer.<E>builder(context, BlendModelKey.parse("example:starter_rigid"))
+                        .staticRestPose()
+                        .shadowRadius(0.45F)
+                        .build());
+    }
+}
+```
+
+Check `/blendlib inspect example:starter_rigid`, then view your entity in a test world.
+Continue with [entity animation](./docs/developer-handbook.md#entities),
+[server synchronization](./docs/developer-handbook.md#synchronization),
+[block entities](./docs/developer-handbook.md#block-entities) or
+[item models](./docs/developer-handbook.md#items).
+
+The handbook distinguishes current behavior from extension contracts: ordinary item bindings
+currently render a base pose, the standard block-entity animation path requires a skinned model,
+and synchronized animation sampling does not dispatch visual event callbacks. These details,
+supported material combinations and advanced API boundaries are covered in the
+[capability matrix](./docs/developer-handbook.md#scope).
 
 To build a Beta.2 target locally, install the Java 21 and Java 25 toolchains and use:
 
@@ -107,6 +149,12 @@ See the [verification matrix](./docs/release/multiversion-progress.md) and
 项目仍处于 Beta，API 与行为可能变化。构建和启动检查不等于完整的游戏内画面、多人、
 光影兼容或性能验收；模型与动画也不承担服务端碰撞、伤害等权威玩法判定。
 开发入口见[文档导航](./docs/release/README.md)，详细支持范围见 [Beta.2 发布说明](./docs/release/beta2-release-notes.md)。
+
+**开发者从这里开始：** [《BlendLib 模组开发者手册》](./docs/developer-handbook.md)提供 22 章说明和完整 Java 示例。
+先完成[依赖配置](./docs/developer-handbook.md#dependencies)与[第一个静态模型](./docs/developer-handbook.md#first-model)，
+再按内容类型接入[实体](./docs/developer-handbook.md#entities)、[方块实体](./docs/developer-handbook.md#block-entities)
+或[物品](./docs/developer-handbook.md#items)。需要联机动作时查[动画同步](./docs/developer-handbook.md#synchronization)，
+出现 missing model 时查[诊断与排错](./docs/developer-handbook.md#troubleshooting)。
 
 ## License and credits
 

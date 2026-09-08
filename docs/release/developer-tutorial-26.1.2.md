@@ -1,5 +1,8 @@
 # Fabric 26.1.2 开发者教程
 
+新接入请优先阅读[《BlendLib 模组开发者手册》](../developer-handbook.md)，其中包含当前
+Beta.2 的依赖、完整 Java 示例、材质支持矩阵、同步/物品限制和多版本说明。本页保留为较短的历史基线教程。
+
 本教程只使用 Alpha 源线的公共 API。将它放在你的 Fabric 模组的 client source set
 或 server/common source set 中时，仍需遵守各自的类加载边界。
 

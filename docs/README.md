@@ -34,6 +34,7 @@ BlendLib 的核心差异不是“再做一个通用动画库”，而是提供�
 
 ## 文档入口
 
+- [当前模组开发者手册](./developer-handbook.md)（Beta.2 消费路径、完整示例与当前限制）
 - [项目 Logo 与品牌资源](./assets/branding/README.md)
 - [总体架构](./architecture.md)
 - [v1 设计规格](./design-v1.md)
