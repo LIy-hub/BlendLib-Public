@@ -14,6 +14,16 @@ BlendLib 的首字母 B，后接 MC 风格的像素字 `lendLib`，保持石墨�
 
 <img src="./blendlib-wordmark-white.png" alt="BlendLib 文字组合标" width="640">
 
+## 发布页面与分享预览
+
+- CurseForge 项目头像使用完整的 `blendlib-icon-white.png`；GitHub README 与 CurseForge
+  介绍页使用正式文字标 `blendlib-wordmark-white.png`。
+- [GitHub 分享预览](./blendlib-social-preview.png) 为 1774 × 887 的 2:1 白底适配图，
+  供仓库 Social preview 使用，避免 3:1 文字标在分享卡片中被裁切。
+  它由内置 image_gen 以正式文字标为参考生成，是发布页面衍生素材，
+  不替代上方四份正式资源，也不作为逐像素一致的母版。
+- [页面更新与素材生成记录](./publication-profile-2026-09-08.md)
+
 ## 使用与同步
 
 - 保持长宽比、完整轮廓和现有留白；不要拉伸、重新上色或添加发光、阴影、网格等装饰。
