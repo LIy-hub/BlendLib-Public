@@ -1,28 +1,39 @@
 # BlendLib Beta 发布与集成文档
 
-当前源线版本为 `1.0.0-beta.1+26.1.2`。本目录提供 Beta 发布材料，并为同一源线的
-X1–X9 合并候选提供接口文档；两者都不替代制品清单、SHA-256、客户端视觉证据、性能证据、
-用户审核或发布授权。
+当前公开版本为 **Beta.2**，为 15 个 Minecraft 游戏版本分别提供 Fabric 运行库。
+从安装、导出或集成文档开始，再按需查阅对应版本的验证记录。
 
-## 入口
+## 当前版本与入门
+
+- [安装与项目简介](../../README.md)
+- [Beta.2 发布说明与依赖表](./beta2-release-notes.md)
+- [Beta.2 版本验证与发布记录](./multiversion-progress.md)
+- [CurseForge 当前项目描述](./curseforge-description-beta2.md)
+- [Blender 导出清单](./blender-export-checklist-v1.md)（Blender 5.1+，严格 GLB 资源要求）
+- [Fabric 26.1.2 开发者教程](./developer-tutorial-26.1.2.md)（Alpha API 基线示例；其他版本须核对原生回调）
+- [诊断与排错](./diagnostic-troubleshooting-v1.md)
+- [项目图标与文字标](../assets/branding/README.md)
+
+Beta.2 的构建入口位于 `versions/legacy` 与 `versions/modern`；请使用精确游戏版本的 JAR。
+以下资料保留 Beta.1 / Alpha 基线与历史实现证据，不代替当前版本的依赖表或验收结论。
+
+## Beta.1 与历史基线
 
 - [Beta.1 发布核验](./beta1-verification-2026-09-06.md)
 - [Beta 发布说明](./beta-release-notes.md)
-- [CurseForge 项目描述](./curseforge-project-description.md)
+- [CurseForge 历史项目描述](./curseforge-project-description.md)
 - [Schema 与公共 API Alpha 冻结记录](./schema-and-api-freeze-v1.md)
 - [许可证与发布元数据](./local-license-metadata.md)
 - [第三方许可证库存](./third-party-license-inventory.md)
-- [Fabric 26.1.2 开发者教程](./developer-tutorial-26.1.2.md)
-- [Blender 导出清单](./blender-export-checklist-v1.md)
-- [诊断与排错](./diagnostic-troubleshooting-v1.md)
 - [X1–X9 alpha 合并记录](../expansion/integration/x1-x9-alpha-merge.md)
 - [X8 平台与生态候选](../expansion/x8/README.md)
 - [P8 当前本地制品 rebind（历史 evidence）](../evidence/P8-current-artifact-rebind.md)
 
 ## Alpha 与本地制品边界
 
-这是早期测试版本，API 与行为可能变化，请勿用于关键生产环境。只支持声明的 Minecraft
-26.1.2、Fabric Loader 0.19.3、Fabric API `0.154.2+26.1.2` 与 Java 25 环境。
+根目录的历史构建仍以 Minecraft 26.1.2、Fabric Loader 0.19.3、Fabric API
+`0.154.2+26.1.2` 与 Java 25 为基线。Beta.2 的 15 版本范围由上方发布说明单独声明。
+项目仍处于 Beta，API 与行为可能变化；请先在独立实例验证集成。
 
 26.1.2 runtime、sources、Javadoc、Showcase、Blender Add-on ZIP、Local Maven 与库存文件由
 `buildRelease`/Alpha 本地发布任务生成。aggregate Javadoc、sources、runtime、Showcase 和
