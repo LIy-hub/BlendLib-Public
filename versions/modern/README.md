@@ -14,7 +14,7 @@ Targets: `1.21.9`, `1.21.10`, `1.21.11`, `26.1`, `26.1.1`, `26.1.2`, `26.2`.
 Each must be validated separately; an entry in this list is not a completed support claim.
 See [current evidence](../../docs/release/multiversion-progress.md).
 
-Outputs are under `build/<minecraft>/libs/`, using `1.0.0-beta.2+<minecraft>`.
+Outputs are under `build/<minecraft>/libs/`, using `1.0.0-beta.3+<minecraft>`.
 The 1.21 targets use official Mojang mappings, Loom remapping, and Java 21 bytecode.
 The 26.x targets use Mojang's unobfuscated distribution and Java 25.
 

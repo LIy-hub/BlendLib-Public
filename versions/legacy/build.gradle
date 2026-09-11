@@ -12,7 +12,7 @@ def mc = providers.gradleProperty('minecraft_version').getOrElse('1.21.8')
 if (!targets.containsKey(mc)) throw new GradleException("Unsupported legacy target: $mc")
 def upstream = file('../..')
 group = 'com.liy.blendlib'
-version = "1.0.0-beta.2+$mc"
+version = "1.0.0-beta.3+$mc"
 base { archivesName = 'blendlib-fabric' }
 layout.buildDirectory = file("build/$mc")
 
@@ -47,7 +47,7 @@ loom {
 dependencies {
     minecraft "com.mojang:minecraft:$mc"
     mappings loom.officialMojangMappings()
-    modImplementation 'net.fabricmc:fabric-loader:0.19.3'
+    modImplementation "net.fabricmc:fabric-loader:${providers.gradleProperty('loader_version').get()}"
     modImplementation "net.fabricmc.fabric-api:fabric-api:${targets[mc]}"
     testImplementation platform('org.junit:junit-bom:5.12.2')
     testImplementation 'org.junit.jupiter:junit-jupiter'
@@ -145,7 +145,7 @@ tasks.withType(ProcessResources).configureEach {
     inputs.property('minecraft', mc)
     inputs.property('version', version)
     filesMatching('fabric.mod.json') {
-        filter { line -> line.replace('${version}', version.toString()).replace('26.1.2', mc).replace('"25"', '"21"').replace('0.154.2+' + mc, targets[mc]) }
+        filter { line -> line.replace('${version}', version.toString()).replace('26.1.2', mc).replace('"25"', '"21"').replace('0.155.3+' + mc, targets[mc]) }
     }
     filesMatching('blendlib.client.mixins.json') { filter { line -> line.replace('JAVA_25', 'JAVA_21') } }
     exclude 'blendlib.client.mixins.json'
@@ -186,7 +186,8 @@ tasks.register('verifyRuntimeJar') {
             assert metadata.version == version.toString()
             assert metadata.depends.minecraft == mc
             assert metadata.depends.java == '21'
-            assert metadata.depends['fabric-api'] == targets[mc]
+            assert metadata.depends.fabricloader == '>=' + providers.gradleProperty('loader_version').get()
+            assert metadata.depends['fabric-api'] == '>=' + targets[mc]
             assert (metadata.containsKey('mixins')) == (mc in ['1.21.1', '1.21.2', '1.21.3', '1.21.4'])
             assert !metadata.containsKey('jars') // API/core/common are compiled into the outer remapped artifact.
             ['api/BlendResourceId', 'core/loader/ModelAssetLoader', 'fabric/common/BlendLibCommonEntrypoint',

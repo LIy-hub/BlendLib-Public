@@ -6,7 +6,7 @@
 
 <p align="center">
   <a href="https://www.curseforge.com/minecraft/mc-mods/blendlib">CurseForge</a> ·
-  <a href="https://github.com/LIy-hub/BlendLib-Public/releases/tag/v1.0.0-beta.2">Download Beta.2</a> ·
+  <a href="https://github.com/LIy-hub/BlendLib-Public/releases/tag/v1.0.0-beta.3">Download Beta.3</a> ·
   <a href="./docs/release/README.md">Documentation</a> ·
   <a href="https://github.com/LIy-hub/BlendLib-Public/issues">Report an issue</a> ·
   <a href="#中文简介">中文简介</a>
@@ -33,23 +33,23 @@ BlendLib implements a strict GLB subset, rather than every glTF feature.
 
 ## Install
 
-**Current public release: 1.0.0-beta.2 · Fabric · 15 Minecraft versions.**
+**Current public release: 1.0.0-beta.3 · Fabric · 15 Minecraft versions.**
 
 | Minecraft Java Edition | Java runtime |
 | --- | --- |
 | 1.21.1, 1.21.2, 1.21.3, 1.21.4, 1.21.5, 1.21.6, 1.21.7, 1.21.8, 1.21.9, 1.21.10, 1.21.11 | Java 21 |
 | 26.1, 26.1.1, 26.1.2, 26.2 | Java 25 |
 
-1. Install **Fabric Loader 0.19.3 or newer** and **Fabric API for your exact Minecraft version**.
+1. Install **Fabric Loader 0.19.5 or newer** and **Fabric API for your exact Minecraft version**.
 2. Download the matching BlendLib **runtime** JAR from [CurseForge](https://www.curseforge.com/minecraft/mc-mods/blendlib/files/all)
-   or [GitHub Releases](https://github.com/LIy-hub/BlendLib-Public/releases/tag/v1.0.0-beta.2).
+   or [GitHub Releases](https://github.com/LIy-hub/BlendLib-Public/releases/tag/v1.0.0-beta.3).
 3. Put it in your instance's `mods` folder alongside the mod that requires BlendLib.
 
-Use **one** BlendLib runtime JAR. Each `1.0.0-beta.2+<Minecraft version>` file targets one exact
+Use **one** BlendLib runtime JAR. Each `1.0.0-beta.3+<Minecraft version>` file targets one exact
 game version; source JARs are for developers. The runtime already includes BlendLib's API, core,
 common and client modules. Follow the dependent mod's instructions for client/server installation.
 
-The [release notes](./docs/release/beta2-release-notes.md) list tested Fabric API versions.
+The [release notes](./docs/release/beta3-release-notes.md) list tested Fabric API versions.
 Runtime JARs, sources and SHA-256 checksums are available in the GitHub release.
 
 ## Build with BlendLib
@@ -61,12 +61,12 @@ Runtime JARs, sources and SHA-256 checksums are available in the GitHub release.
 | [Blender export checklist](./docs/release/blender-export-checklist-v1.md) | Supported profiles, asset layout and export validation |
 | [Fabric 26.1.2 integration tutorial](./docs/release/developer-tutorial-26.1.2.md) | Model keys, animation calls and host integration; examples originate from the Alpha API baseline |
 | [Diagnostics and troubleshooting](./docs/release/diagnostic-troubleshooting-v1.md) | Diagnose asset and integration problems |
-| [Beta.2 version notes](./docs/release/beta2-release-notes.md) | Dependencies and native adapter differences |
+| [Beta.3 version notes](./docs/release/beta3-release-notes.md) | Dependencies and native adapter differences |
 | [Contributing](./CONTRIBUTING.md) | Project contribution guidance |
 
 Compile against the runtime for your target Minecraft version: native rendering callback
 signatures differ between releases. The separate Blender exporter requires **Blender 5.1+**;
-Beta.2 leaves it unchanged, and its package remains available in the
+Beta.3 leaves it unchanged, and its package remains available in the
 [Beta.1 release](https://github.com/LIy-hub/BlendLib-Public/releases/tag/v1.0.0-beta.1%2B26.1.2).
 
 ### Developer quick start · Fabric 26.1.2
@@ -110,7 +110,7 @@ and synchronized animation sampling does not dispatch visual event callbacks. Th
 supported material combinations and advanced API boundaries are covered in the
 [capability matrix](./docs/developer-handbook.md#scope).
 
-To build a Beta.2 target locally, install the Java 21 and Java 25 toolchains and use:
+To build a Beta.3 target locally, install the Java 21 and Java 25 toolchains and use:
 
 ```powershell
 .\gradlew.bat -p versions/legacy "-Pminecraft_version=1.21.1" build
@@ -142,13 +142,13 @@ See the [verification matrix](./docs/release/multiversion-progress.md) and
 宿主绑定、动画同步、资源重载和诊断能力，让创作与游戏内呈现衔接起来。
 
 玩家只需在依赖它的模组要求时安装；开发者可以围绕它构建自己的模型和动画内容。
-单独安装本库不会添加生物、物品或玩法。Beta.2 覆盖上表 15 个游戏版本：1.21.x 使用 Java 21，
-26.x 使用 Java 25，并需要 Fabric Loader 0.19.3+ 和对应版本的 Fabric API。
+单独安装本库不会添加生物、物品或玩法。Beta.3 覆盖上表 15 个游戏版本：1.21.x 使用 Java 21，
+26.x 使用 Java 25，并需要 Fabric Loader 0.19.5+ 和对应版本的 Fabric API。
 **只安装一份与游戏版本精确匹配的运行库 JAR。**
 
 项目仍处于 Beta，API 与行为可能变化。构建和启动检查不等于完整的游戏内画面、多人、
 光影兼容或性能验收；模型与动画也不承担服务端碰撞、伤害等权威玩法判定。
-开发入口见[文档导航](./docs/release/README.md)，详细支持范围见 [Beta.2 发布说明](./docs/release/beta2-release-notes.md)。
+开发入口见[文档导航](./docs/release/README.md)，详细支持范围见 [Beta.3 发布说明](./docs/release/beta3-release-notes.md)。
 
 **开发者从这里开始：** [《BlendLib 模组开发者手册》](./docs/developer-handbook.md)提供 22 章说明和完整 Java 示例。
 先完成[依赖配置](./docs/developer-handbook.md#dependencies)与[第一个静态模型](./docs/developer-handbook.md#first-model)，

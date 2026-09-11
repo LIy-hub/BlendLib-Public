@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.0.0-beta.3 - 2026-09-11
+
+- Update all 15 Fabric builds to Loader 0.19.5.
+- Update Fabric API to 0.155.3+26.1.2 and 0.160.0+26.2; other targets already use their latest matching API.
+- Accept newer matching Fabric dependencies instead of requiring exact Loader/API versions.
+- See [release notes](docs/release/beta3-release-notes.md) for installation and verification boundaries.
+
 All notable changes to BlendLib are documented here.
 
 ## [1.0.0-beta.1+26.1.2] - 2026-09-06

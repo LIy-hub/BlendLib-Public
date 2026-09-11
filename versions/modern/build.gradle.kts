@@ -14,8 +14,8 @@ val targets = mapOf(
     "1.21.11" to "0.141.6+1.21.11",
     "26.1" to "0.145.1+26.1",
     "26.1.1" to "0.145.4+26.1.1",
-    "26.1.2" to "0.154.2+26.1.2",
-    "26.2" to "0.153.0+26.2",
+    "26.1.2" to "0.155.3+26.1.2",
+    "26.2" to "0.160.0+26.2",
 )
 val fabricVersion = targets[minecraftVersion] ?: error("Unsupported Minecraft target: $minecraftVersion")
 val javaVersion = if (minecraftVersion.startsWith("1.21.")) 21 else 25
@@ -38,7 +38,7 @@ if (fabricMirror.resolve("net/fabricmc/fabric-api/fabric-api/$fabricVersion/fabr
 }
 
 group = "com.liy.blendlib"
-version = "1.0.0-beta.2+$minecraftVersion"
+version = "1.0.0-beta.3+$minecraftVersion"
 base.archivesName.set("blendlib-fabric")
 layout.buildDirectory.set(layout.projectDirectory.dir("build/$minecraftVersion"))
 val repository = rootDir.resolve("../..").canonicalFile
@@ -216,7 +216,7 @@ tasks.withType<ProcessResources>().configureEach {
     filesMatching("fabric.mod.json") {
         expand("version" to project.version)
         filter { line -> line.replace("26.1.2", minecraftVersion)
-            .replace("0.154.2+$minecraftVersion", fabricVersion)
+            .replace("0.155.3+$minecraftVersion", fabricVersion)
             .replace("\"java\": \"25\"", "\"java\": \">=$javaVersion\"") }
     }
     filesMatching("blendlib.client.mixins.json") {
@@ -247,6 +247,8 @@ tasks.register("verifyRuntimeJar") {
             val metadata = zip.getInputStream(zip.getEntry("fabric.mod.json")).reader().readText()
             check(metadata.contains("\"minecraft\": \"$minecraftVersion\""))
             check(metadata.contains(project.version.toString()))
+            check(metadata.contains("\"fabricloader\": \">=${providers.gradleProperty("loader_version").get()}\""))
+            check(metadata.contains("\"fabric-api\": \">=$fabricVersion\""))
             listOf("api/BlendResourceId", "core/BlendCoreService", "fabric/common/BlendLibCommonEntrypoint", "fabric/client/BlendLibClientEntrypoint").forEach {
                 check(zip.getEntry("com/liy/blendlib/$it.class") != null) { "Missing runtime class: $it" }
             }
