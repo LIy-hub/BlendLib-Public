@@ -4,6 +4,8 @@
 
 本文按 **2026-09-09、本仓库源码 `f7b1a8d212b7f395b015a1fe8a0b6af383737dfe`、Beta.2** 核对。完整 Java 示例以 **Minecraft 26.1.2 / Java 25** 为编译基线；1.21.x 和 26.2 的差异见版本章节。本文描述已经存在的接口及其限制，不增加 API 兼容性承诺。
 
+第 2 节的安装与依赖配置已于 **2026-09-11** 更新至 [Beta.3](release/beta3-release-notes.md)。此版本更新 Fabric 依赖及其版本范围，未更改本手册所述 API 与渲染实现。
+
 BlendLib 负责受支持 GLB 模型的加载、动画与渲染。实体 AI、物品行为、方块逻辑、存档、伤害与碰撞由你的模组负责。先完成一个静态模型，再接动画、同步和程序化姿态，通常最容易定位问题。
 
 ## 目录
@@ -75,7 +77,7 @@ BlendLib 负责受支持 GLB 模型的加载、动画与渲染。实体 AI、物
 
 ### 2.1 精确版本配对
 
-当前源码记录的 Beta.2 目标如下。Fabric API 列为发布记录中的配对版本，便于复现；升级依赖后需要重新验证。
+Beta.3 的 15 个目标如下。Fabric API 列为 2026-09-11 核对的各游戏版本最新发布版本，均已完成构建、服务端启动和客户端资源加载验证。运行依赖使用最低版本范围，允许安装同一游戏版本的更新版 Fabric API；构建继续锁定表中版本以便复现。
 
 | Minecraft | Java | Fabric API | 本库源码构建族 |
 | --- | --- | --- | --- |
@@ -92,14 +94,14 @@ BlendLib 负责受支持 GLB 模型的加载、动画与渲染。实体 AI、物
 | 1.21.11 | 21 | `0.141.6+1.21.11` | modern |
 | 26.1 | 25 | `0.145.1+26.1` | modern |
 | 26.1.1 | 25 | `0.145.4+26.1.1` | modern |
-| 26.1.2 | 25 | `0.154.2+26.1.2` | modern |
-| 26.2 | 25 | `0.153.0+26.2` | modern |
+| 26.1.2 | 25 | `0.155.3+26.1.2` | modern |
+| 26.2 | 25 | `0.160.0+26.2` | modern |
 
-配合 Fabric Loader `0.19.3` 基线或满足所选制品要求的版本使用。核对下载 JAR 内的 `fabric.mod.json`，并使用精确对应游戏版本的 runtime。
+配合 Fabric Loader `0.19.5` 或更新版本使用。核对下载 JAR 内的 `fabric.mod.json`，并使用精确对应游戏版本的 runtime。
 
-例如 26.1.2 的文件是 `blendlib-fabric-1.0.0-beta.2+26.1.2.jar`。`-sources.jar` 是阅读源码用的附件，不是运行库。一个游戏实例只安装一份 BlendLib runtime。
+例如 26.1.2 的文件是 `blendlib-fabric-1.0.0-beta.3+26.1.2.jar`。`-sources.jar` 是阅读源码用的附件，不是运行库。一个游戏实例只安装一份 BlendLib runtime。
 
-获取入口：[GitHub Beta.2 发布页](https://github.com/LIy-hub/BlendLib-Public/releases/tag/v1.0.0-beta.2)、[CurseForge 文件页](https://www.curseforge.com/minecraft/mc-mods/blendlib/files/all)。当前仓库没有据此确认可用于所有 Beta.2 版本的公共 Maven 仓库，不要凭包名猜 Maven Central 坐标。
+获取入口：[GitHub Beta.3 发布页](https://github.com/LIy-hub/BlendLib-Public/releases/tag/v1.0.0-beta.3)、[CurseForge 文件页](https://www.curseforge.com/minecraft/mc-mods/blendlib/files/all)。Beta.3 未发布公共 Maven 仓库，请使用对应的 release JAR，不要凭包名猜 Maven Central 坐标。
 
 ### 2.2 在已有 Fabric 工程中引用本地 release JAR
 
@@ -109,7 +111,7 @@ BlendLib 负责受支持 GLB 模型的加载、动画与渲染。实体 AI、物
 
 ```kotlin
 dependencies {
-    implementation(files("libs/blendlib-fabric-1.0.0-beta.2+26.1.2.jar"))
+    implementation(files("libs/blendlib-fabric-1.0.0-beta.3+26.1.2.jar"))
 }
 ```
 
@@ -117,7 +119,7 @@ dependencies {
 
 ```kotlin
 dependencies {
-    modImplementation(files("libs/blendlib-fabric-1.0.0-beta.2+1.21.1.jar"))
+    modImplementation(files("libs/blendlib-fabric-1.0.0-beta.3+1.21.1.jar"))
 }
 ```
 
@@ -126,14 +128,14 @@ Groovy DSL 对应写法：
 ```groovy
 dependencies {
     // 26.x 工程。
-    implementation files('libs/blendlib-fabric-1.0.0-beta.2+26.1.2.jar')
+    implementation files('libs/blendlib-fabric-1.0.0-beta.3+26.1.2.jar')
 }
 ```
 
 ```groovy
 dependencies {
     // 1.21.x remap 工程。
-    modImplementation files('libs/blendlib-fabric-1.0.0-beta.2+1.21.1.jar')
+    modImplementation files('libs/blendlib-fabric-1.0.0-beta.3+1.21.1.jar')
 }
 ```
 
@@ -150,9 +152,9 @@ dependencies {
   "depends": {
     "minecraft": "26.1.2",
     "java": ">=25",
-    "fabricloader": ">=0.19.3",
-    "fabric-api": "*",
-    "blendlib": "1.0.0-beta.2+26.1.2"
+    "fabricloader": ">=0.19.5",
+    "fabric-api": ">=0.155.3+26.1.2",
+    "blendlib": "1.0.0-beta.3+26.1.2"
   }
 }
 ```
@@ -173,7 +175,7 @@ dependencies {
 
 输出位置分别为 `versions/legacy/build/<Minecraft>/libs/` 和 `versions/modern/build/<Minecraft>/libs/`。这些任务不会把制品发布到外部平台。
 
-根目录构建仍保留 `1.0.0-beta.1+26.1.2` 基线。`buildRelease` 与 `build/local-maven/` 的现有制品不是自动对应 Beta.2。仓库中的 `examples/independent-consumer` 和 local-Maven fixture 可以研究工程结构，但其 RC/Alpha/Beta.1 属性必须按实际制品更新后再使用。
+根目录构建版本已更新为 `1.0.0-beta.3+26.1.2`。现有 `build/local-maven/` 可能仍保留旧制品，使用前核对实际文件名、版本与校验和；Beta.3 的基线发布验证使用独立的 `build/beta3-baseline/` 输出目录。仓库中的 `examples/independent-consumer` 和 local-Maven fixture 可以研究工程结构，但其 RC/Alpha/Beta.1 属性必须按实际制品更新后再使用。
 
 <a id="lifecycle"></a>
 ## 3. 源码集与生命周期

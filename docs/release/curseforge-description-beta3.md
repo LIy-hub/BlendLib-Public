@@ -47,7 +47,7 @@ BlendLib is in active Beta. APIs and behavior may change; there is no stable API
 - Visual models and animation events do not decide server-authoritative collision, damage, hits or drops.
 - The 15-version release record covers builds, JAR checks, isolated server checks and client startup/resource reload. Those checks did not enter a world. Full visual coverage, multiplayer behavior, repeated-reload leak testing, Iris/Sodium compatibility, experimental GPU rendering and hardware performance remain unverified or incomplete. Older adapters exclude unsupported experimental GPU paths.
 
-[Detailed verification record](https://github.com/LIy-hub/BlendLib-Public/blob/main/docs/release/multiversion-progress.md) · [Beta.1 capability boundaries](https://github.com/LIy-hub/BlendLib-Public/blob/main/docs/release/beta-release-notes.md)
+[Detailed verification record](https://github.com/LIy-hub/BlendLib-Public/blob/main/docs/release/beta3-verification.md) · [Beta.1 capability boundaries](https://github.com/LIy-hub/BlendLib-Public/blob/main/docs/release/beta-release-notes.md)
 
 ## 中文简介
 

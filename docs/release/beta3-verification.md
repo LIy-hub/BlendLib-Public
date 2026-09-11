@@ -41,3 +41,49 @@ The published `verification-manifest.json` binds each runtime to its startup rec
 
 See [release notes](beta3-release-notes.md) for dependencies and installation. The Beta.2 verification
 and publication record remains available [separately](multiversion-progress.md).
+
+## Publication, 2026-09-11
+
+[GitHub Beta.3](https://github.com/LIy-hub/BlendLib-Public/releases/tag/v1.0.0-beta.3)
+is a published prerelease at source commit `e28b276230724d633091cabdf20970d8e5e5a876`.
+Its 32 assets are 15 runtime JARs, 15 source JARs, `SHA256SUMS.txt` and
+`verification-manifest.json`. GitHub's uploaded asset sizes and SHA-256 digests all match
+the verified local release files.
+
+GitHub Actions passed for both the source commit and release tag:
+[main version matrix](https://github.com/LIy-hub/BlendLib-Public/actions/runs/34597835195),
+[tag version matrix](https://github.com/LIy-hub/BlendLib-Public/actions/runs/34597835373),
+[main baseline build](https://github.com/LIy-hub/BlendLib-Public/actions/runs/34597835296),
+and [tag baseline build](https://github.com/LIy-hub/BlendLib-Public/actions/runs/34597835203).
+
+All 15 CurseForge files were uploaded through the Codex in-app browser, approved,
+and observed on the public Files page. Each is a Beta file for exactly one Minecraft
+version, Fabric, Client and Server, with Java 21 for 1.21.x or Java 25 for 26.x,
+and Fabric API as a required dependency. The bilingual project description now links
+to Beta.3 and requires Loader 0.19.5+; the public page was read back after saving.
+
+| Minecraft | CurseForge file | Status |
+| --- | --- | --- |
+| 1.21.1 | [8857223](https://www.curseforge.com/minecraft/mc-mods/blendlib/files/8857223) | Approved |
+| 1.21.2 | [8857234](https://www.curseforge.com/minecraft/mc-mods/blendlib/files/8857234) | Approved |
+| 1.21.3 | [8857238](https://www.curseforge.com/minecraft/mc-mods/blendlib/files/8857238) | Approved |
+| 1.21.4 | [8857247](https://www.curseforge.com/minecraft/mc-mods/blendlib/files/8857247) | Approved |
+| 1.21.5 | [8857252](https://www.curseforge.com/minecraft/mc-mods/blendlib/files/8857252) | Approved |
+| 1.21.6 | [8857253](https://www.curseforge.com/minecraft/mc-mods/blendlib/files/8857253) | Approved |
+| 1.21.7 | [8857258](https://www.curseforge.com/minecraft/mc-mods/blendlib/files/8857258) | Approved |
+| 1.21.8 | [8857266](https://www.curseforge.com/minecraft/mc-mods/blendlib/files/8857266) | Approved |
+| 1.21.9 | [8857271](https://www.curseforge.com/minecraft/mc-mods/blendlib/files/8857271) | Approved |
+| 1.21.10 | [8857276](https://www.curseforge.com/minecraft/mc-mods/blendlib/files/8857276) | Approved |
+| 1.21.11 | [8857282](https://www.curseforge.com/minecraft/mc-mods/blendlib/files/8857282) | Approved |
+| 26.1 | [8857295](https://www.curseforge.com/minecraft/mc-mods/blendlib/files/8857295) | Approved |
+| 26.1.1 | [8857302](https://www.curseforge.com/minecraft/mc-mods/blendlib/files/8857302) | Approved |
+| 26.1.2 | [8857313](https://www.curseforge.com/minecraft/mc-mods/blendlib/files/8857313) | Approved |
+| 26.2 | [8857321](https://www.curseforge.com/minecraft/mc-mods/blendlib/files/8857321) | Approved |
+
+All 15 runtime JARs were downloaded again from the CurseForge CDN; every SHA-256
+matches the local runtime listed above and the corresponding GitHub asset.
+Local publication receipts are `build/beta3-work/github-asset-verification.json`,
+`github-ci-verification.json`, `curseforge-files.json` and `curseforge-cdn-verification.json`.
+
+15 个版本均已在 GitHub 与 CurseForge 发布，CurseForge 全部审核通过。
+两个平台的运行库均已核对 SHA-256，安装说明和开发手册已同步至 Beta.3。
