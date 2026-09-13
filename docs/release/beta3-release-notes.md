@@ -1,3 +1,5 @@
+![BlendLib](https://raw.githubusercontent.com/LIy-hub/BlendLib-Public/772567ad99a324ae6e4d87a6d26d24c0a6df2cd1/docs/assets/branding/blendlib-wordmark-white.png)
+
 # BlendLib 1.0.0-beta.3 — Fabric dependency compatibility
 
 Beta.3 fixes dependency declarations that required one exact Fabric Loader and Fabric API version.

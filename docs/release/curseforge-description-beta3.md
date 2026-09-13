@@ -1,4 +1,4 @@
-![BlendLib — models and animation for Minecraft Fabric](https://raw.githubusercontent.com/LIy-hub/BlendLib-Public/main/docs/assets/branding/blendlib-wordmark-white.png)
+![BlendLib — models and animation for Minecraft Fabric](https://raw.githubusercontent.com/LIy-hub/BlendLib-Public/772567ad99a324ae6e4d87a6d26d24c0a6df2cd1/docs/assets/branding/blendlib-wordmark-white.png)
 
 **Bring your models to life in Minecraft.**
 
