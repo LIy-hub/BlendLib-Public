@@ -84,7 +84,7 @@ def exports() -> dict[Path, bytes]:
     manifest = {
         "status": "official",
         "adopted_on": "2026-09-13",
-        "scope": "Standalone folded B icon; the existing pixel wordmark remains a separate PNG asset.",
+        "scope": "Standalone folded B icon; the outlined wordmark has its own SVG master and export workflow.",
         "master": "parametric/generated/blendlib-icon-master.svg",
         "master_sha256": generate.sha(expected_core["blendlib-icon-master.svg"]),
         "core_manifest_sha256": generate.sha(expected_core["manifest.json"]),

@@ -1,0 +1,68 @@
+{
+  "status": "official",
+  "adopted_on": "2026-09-13",
+  "scope": "Folded B + lendLib wordmark for documentation and social preview.",
+  "logical_text": "BlendLib",
+  "outlined_text": "lendLib",
+  "master": "parametric-wordmark/generated/blendlib-wordmark-master.svg",
+  "master_sha256": "e77de2bcfbbcc01ccb3ec64ffe105a0852505e7539a230f14f09a66f720e2c62",
+  "core_manifest_sha256": "747d322d2a7c3ac70300f27355b008f0e366e07ce979a602518e7037375d0b7a",
+  "exporter_sha256": "0988a478b45ee42b9754e938ca5206d288595d5dd17c977095c0939ea82ed5ee",
+  "engines": {
+    "fontTools": "4.65.0",
+    "uharfbuzz": "0.56.1",
+    "HarfBuzz": "14.4.0",
+    "PyMuPDF": "1.28.0",
+    "Pillow": "12.2.0"
+  },
+  "native_png_size": [
+    3066,
+    1022
+  ],
+  "transparent_png_method": "Exact byte copy of the transparent master PNG.",
+  "white_png_method": "Composite the transparent PNG onto pure white and encode as RGB; exact copy for the documentation alias.",
+  "social_preview": {
+    "size_px": [
+      1774,
+      887
+    ],
+    "pixels_per_u": 14,
+    "master_scale": "1/2",
+    "master_canvas_size_px": [
+      1533.0,
+      511.0
+    ],
+    "master_canvas_origin_px": [
+      121.0,
+      188.5
+    ],
+    "correction_from_exact_center_px": [
+      0.5,
+      0.5
+    ],
+    "correction_reason": "Round the first glyph ink edge and common baseline to integer pixels, ties upward.",
+    "type_alpha_levels_before_white_composite": [
+      0,
+      255
+    ],
+    "method": "Render the unchanged SVG inside a 2:1 canvas, then composite onto pure white; no stretching or cropping."
+  },
+  "outputs": {
+    "docs/assets/blendlib-logo.png": {
+      "bytes": 13768,
+      "sha256": "8d58edab32274b95c973cb680fabdf1a070869fa9de2b8f3cb0ae89fc7e8aa94"
+    },
+    "docs/assets/branding/blendlib-social-preview.png": {
+      "bytes": 7797,
+      "sha256": "074601c4aad27b310120842a5b1fd2e9c713229a227f4eb7210498d58ec157f8"
+    },
+    "docs/assets/branding/blendlib-wordmark-transparent.png": {
+      "bytes": 15980,
+      "sha256": "e31adfc93e06c5dc648102cb4606a20e2af004c030582f622fe8705f0962354d"
+    },
+    "docs/assets/branding/blendlib-wordmark-white.png": {
+      "bytes": 13768,
+      "sha256": "8d58edab32274b95c973cb680fabdf1a070869fa9de2b8f3cb0ae89fc7e8aa94"
+    }
+  }
+}

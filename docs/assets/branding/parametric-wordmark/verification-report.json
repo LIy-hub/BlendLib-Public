@@ -1,0 +1,55 @@
+{
+  "python": "3.11.15",
+  "generated_file_count": 14,
+  "independent_outputs": "two directories, all 14 files byte-identical with delivery",
+  "relocated_generation": "all 14 files byte-identical",
+  "read_only_check_detects_tampering": true,
+  "valid_parameter_profiles_with_full_svg_png_and_font_comparison": {
+    "letter-gap": [
+      3150,
+      1050
+    ],
+    "type-height": [
+      3234,
+      1078
+    ],
+    "baseline": [
+      3066,
+      1022
+    ],
+    "counter-gap": [
+      3066,
+      1022
+    ],
+    "double-scale": [
+      6132,
+      2044
+    ]
+  },
+  "invalid_profiles_rejected_before_output": {
+    "case-change": "ERROR: Identity is fixed: folded B + the exact case-sensitive text lendLib = BlendLib.",
+    "fold-collapse": "ERROR: Invalid folded-B topology: require s < M.x < s+r < G.x < W and m*s < H/2.",
+    "fractional-canvas": "ERROR: Canvas width and height must resolve to whole pixels; choose a compatible pixels_per_u.",
+    "clear-space": "ERROR: Canvas padding/ratio/offset violates minimum clearance.",
+    "invalid-color": "ERROR: graphite: expected a six-digit hex color.",
+    "font-hash-mismatch": "ERROR: Source hash mismatch: Minecraft.otf"
+  },
+  "svg_structure": {
+    "path_count": 10,
+    "font_glyphs": [
+      "l",
+      "e",
+      "n",
+      "d",
+      "L",
+      "i",
+      "b"
+    ],
+    "no_live_text_font_raster_or_guides": true
+  },
+  "font_copy_matches_user_file": true,
+  "font_license_preserved_verbatim": true,
+  "manifest_sha256": "747d322d2a7c3ac70300f27355b008f0e366e07ce979a602518e7037375d0b7a",
+  "reference_copy_matches_pre_adoption_wordmark": true,
+  "reference_revision_at_capture": "1131673"
+}

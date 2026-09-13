@@ -1,0 +1,47 @@
+{
+  "date": "2026-09-13",
+  "scope": "Local official wordmark adoption",
+  "core_manifest_sha256": "747d322d2a7c3ac70300f27355b008f0e366e07ce979a602518e7037375d0b7a",
+  "core_rebuilt_file_count": 14,
+  "core_fresh_output_byte_identical": true,
+  "svg_path_count": 10,
+  "outlined_text": "lendLib",
+  "native_png_size": [
+    3066,
+    1022
+  ],
+  "native_png_mode": "RGBA",
+  "transparent_png_is_exact_master_copy": true,
+  "white_is_alpha_composite": true,
+  "documentation_alias_is_exact_white_copy": true,
+  "font_freetype_vs_master_svg_alpha_different_pixels": 0,
+  "font_freetype_vs_social_preview_different_pixels": 0,
+  "social_size": [
+    1774,
+    887
+  ],
+  "social_ink_bbox": [
+    198,
+    297,
+    1577,
+    591
+  ],
+  "social_center_correction_px": [
+    0.5,
+    0.5
+  ],
+  "checksums_and_both_official_manifests_match": true,
+  "standalone_icon_and_fabric_resource_hashes_unchanged": {
+    "docs/assets/branding/blendlib-icon-transparent.png": "56a4af0814514b22c233e7e1e360feb7d442c35b1ab714fbee5c96c07696e0dd",
+    "docs/assets/branding/blendlib-icon-white.png": "98e3102b77d8d23084bcb2c367655562edb150c1f48af21f7ae9935405ad2661",
+    "blendlib-fabric-client/src/main/resources/assets/blendlib/icon.png": "98e3102b77d8d23084bcb2c367655562edb150c1f48af21f7ae9935405ad2661"
+  },
+  "source_font_exactly_matches_provided_file": true,
+  "reference_png_matches_pre_adoption_revision": "1131673",
+  "visual_review": [
+    "official white PNG",
+    "social preview PNG"
+  ],
+  "runtime_scope": "No game resources changed; no Gradle build or Minecraft launch for wordmark adoption.",
+  "publication_scope": "Local assets and Git commit only; no remote upload or push."
+}

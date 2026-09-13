@@ -1,0 +1,29 @@
+dimension,value,unit,definition
+B width,14,u,s+r+d
+B height,21,u,2t+2h+g
+Stem width,4,u,s
+Fold depth run,4,u,d
+Diagonal angle,26.56505118,degrees,atan(rise/run)
+Counter run,6,u,r
+Counter height,6,u,h=2mr
+Counter pitch,7,u,p=h+g
+Counter gap,1,u,g
+Band vertical intercept,4,u,t=2md; not normal thickness
+Type cap height,15,u,measured font cap height times uniform scale
+Type/B height ratio,0.71428571,ratio,cap height / B height
+Type baseline,19,u,(B height+cap height)/2 + optical shift
+Optical baseline shift,1,u,relative to centered type ink box
+Cap line,4,u,baseline - cap height
+X-height line,8.28571429,u,baseline - 10 font units times scale
+Visible letter gap,3.5,u,next ink left - previous ink right
+B-to-type gap,3.5,u,first glyph ink left - B right bound
+Extra tracking per gap,0.28571429,u,2/7
+Font scale,1.07142857,u/font unit,15/14
+Font pixel step,2.14285714,u,2 font units times scale
+Text ink width,81,u,font outlines plus six visible gaps
+Lockup ink width,98.5,u,B width + emblem gap + text ink width
+Canvas width,109.5,u,lockup width + 2*horizontal padding
+Canvas height,36.5,u,canvas width / 3
+Origin x,5.5,u,horizontal padding + offset x
+Origin y,7.75,u,(canvas height-B height)/2 + offset y
+Export unit,28,px/u,uniform scale

@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "identity": {
+    "logical_text": "BlendLib",
+    "outlined_text": "lendLib",
+    "initial": "folded_B"
+  },
+  "emblem": {
+    "stem_u": 4,
+    "counter_run_u": 6,
+    "return_u": 4,
+    "slope_rise": 1,
+    "slope_run": 2,
+    "counter_gap_u": 1
+  },
+  "typography": {
+    "cap_height_u": 15,
+    "visible_letter_gap_u": 3.5,
+    "emblem_gap_u": 3.5,
+    "baseline_optical_shift_u": 1,
+    "features": {"kern": true, "liga": false, "clig": false}
+  },
+  "composition": {
+    "horizontal_padding_u": 5.5,
+    "canvas_ratio": 3,
+    "offset_x_u": 0,
+    "offset_y_u": 0,
+    "minimum_clearance_u": 3.5
+  },
+  "palette": {
+    "graphite": "#292D31",
+    "fold": "#87898D"
+  },
+  "export": {"pixels_per_u": 28}
+}

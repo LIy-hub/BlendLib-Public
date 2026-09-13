@@ -1,11 +1,11 @@
 {
   "status": "official",
   "adopted_on": "2026-09-13",
-  "scope": "Standalone folded B icon; the existing pixel wordmark remains a separate PNG asset.",
+  "scope": "Standalone folded B icon; the outlined wordmark has its own SVG master and export workflow.",
   "master": "parametric/generated/blendlib-icon-master.svg",
   "master_sha256": "5445f47a0789db3fa57cd01f9ae042a082032e7fc60fc1849696c38c5d0e2254",
   "core_manifest_sha256": "7788ce0385a1f1ad0e4db5a35f441a2f7ab93da9900ef35bbee90e07581dfe04",
-  "exporter_sha256": "fc55fdb963ac1df0381e884f578ce56fa26d914be5bad82ead49d5ee7d8644b6",
+  "exporter_sha256": "1e843816a34b701b125999247d01b0df8accb243f34276c059b4115683939dbe",
   "renderer": {
     "PyMuPDF": "1.28.0",
     "Pillow": "12.2.0"
@@ -30,7 +30,7 @@
     },
     "docs/assets/branding/SHA256SUMS": {
       "bytes": 380,
-      "sha256": "bfe39b01dab724139fff704f5b81e4d95a3ff4ff5a702d8b201713980999ac2a"
+      "sha256": "d8093c2288c346673dd8c0230828cb35b26af5ac8f4ccac219395b60e0c80fab"
     }
   }
 }

@@ -1,0 +1,218 @@
+{
+  "schema_version": 1,
+  "logical_text": "BlendLib",
+  "outlined_text": "lendLib",
+  "parameters_sha256": "132ebd11872be4677586d485752cb300cb34f4a97229ba73e0aa4b2da10ad66c",
+  "script_sha256": {
+    "generate.py": "b4407d7d231d1028c1ed153a38f4a6d192d92f428920081f22f86e6ff97a1cf8",
+    "geometry.py": "9f35fd43dd18349598c4d916f1070d8a2cd129a7b7c0022d88f8b85b464f71d7"
+  },
+  "source": {
+    "reference": {
+      "file": "source-wordmark-white.png",
+      "repository_path": "docs/assets/branding/blendlib-wordmark-white.png",
+      "repository_revision_at_capture": "1131673",
+      "sha256": "8c112e84391c1192e2c6479f5840ab2d95f649bacc60e9ad3057bdb6dcbea032",
+      "size_px": [
+        2172,
+        724
+      ],
+      "reading": "Folded B substitutes for the initial B; the following seven glyphs read lendLib.",
+      "measurement": "Ink x-runs from RGB max < 200, more than 8 pixels per column; integer bounding boxes with exclusive right/bottom edges.",
+      "ink_boxes_px": [
+        [
+          106,
+          173,
+          364,
+          557
+        ],
+        [
+          429,
+          259,
+          529,
+          523
+        ],
+        [
+          586,
+          329,
+          806,
+          524
+        ],
+        [
+          871,
+          329,
+          1096,
+          523
+        ],
+        [
+          1161,
+          253,
+          1408,
+          523
+        ],
+        [
+          1470,
+          253,
+          1673,
+          523
+        ],
+        [
+          1741,
+          253,
+          1809,
+          523
+        ],
+        [
+          1869,
+          253,
+          2100,
+          523
+        ]
+      ],
+      "color_samples": [
+        {
+          "region": "emblem_stem",
+          "box_px": [
+            125,
+            270,
+            160,
+            490
+          ],
+          "median_rgb": [
+            40,
+            44,
+            49
+          ]
+        },
+        {
+          "region": "type_stem",
+          "box_px": [
+            1520,
+            300,
+            1535,
+            480
+          ],
+          "median_rgb": [
+            41,
+            45,
+            49
+          ]
+        },
+        {
+          "region": "upper_fold",
+          "box_px": [
+            329,
+            282,
+            355,
+            316
+          ],
+          "median_rgb": [
+            134,
+            136,
+            140
+          ]
+        },
+        {
+          "region": "lower_fold",
+          "box_px": [
+            322,
+            458,
+            355,
+            481
+          ],
+          "median_rgb": [
+            135,
+            137,
+            141
+          ]
+        }
+      ],
+      "color_normalization": "Average the two dark medians and the two fold medians, round .5 upward: graphite #292D31, fold #87898D."
+    },
+    "font": {
+      "file": "Minecraft.otf",
+      "provided_path": "D:/Download/MC-Pixel-Fonts/Minecraft.otf",
+      "sha256": "ebc7a7be9f69479f02875af1fe79a2b93cc868b83be4f6369ecceb45fabe5ee6",
+      "family": "Minecraft",
+      "style": "Medium",
+      "version": "Version 001.000",
+      "license_file": "FONT-LICENSE.txt",
+      "copyright": "Copyright (c) 2022, Idrees Hassan (https://github.com/IdreesInc/Minecraft-Font)",
+      "license_label": "SIL Open Font License 1.1",
+      "outline_policy": "Use the provided font unchanged. Shape lendLib with HarfBuzz, then extract its CFF glyph outlines with fontTools. No substituted font or synthetic bold."
+    },
+    "user_decision": "The user explicitly selected the folded B as the first letter and the font for lendLib, preserving the original composition.",
+    "scope": "Reconstruction source snapshot before official adoption. Current adoption status and export paths are recorded in ../../wordmark-adoption-2026-09-13.md."
+  },
+  "engines": {
+    "fontTools": "4.65.0",
+    "uharfbuzz": "0.56.1",
+    "HarfBuzz": "14.4.0",
+    "PyMuPDF": "1.28.0",
+    "Pillow": "12.2.0"
+  },
+  "assets_sha256": {
+    "FONT-LICENSE.txt": "5bf787b21c1a2cdee6050d5a676b5a4e5ebe9ca630a43e5ade8e8b05fe584a58",
+    "Minecraft.otf": "ebc7a7be9f69479f02875af1fe79a2b93cc868b83be4f6369ecceb45fabe5ee6",
+    "provenance.json": "a2dc9ba8def86e7725594b58ef2308fb7869552cbe7f051c8f95d9bd8c774adb",
+    "source-wordmark-white.png": "8c112e84391c1192e2c6479f5840ab2d95f649bacc60e9ad3057bdb6dcbea032"
+  },
+  "checks": {
+    "glyph_count": 7,
+    "master_path_count": 10,
+    "outline_source": "provided Minecraft.otf CFF",
+    "text_case": "PASS",
+    "fold_geometry": "PASS",
+    "minimum_clearance": "PASS"
+  },
+  "outputs": {
+    "blendlib-wordmark-master.svg": {
+      "bytes": 2453,
+      "sha256": "e77de2bcfbbcc01ccb3ec64ffe105a0852505e7539a230f14f09a66f720e2c62"
+    },
+    "blendlib-wordmark.png": {
+      "bytes": 15980,
+      "sha256": "e31adfc93e06c5dc648102cb4606a20e2af004c030582f622fe8705f0962354d"
+    },
+    "comparison.png": {
+      "bytes": 324702,
+      "sha256": "8c91dee902fee6b0ca52f352ed049732f609bb87b8bfe8f8c50b2a3b09c1b940"
+    },
+    "construction.png": {
+      "bytes": 174445,
+      "sha256": "164c75a2ef360e4096c38012664565c6b44a59e94797f462ea803b044c7c4520"
+    },
+    "construction.svg": {
+      "bytes": 27693,
+      "sha256": "369d06a960bf629c09c7e77bcdcfc64389491782ddcbd8ff89cb214de114d238"
+    },
+    "dimensions.csv": {
+      "bytes": 1243,
+      "sha256": "72f3075559a10bfa3eb4d55ce77ccf043bb70d203b075d0a4b07eb1c77023b30"
+    },
+    "dimensions.md": {
+      "bytes": 2655,
+      "sha256": "f698d99995b48307bebb0fd22799a5e2b10d35449d45b619bd20aefb99d295e4"
+    },
+    "font-outline-proof.png": {
+      "bytes": 24437,
+      "sha256": "3f8d7be8519d944a538bb490ea131f644201bb85d1edee59df02fc11aa1a3147"
+    },
+    "geometry.json": {
+      "bytes": 963,
+      "sha256": "d79ad506beb018ab0926b4d1f32188b763d0036d87cfc199184f813d8642b6b4"
+    },
+    "layout.json": {
+      "bytes": 6742,
+      "sha256": "3fdae2221a3035029d14aa40c265bb29674a1c1f0e7a4ffe52c9a96911510f6e"
+    },
+    "preview.png": {
+      "bytes": 8221,
+      "sha256": "dc7ceac4d020bf9cff4fc979d38762c3dbb0efe0647f2586b4eaf2d4429ce750"
+    },
+    "render-report.json": {
+      "bytes": 560,
+      "sha256": "66ada2ed14318e84def853ac730cd0f97bc0a614a9dc67ff58afd980a85f18c1"
+    }
+  }
+}

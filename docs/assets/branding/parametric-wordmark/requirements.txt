@@ -1,0 +1,4 @@
+fonttools==4.65.0
+uharfbuzz==0.56.1
+PyMuPDF==1.28.0
+Pillow==12.2.0

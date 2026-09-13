@@ -1,0 +1,33 @@
+{
+  "reference": {
+    "file": "source-wordmark-white.png",
+    "repository_path": "docs/assets/branding/blendlib-wordmark-white.png",
+    "repository_revision_at_capture": "1131673",
+    "sha256": "8c112e84391c1192e2c6479f5840ab2d95f649bacc60e9ad3057bdb6dcbea032",
+    "size_px": [2172, 724],
+    "reading": "Folded B substitutes for the initial B; the following seven glyphs read lendLib.",
+    "measurement": "Ink x-runs from RGB max < 200, more than 8 pixels per column; integer bounding boxes with exclusive right/bottom edges.",
+    "ink_boxes_px": [[106,173,364,557],[429,259,529,523],[586,329,806,524],[871,329,1096,523],[1161,253,1408,523],[1470,253,1673,523],[1741,253,1809,523],[1869,253,2100,523]],
+    "color_samples": [
+      {"region": "emblem_stem", "box_px": [125,270,160,490], "median_rgb": [40,44,49]},
+      {"region": "type_stem", "box_px": [1520,300,1535,480], "median_rgb": [41,45,49]},
+      {"region": "upper_fold", "box_px": [329,282,355,316], "median_rgb": [134,136,140]},
+      {"region": "lower_fold", "box_px": [322,458,355,481], "median_rgb": [135,137,141]}
+    ],
+    "color_normalization": "Average the two dark medians and the two fold medians, round .5 upward: graphite #292D31, fold #87898D."
+  },
+  "font": {
+    "file": "Minecraft.otf",
+    "provided_path": "D:/Download/MC-Pixel-Fonts/Minecraft.otf",
+    "sha256": "ebc7a7be9f69479f02875af1fe79a2b93cc868b83be4f6369ecceb45fabe5ee6",
+    "family": "Minecraft",
+    "style": "Medium",
+    "version": "Version 001.000",
+    "license_file": "FONT-LICENSE.txt",
+    "copyright": "Copyright (c) 2022, Idrees Hassan (https://github.com/IdreesInc/Minecraft-Font)",
+    "license_label": "SIL Open Font License 1.1",
+    "outline_policy": "Use the provided font unchanged. Shape lendLib with HarfBuzz, then extract its CFF glyph outlines with fontTools. No substituted font or synthetic bold."
+  },
+  "user_decision": "The user explicitly selected the folded B as the first letter and the font for lendLib, preserving the original composition.",
+  "scope": "Reconstruction source snapshot before official adoption. Current adoption status and export paths are recorded in ../../wordmark-adoption-2026-09-13.md."
+}

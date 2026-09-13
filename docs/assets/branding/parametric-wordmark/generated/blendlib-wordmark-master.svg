@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="3066" height="1022" viewBox="0 0 3066 1022" role="img" aria-labelledby="title description">
+<title id="title">BlendLib</title>
+<desc id="description">Folded B as the initial letter, followed by lendLib outlined from the supplied Minecraft.otf. Transparent background. No construction guides or live font dependency.</desc>
+<metadata>{
+  &quot;logical_text&quot;: &quot;BlendLib&quot;,
+  &quot;outlined_text&quot;: &quot;lendLib&quot;,
+  &quot;font_sha256&quot;: &quot;ebc7a7be9f69479f02875af1fe79a2b93cc868b83be4f6369ecceb45fabe5ee6&quot;,
+  &quot;unit_px&quot;: 28,
+  &quot;font_scale_exact_u&quot;: &quot;15/14&quot;
+}</metadata>
+<g id="emblem" transform="translate(154 217) scale(28)">
+<path id="body" fill="#292D31" fill-rule="evenodd" d="M 4 0 L 14 5 L 14 9 L 11 10.5 L 14 12 L 14 16 L 4 21 L 0 19 L 0 2 Z M 4 4 L 10 7 L 4 10 Z M 4 11 L 10 14 L 4 17 Z"/>
+<path id="upper-fold" fill="#87898D" d="M 7 8.5 L 14 5 L 14 9 L 11 10.5 Z"/>
+<path id="lower-fold" fill="#87898D" d="M 10 14 L 14 12 L 14 16 L 10 18 Z"/>
+</g>
+<g id="outlined-lendLib" fill="#292D31" fill-rule="nonzero">
+<path id="glyph-0-l" data-character="l" d="M704 749H764V689H704ZM704 689V629V569V509V449V389V329H644V389V449V509V569V629V689Z"/>
+<path id="glyph-1-e" data-character="e" d="M1102 689H1042H982H922V749H982H1042H1102H1162V689ZM922 689V629H982H1042H1102H1162V569V509H1102V569H1042H982H922V509H862V569V629V689ZM1102 509V449H1042H982H922V509H982H1042Z"/>
+<path id="glyph-2-n" data-character="n" d="M1500 749H1560V689V629V569V509H1500V569V629V689ZM1260 749H1320V689V629V569V509H1380H1440H1500V449H1440H1380H1320H1260V509V569V629V689Z"/>
+<path id="glyph-3-d" data-character="d" d="M1898 749H1958V689V629V569V509V449V389V329H1898V389V449V509H1838V569H1898V629V689H1838H1778H1718V749H1778H1838ZM1718 689V629V569V509H1658V569V629V689ZM1838 509V449H1778H1718V509H1778Z"/>
+<path id="glyph-4-L" data-character="L" d="M2296 689H2236H2176H2116V629V569V509V449V389V329H2056V389V449V509V569V629V689V749H2116H2176H2236H2296H2356V689Z"/>
+<path id="glyph-5-i" data-character="i" d="M2454 749H2514V689V629V569V509V449H2454V509V569V629V689ZM2454 389H2514V329H2454Z"/>
+<path id="glyph-6-b" data-character="b" d="M2792 689H2732H2672V629V569H2732V509H2672V449V389V329H2612V389V449V509V569V629V689V749H2672H2732H2792H2852V689ZM2852 689H2912V629V569V509H2852V569V629ZM2852 509V449H2792H2732V509H2792Z"/>
+</g>
+</svg>

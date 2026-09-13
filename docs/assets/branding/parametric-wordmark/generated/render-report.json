@@ -1,0 +1,22 @@
+{
+  "transparent_background": true,
+  "counter_alpha_at_centroids": {
+    "upper_counter": 0,
+    "lower_counter": 0
+  },
+  "native_png_mode": "RGBA",
+  "native_png_size": [
+    3066,
+    1022
+  ],
+  "native_type_alpha_levels": [
+    0,
+    255
+  ],
+  "font_vertices_on_integer_pixels": true,
+  "freetype_exact_font_size_px": "540",
+  "freetype_used_font_size_px": 540,
+  "freetype_vs_svg_differing_alpha_pixels": 0,
+  "freetype_comparison_exact_size": true,
+  "scope": "SVG raster and source-font comparison; construction sheet is separate from the master"
+}
