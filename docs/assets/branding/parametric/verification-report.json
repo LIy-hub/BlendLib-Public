@@ -1,0 +1,29 @@
+{
+  "python": "3.11.15",
+  "core_files_compared": [
+    "SHA256SUMS",
+    "blendlib-icon-master.svg",
+    "blendlib-icon-white.svg",
+    "blendlib-symbol.svg",
+    "construction.svg",
+    "geometry.json",
+    "manifest.json"
+  ],
+  "two_independent_directories": "byte-identical",
+  "relocated_bundle_with_python_minus_S": "byte-identical; no site packages",
+  "read_only_check_detects_tampering": true,
+  "three_master_variants_share_exact_paths": true,
+  "master_structure": "three closed filled paths; two evenodd counters; no raster, fonts, scripts or references",
+  "valid_parameter_variants": 7,
+  "invalid_parameter_cases_rejected_before_output": 5,
+  "native_dimensions_scale_without_changing_viewbox_or_paths": true,
+  "enclosed_transparent_regions_by_pixel_size_alpha_threshold_128_connectivity_4": {
+    "16": 2,
+    "24": 2,
+    "32": 2,
+    "48": 2,
+    "64": 2,
+    "128": 2
+  },
+  "core_manifest_sha256": "7788ce0385a1f1ad0e4db5a35f441a2f7ab93da9900ef35bbee90e07581dfe04"
+}

@@ -1,0 +1,32 @@
+{
+  "renderer": {
+    "PyMuPDF": "1.28.0",
+    "Pillow": "12.2.0"
+  },
+  "source_sha256": "f3b5c602a6384948c134f040c95dc4995d29fa619011878c4e1b3c49b01f5a37",
+  "core_manifest_sha256": "7788ce0385a1f1ad0e4db5a35f441a2f7ab93da9900ef35bbee90e07581dfe04",
+  "counter_alpha_at_centroids": {
+    "upper_counter": 0,
+    "lower_counter": 0
+  },
+  "white_vs_composited_alpha_max_channel_difference": [
+    2,
+    2,
+    2
+  ],
+  "pixel_sizes_rendered": [
+    16,
+    24,
+    32,
+    48,
+    64,
+    128
+  ],
+  "scope": "SVG raster and alpha checks; no application integration or owner approval implied",
+  "outputs": {
+    "preview.png": "973263d1d6a9ea6738e0c61e60b2b53fd69d4fe5379af6b66eecf47eb383e2e7",
+    "preview-transparent.png": "819e7fc30aa22fe788b28768032f664c75eafd60a33d107d48bfdef156833e74",
+    "construction.png": "5ce2a86886165bc677cce3ed0773fd757c5c44e4735401114955b6f5494143f6",
+    "comparison.png": "efaccaf7e7023d5bacb7da1cd925bd44d75ce5503bccfa612e81ea532a267146"
+  }
+}

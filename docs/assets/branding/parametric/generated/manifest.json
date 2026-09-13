@@ -1,0 +1,161 @@
+{
+  "schema_version": 1,
+  "source": {
+    "project": "BlendLib",
+    "reference": "blendlib-icon-white.png",
+    "repository_source": "docs/assets/branding/blendlib-icon-white.png",
+    "sha256": "f3b5c602a6384948c134f040c95dc4995d29fa619011878c4e1b3c49b01f5a37",
+    "pixels": [
+      1254,
+      1254
+    ],
+    "basis": "The existing white icon is the composition reference. The separately exported transparent PNG is not treated as a pixel-aligned master.",
+    "normalization": "Preserve the folded B silhouette, two triangular counters, dark body and two light return faces. Replace raster texture and inconsistent edge directions with shared filled-path geometry.",
+    "color_sampling": {
+      "coordinates": "Pixel rectangles [left, top, right-exclusive, bottom-exclusive], RGB medians",
+      "graphite": {
+        "box": [
+          405,
+          300,
+          495,
+          780
+        ],
+        "median_rgb": [
+          40,
+          43,
+          48
+        ],
+        "chosen": "#282B30"
+      },
+      "upper_fold": {
+        "box": [
+          820,
+          425,
+          885,
+          475
+        ],
+        "median_rgb": [
+          149,
+          150,
+          152
+        ]
+      },
+      "lower_fold": {
+        "box": [
+          795,
+          690,
+          880,
+          770
+        ],
+        "median_rgb": [
+          150,
+          151,
+          153
+        ]
+      },
+      "shared_fold": "#969799; the common flat gray is the two regional medians averaged and rounded upward at .5"
+    },
+    "approximate_landmarks_px": {
+      "A": [
+        519,
+        186
+      ],
+      "B": [
+        382,
+        257
+      ],
+      "C": [
+        382,
+        853
+      ],
+      "D": [
+        528,
+        928
+      ],
+      "E": [
+        902,
+        771
+      ],
+      "F": [
+        902,
+        608
+      ],
+      "G": [
+        779,
+        547
+      ],
+      "H": [
+        902,
+        484
+      ],
+      "I": [
+        902,
+        355
+      ],
+      "J": [
+        519,
+        327
+      ],
+      "K": [
+        519,
+        540
+      ],
+      "L": [
+        751,
+        429
+      ],
+      "M": [
+        646,
+        482
+      ],
+      "N": [
+        519,
+        594
+      ],
+      "O": [
+        519,
+        796
+      ],
+      "P": [
+        744,
+        692
+      ],
+      "Q": [
+        744,
+        840
+      ]
+    },
+    "landmark_method": "Approximate manual readings from the viewed 1254px reference; not subpixel measurements or recovered original design intent. Vertex letters correspond to geometry.json."
+  },
+  "parameters_sha256": "5ab3cfc463e1e5df664cfcb551be1a533cc267937be59937cf37c0429bfaf3fd",
+  "generator_sha256": "e98577953a67dfff7ed08b99db769c17686bf39537698bce81b2a2059def5e5d",
+  "source_of_truth": "parameters.json + generate.py; generated SVGs are not independent inputs",
+  "geometry_checks": {
+    "edge_family": "PASS",
+    "fold_topology": "PASS",
+    "clear_space": "PASS",
+    "counter_count": 2
+  },
+  "outputs": {
+    "blendlib-icon-master.svg": {
+      "bytes": 784,
+      "sha256": "5445f47a0789db3fa57cd01f9ae042a082032e7fc60fc1849696c38c5d0e2254"
+    },
+    "blendlib-icon-white.svg": {
+      "bytes": 830,
+      "sha256": "6897b31693a7e5b1d58a623c0624a8c9455db87056e44b6828ab984bf20556c0"
+    },
+    "blendlib-symbol.svg": {
+      "bytes": 777,
+      "sha256": "70ee575c728a20a84b09ec5260cb80f4b7012aba8189d79a03264af128557a0b"
+    },
+    "construction.svg": {
+      "bytes": 25290,
+      "sha256": "5b6fa405d6711b849db1410ad84417fe6c2a08235830f2cb831335133a913b62"
+    },
+    "geometry.json": {
+      "bytes": 1531,
+      "sha256": "71c0b2feee6660cc3433178bdac4bfb2ef166304731421bf460ae7a2de45e002"
+    }
+  }
+}

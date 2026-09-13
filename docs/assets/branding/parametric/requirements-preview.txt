@@ -1,0 +1,3 @@
+# Optional PNG proof rendering only. SVG generation uses the Python standard library.
+PyMuPDF==1.28.0
+Pillow==12.2.0

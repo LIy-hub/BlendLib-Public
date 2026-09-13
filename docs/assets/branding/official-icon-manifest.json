@@ -1,0 +1,36 @@
+{
+  "status": "official",
+  "adopted_on": "2026-09-13",
+  "scope": "Standalone folded B icon; the existing pixel wordmark remains a separate PNG asset.",
+  "master": "parametric/generated/blendlib-icon-master.svg",
+  "master_sha256": "5445f47a0789db3fa57cd01f9ae042a082032e7fc60fc1849696c38c5d0e2254",
+  "core_manifest_sha256": "7788ce0385a1f1ad0e4db5a35f441a2f7ab93da9900ef35bbee90e07581dfe04",
+  "exporter_sha256": "fc55fdb963ac1df0381e884f578ce56fa26d914be5bad82ead49d5ee7d8644b6",
+  "renderer": {
+    "PyMuPDF": "1.28.0",
+    "Pillow": "12.2.0"
+  },
+  "png_size": [
+    1254,
+    1254
+  ],
+  "white_png_method": "Composite the transparent master render onto the configured background; encode as RGB.",
+  "outputs": {
+    "blendlib-fabric-client/src/main/resources/assets/blendlib/icon.png": {
+      "bytes": 10667,
+      "sha256": "98e3102b77d8d23084bcb2c367655562edb150c1f48af21f7ae9935405ad2661"
+    },
+    "docs/assets/branding/blendlib-icon-transparent.png": {
+      "bytes": 12610,
+      "sha256": "56a4af0814514b22c233e7e1e360feb7d442c35b1ab714fbee5c96c07696e0dd"
+    },
+    "docs/assets/branding/blendlib-icon-white.png": {
+      "bytes": 10667,
+      "sha256": "98e3102b77d8d23084bcb2c367655562edb150c1f48af21f7ae9935405ad2661"
+    },
+    "docs/assets/branding/SHA256SUMS": {
+      "bytes": 380,
+      "sha256": "bfe39b01dab724139fff704f5b81e4d95a3ff4ff5a702d8b201713980999ac2a"
+    }
+  }
+}

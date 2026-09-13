@@ -1,0 +1,128 @@
+{
+  "units": "u; x increases right, y increases down; local origin at ink bounds upper left",
+  "slope": 0.5,
+  "angle_degrees": 26.56505117707799,
+  "width_u": 14,
+  "height_u": 21.0,
+  "band_u": 4.0,
+  "counter_height_u": 6.0,
+  "pitch_u": 7.0,
+  "canvas_u": 36,
+  "origin_in_canvas_u": [
+    11.5,
+    5.5
+  ],
+  "margins_u": {
+    "left": 11.5,
+    "top": 5.5,
+    "right": 10.5,
+    "bottom": 9.5
+  },
+  "points_u": {
+    "A": [
+      4,
+      0
+    ],
+    "B": [
+      0,
+      2.0
+    ],
+    "C": [
+      0,
+      19.0
+    ],
+    "D": [
+      4,
+      21.0
+    ],
+    "E": [
+      14,
+      16.0
+    ],
+    "F": [
+      14,
+      12.0
+    ],
+    "G": [
+      11.0,
+      10.5
+    ],
+    "H": [
+      14,
+      9.0
+    ],
+    "I": [
+      14,
+      5.0
+    ],
+    "J": [
+      4,
+      4.0
+    ],
+    "K": [
+      4,
+      10.0
+    ],
+    "L": [
+      10,
+      7.0
+    ],
+    "M": [
+      7.0,
+      8.5
+    ],
+    "N": [
+      4,
+      11.0
+    ],
+    "O": [
+      4,
+      17.0
+    ],
+    "P": [
+      10,
+      14.0
+    ],
+    "Q": [
+      10,
+      18.0
+    ]
+  },
+  "loops": {
+    "outline": [
+      "A",
+      "I",
+      "H",
+      "G",
+      "F",
+      "E",
+      "D",
+      "C",
+      "B"
+    ],
+    "upper_counter": [
+      "J",
+      "L",
+      "K"
+    ],
+    "lower_counter": [
+      "N",
+      "P",
+      "O"
+    ],
+    "upper_fold": [
+      "M",
+      "I",
+      "H",
+      "G"
+    ],
+    "lower_fold": [
+      "P",
+      "F",
+      "E",
+      "Q"
+    ]
+  },
+  "counter_area_u2": 18.0,
+  "ink_area_u2": 195.5
+}

@@ -1,0 +1,38 @@
+{
+  "date": "2026-09-13",
+  "minecraft": "26.1.2",
+  "fabric_loader": "0.19.5",
+  "version": "1.0.0-beta.3+26.1.2",
+  "build_command": "gradlew.bat --offline --no-daemon --max-workers=1 :blendlib-fabric-client:build --console=plain",
+  "build_result": "BUILD SUCCESSFUL in 56s",
+  "test_suites": 100,
+  "tests": {
+    "tests": 578,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "jar": "blendlib-fabric-client/build/libs/blendlib-fabric-1.0.0-beta.3+26.1.2.jar",
+  "jar_sha256": "56b0ef229242e9be375abdae4585007fc5e7637d2ce01d3aff289254b88b6b33",
+  "jar_icon_matches_official_png": true,
+  "icon_sha256": "98e3102b77d8d23084bcb2c367655562edb150c1f48af21f7ae9935405ad2661",
+  "png_size": [
+    1254,
+    1254
+  ],
+  "white_is_exact_composite_of_transparent": true,
+  "modern_resource_source": "versions/modern/build.gradle.kts:199",
+  "legacy_resource_source": "versions/legacy/build.gradle:121",
+  "runtime_status": "Client started; render backend, sound and GUI atlas initialized. No game UI interaction performed.",
+  "runtime_log_excerpt": [
+    "[10:43:07] [main/INFO] (FabricLoader/GameProvider) Loading Minecraft 26.1.2 with Fabric Loader 0.19.5",
+    "\t- blendlib 1.0.0-beta.3+26.1.2",
+    "[10:43:16] [Render thread/INFO] (Indigo) [Indigo] Registering Indigo renderer!",
+    "[10:43:20] [Render thread/INFO] (Minecraft) Sound engine started",
+    "[10:43:20] [Render thread/INFO] (Minecraft) Created: 1024x1024x0 minecraft:textures/atlas/gui.png-atlas"
+  ],
+  "runtime_authentication_diagnostics": "Development identity returned HTTP 401 and Realms authentication errors; startup continued.",
+  "game_icon_visual_acceptance": "Not inspected in a game UI; no Mod Menu in the launched configuration.",
+  "public_platform_update": "Not performed; no push or new release.",
+  "build_log_sha256": "28d0dbc489f706ddc49c49136b07b85a2de96b150587c8f829d9336612361184"
+}

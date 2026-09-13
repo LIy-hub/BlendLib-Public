@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "geometry": {
+    "stem_u": 4,
+    "counter_run_u": 6,
+    "return_u": 4,
+    "slope_rise": 1,
+    "slope_run": 2,
+    "counter_gap_u": 1
+  },
+  "composition": {
+    "canvas_u": 36,
+    "offset_x_u": 0.5,
+    "offset_y_u": -2,
+    "clear_space_u": 4
+  },
+  "export": {
+    "unit_px": 32,
+    "graphite": "#282B30",
+    "fold": "#969799",
+    "background": "#FFFFFF"
+  }
+}

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="448" height="672" viewBox="0 0 14 21" role="img" aria-labelledby="title description">
+<title id="title">BlendLib folded B</title>
+<desc id="description">Parametric geometric reconstruction of the existing folded B. Two triangular counters and two gray return faces. Filled vector paths; no raster, fonts or filters.</desc>
+<g transform="translate(0 0)">
+<path id="body" fill="#282B30" fill-rule="evenodd" d="M 4 0 L 14 5 L 14 9 L 11 10.5 L 14 12 L 14 16 L 4 21 L 0 19 L 0 2 Z M 4 4 L 10 7 L 4 10 Z M 4 11 L 10 14 L 4 17 Z"/>
+<path id="upper-fold" fill="#969799" d="M 7 8.5 L 14 5 L 14 9 L 11 10.5 Z"/>
+<path id="lower-fold" fill="#969799" d="M 10 14 L 14 12 L 14 16 L 10 18 Z"/>
+</g>
+</svg>
