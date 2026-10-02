@@ -11,8 +11,7 @@ import static org.junit.jupiter.api.Assertions.*;
 class Minecraft263ShutdownMixinTest {
     @Test void finalPresentHooksApplyToExactMinecraft263() throws Exception {
         assertTrue(FabricLoader.getInstance().isModLoaded("blendlib"));
-        Class<?> minecraft = Class.forName("net.minecraft.client.Minecraft", false,
-                Thread.currentThread().getContextClassLoader());
+        Class<?> minecraft = Class.forName("net.minecraft.client.Minecraft", false, getClass().getClassLoader());
         for (String hook : new String[] {"blendlib$beforeOriginalFinalPresent", "blendlib$afterOriginalFinalPresent"}) {
             assertTrue(Arrays.stream(minecraft.getDeclaredMethods()).anyMatch(method -> method.getName().contains(hook)),
                     () -> "Missing transformed shutdown hook: " + hook);
