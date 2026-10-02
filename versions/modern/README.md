@@ -1,4 +1,4 @@
-# Fabric ports for Minecraft 1.21.9–26.2
+# Fabric ports for Minecraft 1.21.9–26.3
 
 This independent build reuses the complete root API, core, common and client source trees.
 It does not change the historical 26.1.2 root build or publish the earlier detached X8 adapter.
@@ -10,13 +10,17 @@ From the repository root, with the Java 21 and Java 25 toolchains installed:
 .\gradlew.bat -p versions/modern -Pminecraft_version=26.2 --no-daemon --max-workers=1 build
 ```
 
-Targets: `1.21.9`, `1.21.10`, `1.21.11`, `26.1`, `26.1.1`, `26.1.2`, `26.2`.
+Targets: `1.21.9`, `1.21.10`, `1.21.11`, `26.1`, `26.1.1`, `26.1.2`, `26.2`, `26.3`.
 Each must be validated separately; an entry in this list is not a completed support claim.
 See [current evidence](../../docs/release/multiversion-progress.md).
 
 Outputs are under `build/<minecraft>/libs/`, using `1.0.0-beta.3+<minecraft>`.
 The 1.21 targets use official Mojang mappings, Loom remapping, and Java 21 bytecode.
 The 26.x targets use Mojang's unobfuscated distribution and Java 25.
+
+For 26.3 use `-Pminecraft_version=26.3`. That target selects stable Loom 1.17.21,
+Fabric API 0.161.0+26.3, Loader 0.19.5 and Java 25. Older targets retain their existing pins.
+See [26.3 evidence](../../docs/release/minecraft-26.3.md).
 
 ## Source adaptations
 

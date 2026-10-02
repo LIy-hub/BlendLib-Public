@@ -20,6 +20,14 @@ and drive its movement with animation and pose APIs.
 model and animation layer for your own content. BlendLib is a library; installing it alone
 does not add creatures, items or gameplay.
 
+## Minecraft 26.3 source port
+
+The `mc/26.3` branch adds a 26.3 target to the shared modern build. See the
+[26.3 changelog and evidence](docs/release/minecraft-26.3.md) for build instructions,
+CI artifacts and verification limits. This code update does not create a GitHub Release or CurseForge upload.
+
+`mc/26.3` 分支已加入 26.3 源码适配；构建方法、CI 产物及验证边界见上述记录。未新增 GitHub Release 或 CurseForge 上传。
+
 ## From model to motion
 
 - **Models with structure.** Load rigid and skinned models through a validated GLB 2.0 asset pipeline.
