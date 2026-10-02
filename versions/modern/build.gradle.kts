@@ -186,12 +186,41 @@ val preparePortSources = tasks.register("preparePortSources") {
                             .replace("GpuFence fence = RenderSystem.getDevice().createCommandEncoder().createFence();", "var encoder = RenderSystem.getDevice().createCommandEncoder();\n        GpuFence fence = encoder.createFence();\n        encoder.submit();")
                     }
                 }
+                if (minecraftVersion == "26.3") {
+                    // Verified against Mojang 26.3's RenderPearl API. Keep the baseline source intact.
+                    text = text
+                        .replace("com.mojang.blaze3d.GpuFormat", "com.mojang.renderpearl.api.GpuFormat")
+                        .replace("com.mojang.blaze3d.IndexType", "com.mojang.renderpearl.api.pipeline.IndexType")
+                        .replace("com.mojang.blaze3d.PrimitiveTopology", "com.mojang.renderpearl.api.pipeline.PrimitiveTopology")
+                        .replace("com.mojang.blaze3d.buffers.GpuBuffer", "com.mojang.renderpearl.api.buffers.GpuBuffer")
+                        .replace("com.mojang.blaze3d.buffers.GpuFence", "com.mojang.renderpearl.api.commands.GpuFence")
+                        .replace("com.mojang.blaze3d.pipeline.BindGroupLayout", "com.mojang.renderpearl.api.pipeline.BindGroupLayout")
+                        .replace("com.mojang.blaze3d.pipeline.DepthStencilState", "com.mojang.renderpearl.api.pipeline.DepthStencilState")
+                        .replace("com.mojang.blaze3d.pipeline.RenderPipeline", "com.mojang.renderpearl.api.pipeline.RenderPipeline")
+                        .replace("com.mojang.blaze3d.shaders.UniformType", "com.mojang.renderpearl.api.pipeline.UniformType")
+                        .replace("com.mojang.blaze3d.systems.CommandEncoder", "com.mojang.renderpearl.api.commands.CommandEncoder")
+                        .replace("com.mojang.blaze3d.systems.GpuDevice", "com.mojang.renderpearl.api.device.GpuDevice")
+                        .replace("com.mojang.blaze3d.systems.RenderPass", "com.mojang.renderpearl.api.commands.RenderPass")
+                        .replace("com.mojang.blaze3d.textures.AddressMode", "com.mojang.renderpearl.api.textures.AddressMode")
+                        .replace("com.mojang.blaze3d.textures.FilterMode", "com.mojang.renderpearl.api.textures.FilterMode")
+                        .replace("com.mojang.blaze3d.textures.GpuSampler", "com.mojang.renderpearl.api.textures.GpuSampler")
+                        .replace("com.mojang.blaze3d.textures.GpuTextureView", "com.mojang.renderpearl.api.textures.GpuTextureView")
+                        .replace("com.mojang.blaze3d.vertex.VertexFormat", "com.mojang.renderpearl.api.vertex.VertexFormat")
+                        .replace("com.mojang.blaze3d.vertex.VertexFormatElement", "com.mojang.renderpearl.api.vertex.VertexFormatElement")
+                        .replace("getBoundingBoxForCulling(E entity)", "getBoundingBoxForCulling(E entity, float partialTick)")
+                        .replace("super.getBoundingBoxForCulling(checkedEntity)", "super.getBoundingBoxForCulling(checkedEntity, partialTick)")
+                        .replace("poseStack.mulPose(new Quaternionf(", "poseStack.rotate(new Quaternionf(")
+                        .replace("poseStack.mulPose(scratch.set(", "poseStack.rotate(scratch.set(")
+                        .replace("RenderPipelines.getStaticPipelines()", "RenderPipelines.requiredPipelines()")
+                        .replace("pass.setPipeline(pipeline)", "pass.setPipeline(RenderSystem.getCompiledPipeline(pipeline))")
+                        .replace("pass.bindTexture(", "pass.setUniform(")
+                        .replace("Lcom/mojang/blaze3d/systems/GpuSurface;present()V", "Lcom/mojang/renderpearl/api/device/GpuSurface;present()V")
+                }
                 target.writeText(text)
             }
         }
         sourceModules.forEach { copyJava(repository.resolve("$it/src/main/java"), outputDir.resolve("main")) }
         copyJava(repository.resolve("blendlib-fabric-client/src/client/java"), outputDir.resolve("client"))
-        if (minecraftVersion == "26.3") copyJava(file("overrides/26.2/client"), outputDir.resolve("client"))
         copyJava(file("overrides/$minecraftVersion/client"), outputDir.resolve("client"))
     }
 }
@@ -201,7 +230,6 @@ sourceSets["client"].java.setSrcDirs(listOf(layout.buildDirectory.dir("generated
 sourceSets["main"].resources.setSrcDirs(listOf(repository.resolve("blendlib-fabric-client/src/main/resources")))
 sourceSets["client"].resources.setSrcDirs(listOf(repository.resolve("blendlib-fabric-client/src/client/resources")))
 sourceSets["test"].java.srcDir("tests/$minecraftVersion")
-if (minecraftVersion == "26.3") sourceSets["test"].java.srcDir("tests/26.2")
 if (obfuscated) sourceSets["test"].java.srcDir("tests/obfuscated")
 sourceSets["test"].compileClasspath += sourceSets["client"].output + configurations["clientCompileClasspath"]
 sourceSets["test"].runtimeClasspath += sourceSets["client"].output + configurations["clientRuntimeClasspath"]
