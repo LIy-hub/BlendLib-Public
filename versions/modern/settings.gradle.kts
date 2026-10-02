@@ -4,9 +4,10 @@ pluginManagement {
         gradlePluginPortal()
         mavenCentral()
     }
+    val loomVersion = if (providers.gradleProperty("minecraft_version").orNull == "26.3") "1.17.21" else "1.15.5"
     plugins {
-        id("net.fabricmc.fabric-loom") version "1.15.5"
-        id("net.fabricmc.fabric-loom-remap") version "1.15.5"
+        id("net.fabricmc.fabric-loom") version loomVersion
+        id("net.fabricmc.fabric-loom-remap") version loomVersion
     }
 }
 

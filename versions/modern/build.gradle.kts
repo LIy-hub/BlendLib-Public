@@ -16,6 +16,7 @@ val targets = mapOf(
     "26.1.1" to "0.145.4+26.1.1",
     "26.1.2" to "0.155.3+26.1.2",
     "26.2" to "0.160.0+26.2",
+    "26.3" to "0.161.0+26.3",
 )
 val fabricVersion = targets[minecraftVersion] ?: error("Unsupported Minecraft target: $minecraftVersion")
 val javaVersion = if (minecraftVersion.startsWith("1.21.")) 21 else 25
@@ -160,7 +161,7 @@ val preparePortSources = tasks.register("preparePortSources") {
                         }
                     }
                 }
-                if (minecraftVersion == "26.2") {
+                if (minecraftVersion in setOf("26.2", "26.3")) {
                     text = text.replace(".getMainRenderTarget()", ".gameRenderer.mainRenderTarget()")
                         .replace("pass.setVertexBuffer(0, vertex)", "pass.setVertexBuffer(0, vertex.slice())")
                         .replace("VertexFormat.IndexType.INT", "com.mojang.blaze3d.IndexType.INT")
@@ -190,6 +191,7 @@ val preparePortSources = tasks.register("preparePortSources") {
         }
         sourceModules.forEach { copyJava(repository.resolve("$it/src/main/java"), outputDir.resolve("main")) }
         copyJava(repository.resolve("blendlib-fabric-client/src/client/java"), outputDir.resolve("client"))
+        if (minecraftVersion == "26.3") copyJava(file("overrides/26.2/client"), outputDir.resolve("client"))
         copyJava(file("overrides/$minecraftVersion/client"), outputDir.resolve("client"))
     }
 }
@@ -199,6 +201,7 @@ sourceSets["client"].java.setSrcDirs(listOf(layout.buildDirectory.dir("generated
 sourceSets["main"].resources.setSrcDirs(listOf(repository.resolve("blendlib-fabric-client/src/main/resources")))
 sourceSets["client"].resources.setSrcDirs(listOf(repository.resolve("blendlib-fabric-client/src/client/resources")))
 sourceSets["test"].java.srcDir("tests/$minecraftVersion")
+if (minecraftVersion == "26.3") sourceSets["test"].java.srcDir("tests/26.2")
 if (obfuscated) sourceSets["test"].java.srcDir("tests/obfuscated")
 sourceSets["test"].compileClasspath += sourceSets["client"].output + configurations["clientCompileClasspath"]
 sourceSets["test"].runtimeClasspath += sourceSets["client"].output + configurations["clientRuntimeClasspath"]

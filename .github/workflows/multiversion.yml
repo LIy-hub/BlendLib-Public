@@ -2,6 +2,7 @@ name: Fabric version matrix
 
 on:
   push:
+    branches-ignore: ["mc/26.3"]
   pull_request:
   workflow_dispatch:
 
