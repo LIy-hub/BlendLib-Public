@@ -70,6 +70,7 @@ dependencies {
     }
     add(if (obfuscated) "modImplementation" else "implementation", "net.fabricmc:fabric-loader:${providers.gradleProperty("loader_version").get()}")
     add(if (obfuscated) "modImplementation" else "implementation", "net.fabricmc.fabric-api:fabric-api:$fabricVersion")
+    if (minecraftVersion == "26.3") testImplementation("net.fabricmc:fabric-loader-junit:${providers.gradleProperty("loader_version").get()}")
     testImplementation(platform("org.junit:junit-bom:5.12.2"))
     testImplementation("org.junit.jupiter:junit-jupiter")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
@@ -212,6 +213,7 @@ val preparePortSources = tasks.register("preparePortSources") {
                         .replace("poseStack.mulPose(new Quaternionf(", "poseStack.rotate(new Quaternionf(")
                         .replace("poseStack.mulPose(scratch.set(", "poseStack.rotate(scratch.set(")
                         .replace("RenderPipelines.getStaticPipelines()", "RenderPipelines.requiredPipelines()")
+                        .replace("9684f0e0874bc61ad47dd242c1f18482810a51dfa65a48fc27d129fbc69d31bb", "6620185007eb572e953c5fdad1e6e369b75b058b9dcd9a0bda9f8bc3f212c9d6")
                         .replace("pass.setPipeline(pipeline)", "pass.setPipeline(RenderSystem.getCompiledPipeline(pipeline))")
                         .replace("pass.bindTexture(", "pass.setUniform(")
                         .replace("Lcom/mojang/blaze3d/systems/GpuSurface;present()V", "Lcom/mojang/renderpearl/api/device/GpuSurface;present()V")

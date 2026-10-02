@@ -29,4 +29,5 @@ jobs:
           path: |
             versions/modern/build/26.3/libs/*.jar
             versions/modern/build/26.3/reports/
+            versions/modern/build/26.3/test-results/
           if-no-files-found: warn
