@@ -30,8 +30,8 @@ edit(client + 'reload/Minecraft2612GenerationRenderOwner.java') { s ->
     s.replace('RenderSystem::queueFencedTask', 'callback -> { RenderSystem.assertOnRenderThread(); org.lwjgl.opengl.GL11.glFinish(); callback.run(); }')
 }
 edit(client + 'item/BlendLibItemModelBindings.java') { s ->
-    s.replace('binding.baseModelId(), Optional.empty(), new BlendLibItemSpecialRenderer.Unbaked(binding)',
-              'binding.baseModelId(), new BlendLibItemSpecialRenderer.Unbaked(binding)')
+    s.replace('binding.baseModelId(), Optional.empty(),',
+              'binding.baseModelId(),')
 }
 edit(client + 'blockentity/BlendBlockEntityRenderers.java') { s ->
     s.replace('BlockEntityRendererProvider<T, BlendBlockEntityRenderState>', 'BlockEntityRendererProvider<T>')

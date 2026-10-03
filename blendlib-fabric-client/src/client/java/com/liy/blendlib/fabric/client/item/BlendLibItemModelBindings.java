@@ -21,7 +21,7 @@ import net.minecraft.resources.Identifier;
  * programmatic {@link SpecialModelWrapper.Unbaked} at the public before-bake extension point.</p>
  */
 public final class BlendLibItemModelBindings {
-    private static final ConcurrentMap<Identifier, BlendLibItemBinding> BINDINGS = new ConcurrentHashMap<>();
+    private static final ConcurrentMap<Identifier, Registration> BINDINGS = new ConcurrentHashMap<>();
     private static final AtomicBoolean PLUGIN_REGISTERED = new AtomicBoolean();
 
     private BlendLibItemModelBindings() {
@@ -34,21 +34,44 @@ public final class BlendLibItemModelBindings {
      * than making model ownership depend on entrypoint ordering.</p>
      */
     public static void register(BlendLibItemBinding binding) {
-        BlendLibItemBinding checked = Objects.requireNonNull(binding, "binding");
-        BlendLibItemBinding previous = BINDINGS.putIfAbsent(checked.itemId(), checked);
-        if (previous != null && !previous.equals(checked)) {
-            throw new IllegalStateException("Marker item already has a different BlendLib binding: " + checked.itemId());
-        }
+        registerInternal(binding, null);
     }
+
+    /**
+     * Registers an extraction-only selector atomically with the marker binding, before bake.
+     * A plain re-registration preserves the configured selector. A selector may be added once
+     * before bake; a different non-null selector or binding is rejected. There is no replacement
+     * or unregistration API. Existing baked renderers keep their captured configuration until
+     * the next bake. Do not capture stack objects in a registration-lifetime callback.
+     */
+    public static void register(BlendLibItemBinding binding, BlendLibItemMaterialAppearance appearance) {
+        registerInternal(binding, Objects.requireNonNull(appearance, "appearance"));
+    }
+
+    private static void registerInternal(BlendLibItemBinding binding, BlendLibItemMaterialAppearance appearance) {
+        BlendLibItemBinding checked = Objects.requireNonNull(binding, "binding");
+        BINDINGS.compute(checked.itemId(), (id, previous) -> {
+            if (previous != null && (!previous.binding().equals(checked)
+                    || (previous.appearance() != null && appearance != null && previous.appearance() != appearance))) {
+                throw new IllegalStateException("Marker item already has a different BlendLib binding or appearance: " + id);
+            }
+            return previous != null && (appearance == null || previous.appearance() != null)
+                    ? previous : new Registration(checked, appearance);
+        });
+    }
+
+    private record Registration(BlendLibItemBinding binding, BlendLibItemMaterialAppearance appearance) { }
 
     /** Read-only binding lookup, primarily useful for diagnostics and deterministic adapter tests. */
     public static Optional<BlendLibItemBinding> find(Identifier itemId) {
-        return Optional.ofNullable(BINDINGS.get(Objects.requireNonNull(itemId, "itemId")));
+        return Optional.ofNullable(BINDINGS.get(Objects.requireNonNull(itemId, "itemId"))).map(Registration::binding);
     }
 
     /** Immutable diagnostic snapshot of registered marker bindings. */
     public static Map<Identifier, BlendLibItemBinding> bindings() {
-        return Map.copyOf(BINDINGS);
+        var result = new java.util.HashMap<Identifier, BlendLibItemBinding>();
+        BINDINGS.forEach((id, registration) -> result.put(id, registration.binding()));
+        return Map.copyOf(result);
     }
 
     /** Installs the public Fabric before-bake hook once from the BlendLib client entrypoint. */
@@ -63,11 +86,12 @@ public final class BlendLibItemModelBindings {
             ItemModel.Unbaked incoming, ModelModifier.BeforeBakeItem.Context context) {
         Objects.requireNonNull(incoming, "incoming");
         Objects.requireNonNull(context, "context");
-        BlendLibItemBinding binding = BINDINGS.get(context.itemId());
-        if (binding == null) {
+        Registration registration = BINDINGS.get(context.itemId());
+        if (registration == null) {
             return incoming;
         }
+        var binding = registration.binding();
         return new SpecialModelWrapper.Unbaked(
-                binding.baseModelId(), Optional.empty(), new BlendLibItemSpecialRenderer.Unbaked(binding));
+                binding.baseModelId(), Optional.empty(), new BlendLibItemSpecialRenderer.Unbaked(binding, registration.appearance()));
     }
 }

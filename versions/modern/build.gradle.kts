@@ -434,7 +434,7 @@ if (providers.gradleProperty("runnable_examples").orNull == "true") {
                         it.startsWith("com/liy/blendlib/core/") || it.startsWith("com/liy/blendlib/api/") }) {
                     "Example JAR must not embed library implementation or API classes"
                 }
-                listOf("ExampleContent", "LayeredActor", "ExampleClient", "ExampleItemCommands", "ExampleAnimationScene", "ExampleInspectionCommands", "ExampleLayerInspection", "ExampleItemInspection", "ExampleLayerVisualEvents", "ExampleMaterialAppearance", "ExampleAttachmentScene", "ExampleAttachmentOwners").forEach {
+                listOf("ExampleContent", "LayeredActor", "ExampleClient", "ExampleItemCommands", "ExampleAnimationScene", "ExampleInspectionCommands", "ExampleLayerInspection", "ExampleItemInspection", "ExampleLayerVisualEvents", "ExampleMaterialAppearance", "ExampleItemMaterialAppearance", "ExampleAttachmentScene", "ExampleAttachmentOwners").forEach {
                     check("com/liy/blendlib/examples/runnable/$it.class" in names) { "Missing example class: $it" }
                 }
                 val metadata = zip.getInputStream(zip.getEntry("fabric.mod.json")).reader().readText()
@@ -456,7 +456,7 @@ if (providers.gradleProperty("runnable_examples").orNull == "true") {
                     }
                 }
                 val slurper = groovy.json.JsonSlurper()
-                listOf("actor", "appearance_actor", "wand", "marker").forEach { model ->
+                listOf("actor", "appearance_actor", "wand", "appearance_wand", "marker").forEach { model ->
                     val path = namespace + "blend_models/$model.json"
                     val descriptor = slurper.parseText(zip.getInputStream(zip.getEntry(path)).reader().readText()) as Map<*, *>
                     val mesh = descriptor["mesh"] as String
@@ -473,12 +473,14 @@ if (providers.gradleProperty("runnable_examples").orNull == "true") {
                         check((descriptor["sockets"] as Map<*, *>).containsKey("blendlib_runnable_examples:tip"))
                     }
                 }
+                check("data/blendlib_runnable_examples/function/item_appearance.mcfunction" in names)
                 check(namespace + "items/animated_wand.json" in names)
                 check(namespace + "models/item/animated_wand.json" in names)
             }
             ZipFile(tasks.named<Jar>("jar").get().archiveFile.get().asFile).use { zip ->
                 check(zip.entries().asSequence().none {
-                    it.name.startsWith("com/liy/blendlib/examples/runnable/") || it.name.startsWith(namespace)
+                    it.name.startsWith("com/liy/blendlib/examples/runnable/") || it.name.startsWith(namespace) ||
+                            it.name.startsWith("data/blendlib_runnable_examples/")
                 }) { "The normal BlendLib runtime must not include opt-in example content" }
                 val metadata = zip.getInputStream(zip.getEntry("fabric.mod.json")).reader().readText()
                 check(!metadata.contains("blendlib_runnable_examples"))

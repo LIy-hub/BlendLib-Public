@@ -94,3 +94,9 @@ First public-alpha source and packaging metadata for the dedicated Minecraft 26.
 - Only the declared Minecraft 26.1.2, Fabric, and Java environment is supported.
 
 No public tag, upload, or publication is asserted by this changelog entry.
+
+## Unreleased: item material appearance
+
+- Add opt-in exact-stack authored material-slot RGB/visibility selection using immutable shared render snapshots
+- Keep item playback/status and weak identity/LRU unchanged; expose extraction-time unknown-slot diagnostics
+- Add opt-in two-wand authoring example and packaged contract verification; native graphics acceptance remains deferred

@@ -17,11 +17,15 @@ import org.joml.Vector3f;
 /** Version-native item hook preserving extraction before immutable snapshot submission. */
 final class BlendLibItemSpecialRenderer implements SpecialModelRenderer<BlendLibItemRenderArgument> {
     private final BlendLibItemBinding binding;
-    BlendLibItemSpecialRenderer(BlendLibItemBinding binding) { this.binding = Objects.requireNonNull(binding); }
+    private final BlendLibItemMaterialAppearance appearance;
+    BlendLibItemSpecialRenderer(BlendLibItemBinding binding) { this(binding, null); }
+    BlendLibItemSpecialRenderer(BlendLibItemBinding binding, BlendLibItemMaterialAppearance appearance) {
+        this.binding = Objects.requireNonNull(binding); this.appearance = appearance;
+    }
     @Override public BlendLibItemRenderArgument extractArgument(ItemStack stack) {
         Objects.requireNonNull(stack, "stack");
         ClientModelView model = BlendLibClientServices.models().resolve(binding.modelKey());
-        return new BlendLibItemRenderArgument(binding, model.renderHandle());
+        return BlendLibItemRenderArgument.capture(binding, model.renderHandle(), null, stack, appearance);
     }
     @Override public void render(BlendLibItemRenderArgument argument, ItemDisplayContext displayContext,
             PoseStack poseStack, MultiBufferSource buffers, int packedLight, int packedOverlay, boolean hasFoil) {
@@ -35,10 +39,14 @@ final class BlendLibItemSpecialRenderer implements SpecialModelRenderer<BlendLib
     }
     static final class Unbaked implements SpecialModelRenderer.Unbaked {
         private final BlendLibItemBinding binding;
-        Unbaked(BlendLibItemBinding binding) { this.binding = Objects.requireNonNull(binding); }
+        private final BlendLibItemMaterialAppearance appearance;
+        Unbaked(BlendLibItemBinding binding) { this(binding, null); }
+        Unbaked(BlendLibItemBinding binding, BlendLibItemMaterialAppearance appearance) {
+            this.binding = Objects.requireNonNull(binding); this.appearance = appearance;
+        }
         @Override public SpecialModelRenderer<?> bake(EntityModelSet models) {
             Objects.requireNonNull(models, "models");
-            return new BlendLibItemSpecialRenderer(binding);
+            return new BlendLibItemSpecialRenderer(binding, appearance);
         }
         @Override public MapCodec<? extends SpecialModelRenderer.Unbaked> type() { return MapCodec.unit(this); }
     }

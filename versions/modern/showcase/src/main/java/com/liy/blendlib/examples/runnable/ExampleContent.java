@@ -19,6 +19,7 @@ public final class ExampleContent implements ModInitializer {
     public static final BlendModelKey ACTOR_MODEL = BlendModelKey.parse(MOD_ID + ":actor");
     public static final BlendModelKey APPEARANCE_ACTOR_MODEL = BlendModelKey.parse(MOD_ID + ":appearance_actor");
     public static final BlendModelKey WAND_MODEL = BlendModelKey.parse(MOD_ID + ":wand");
+    public static final BlendModelKey APPEARANCE_WAND_MODEL = BlendModelKey.parse(MOD_ID + ":appearance_wand");
     public static final BlendModelKey MARKER_MODEL = BlendModelKey.parse(MOD_ID + ":marker");
     public static final BlendAnimationKey IDLE = BlendAnimationKey.parse(MOD_ID + ":idle");
     public static final BlendAnimationKey WALK = BlendAnimationKey.parse(MOD_ID + ":walk");

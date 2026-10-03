@@ -120,6 +120,32 @@ class ItemAnimationObservationAbiTest {
         }
     }
 
+    @Test void materialAppearanceIsAnAdditiveRegistrationOverloadAndSmallFunctionalCallback() throws Exception {
+        assertEquals(Set.of(
+                "public static register(Lcom/liy/blendlib/fabric/client/item/BlendLibItemBinding;)V",
+                "public static register(Lcom/liy/blendlib/fabric/client/item/BlendLibItemBinding;Lcom/liy/blendlib/fabric/client/item/BlendLibItemMaterialAppearance;)V",
+                "public static find(Lnet/minecraft/resources/Identifier;)Ljava/util/Optional;",
+                "public static bindings()Ljava/util/Map;",
+                "public static installModelLoadingPlugin()V"), exportedDescriptors(BlendLibItemModelBindings.class));
+        assertEquals(Set.of(
+                "public abstract select(Lnet/minecraft/world/item/ItemStack;)Ljava/util/Map;",
+                "public captured(Lnet/minecraft/world/item/ItemStack;Lcom/liy/blendlib/fabric/client/render/ModelRenderSnapshot;)V"),
+                exportedDescriptors(BlendLibItemMaterialAppearance.class));
+        assertTrue(BlendLibItemMaterialAppearance.class.isAnnotationPresent(FunctionalInterface.class));
+        assertTrue(BlendLibItemMaterialAppearance.class.getMethod("captured", net.minecraft.world.item.ItemStack.class,
+                com.liy.blendlib.fabric.client.render.ModelRenderSnapshot.class).isDefault());
+        assertEquals("java.util.Map<java.lang.String, com.liy.blendlib.fabric.client.render.MaterialSlotAppearance>",
+                BlendLibItemMaterialAppearance.class.getMethod("select", net.minecraft.world.item.ItemStack.class)
+                        .getGenericReturnType().getTypeName());
+        assertNotNull(BlendLibItemRenderArgument.class.getDeclaredConstructor(BlendLibItemBinding.class,
+                com.liy.blendlib.fabric.client.render.ModelRenderHandle.class));
+        assertNotNull(BlendLibItemRenderArgument.class.getDeclaredConstructor(BlendLibItemBinding.class,
+                com.liy.blendlib.fabric.client.render.ModelRenderHandle.class,
+                com.liy.blendlib.fabric.client.render.ModelRenderSnapshot.class));
+        assertNotNull(BlendLibItemSpecialRenderer.class.getDeclaredConstructor(BlendLibItemBinding.class));
+        assertNotNull(BlendLibItemSpecialRenderer.Unbaked.class.getDeclaredConstructor(BlendLibItemBinding.class));
+    }
+
     private static Set<String> exportedDescriptors(Class<?> type) {
         var descriptors = new TreeSet<String>();
         Arrays.stream(type.getDeclaredMethods()).filter(method -> exported(method.getModifiers())).forEach(method ->

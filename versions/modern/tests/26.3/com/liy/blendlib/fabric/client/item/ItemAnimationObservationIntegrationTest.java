@@ -54,7 +54,8 @@ class ItemAnimationObservationIntegrationTest {
     @Test void actualStacksKeepHistoricalSamplesAcrossExtractionControlsReloadAndRetirement() throws Exception {
         var registry = new ClientModelRegistry();
         var runtime = new SkinnedAnimationRuntime(registry, new ClientAnimationLifecycleBridge(512));
-        BlendLibClientServices.initialize(registry, (snapshot, context) -> fail("observation must never submit"), runtime);
+        var submitted = new ArrayList<com.liy.blendlib.fabric.client.render.ModelRenderSnapshot>();
+        BlendLibClientServices.initialize(registry, (snapshot, context) -> submitted.add(snapshot), runtime);
         runtime.onPlayInit();
         var binding = new BlendLibItemBinding(Identifier.withDefaultNamespace("stick"), MODEL,
                 Identifier.withDefaultNamespace("item/stick"));
@@ -205,10 +206,112 @@ class ItemAnimationObservationIntegrationTest {
             assertNotSame(oldestControl, BlendLibItemAnimations.playback(oldest));
             BlendLibItemAnimations.clear();
             publishedReloadsPreserveControlsAndRecover(registry, runtime, renderer);
+            assertTrue(submitted.isEmpty(), "observation and extraction never submit");
+            realStackAppearanceIsFrozenAtExtractionWithoutTouchingPlaybackStatusOrLruAtSubmit(registry, runtime, submitted);
         } finally {
             BlendLibItemAnimations.clear();
             runtime.onWorldDisconnect();
             registry.close();
+        }
+    }
+
+    private void realStackAppearanceIsFrozenAtExtractionWithoutTouchingPlaybackStatusOrLruAtSubmit(
+            ClientModelRegistry registry, SkinnedAnimationRuntime runtime,
+            ArrayList<com.liy.blendlib.fabric.client.render.ModelRenderSnapshot> submitted) {
+        var binding = new BlendLibItemBinding(Identifier.withDefaultNamespace("stick"), MODEL,
+                Identifier.withDefaultNamespace("item/stick"));
+        BlendLibItemAnimations.register(binding, IDLE);
+        var red = new com.liy.blendlib.fabric.client.render.MaterialSlotAppearance(0xff0000, true);
+        var hidden = new com.liy.blendlib.fabric.client.render.MaterialSlotAppearance(0xffffff, false);
+        var mutable = new java.util.HashMap<>(Map.of("Surface", red));
+        var selectedStacks = new ArrayList<ItemStack>();
+        var observedStacks = new ArrayList<ItemStack>();
+        var captured = new ArrayList<com.liy.blendlib.fabric.client.render.ModelRenderSnapshot>();
+        var selector = new BlendLibItemMaterialAppearance() {
+            public Map<String, com.liy.blendlib.fabric.client.render.MaterialSlotAppearance> select(ItemStack stack) {
+                selectedStacks.add(stack); return mutable;
+            }
+            public void captured(ItemStack stack, com.liy.blendlib.fabric.client.render.ModelRenderSnapshot snapshot) {
+                observedStacks.add(stack); captured.add(snapshot);
+            }
+        };
+        var renderer = new BlendLibItemSpecialRenderer(binding, selector);
+        var collector = (net.minecraft.client.renderer.SubmitNodeCollector) java.lang.reflect.Proxy.newProxyInstance(
+                getClass().getClassLoader(), new Class<?>[]{net.minecraft.client.renderer.SubmitNodeCollector.class},
+                (proxy, method, args) -> null);
+        try {
+            for (var profile : ModelProfile.values()) {
+                BlendLibItemAnimations.clear();
+                mutable.clear(); mutable.put("Surface", red);
+                publish(registry, fixture(registry.current().generationId() + 1, profile, IDLE, 1));
+                var stack = stack(Items.STICK);
+                var copy = stack.copy();
+                var playback = BlendLibItemAnimations.playback(stack).pause().seek(.25);
+                var first = renderer.extractArgument(stack);
+                assertSame(stack, selectedStacks.getLast());
+                assertSame(stack, observedStacks.getLast());
+                assertEquals(red, appearance(captured.getLast(), 0));
+                assertEquals(profile == ModelProfile.SKINNED_V1, frameField(first.animatedSnapshot(), "skinnedRenderSnapshot") != null);
+                var before = BlendLibItemAnimations.observe(stack).orElseThrow();
+                var status = BlendLibItemAnimations.extractionStatus(stack).orElseThrow();
+                mutable.put("Surface", hidden);
+                var second = renderer.extractArgument(copy);
+                assertSame(copy, selectedStacks.getLast());
+                assertSame(copy, observedStacks.getLast());
+                assertEquals(hidden, appearance(second.snapshot(1, 2), 0));
+                assertEquals(red, appearance(first.snapshot(1, 2), 0));
+                var metrics = runtime.measurementSnapshot();
+                int calls = selectedStacks.size();
+                for (int i = 0; i < 3; i++) {
+                    renderer.submit(first, new com.mojang.blaze3d.vertex.PoseStack(), collector, 41 + i, 51 + i, true, 123);
+                    var frame = submitted.getLast();
+                    assertEquals(red, appearance(frame, 0));
+                    assertEquals(41 + i, frame.packedLight());
+                    assertEquals(51 + i, frame.packedOverlay());
+                    assertSame(frameField(first.animatedSnapshot(), "skinnedRenderSnapshot"), frameField(frame, "skinnedRenderSnapshot"));
+                    assertSame(frameField(first.animatedSnapshot(), "rigidNodePalette"), frameField(frame, "rigidNodePalette"));
+                }
+                assertEquals(calls, selectedStacks.size());
+                assertEquals(calls, observedStacks.size());
+                assertEquals(before, BlendLibItemAnimations.observe(stack).orElseThrow());
+                assertEquals(status, BlendLibItemAnimations.extractionStatus(stack).orElseThrow());
+                assertEquals(metrics, runtime.measurementSnapshot());
+                assertSame(playback, BlendLibItemAnimations.playback(stack));
+                mutable.put("unknown", red);
+                var fallback = renderer.extractArgument(stack);
+                assertEquals(List.of("unknown"), captured.getLast().unknownMaterialSlots());
+                assertEquals(com.liy.blendlib.fabric.client.render.MaterialSlotAppearance.unchanged(),
+                        appearance(fallback.snapshot(1, 2), 0));
+                calls = selectedStacks.size();
+                registry.publish(ModelRegistryGeneration.empty(registry.current().generationId() + 1));
+                assertTrue(renderer.extractArgument(stack).handle().missingModel());
+                assertEquals(calls, selectedStacks.size());
+                assertEquals(calls, observedStacks.size());
+
+                // Keep the first argument alive while filling the weak identity LRU. Submission
+                // and diagnostic reads must not refresh the old stack's eviction position.
+                BlendLibItemAnimations.clear();
+                publish(registry, fixture(registry.current().generationId() + 1, profile, IDLE, 1));
+                var oldest = stack(Items.STICK);
+                BlendLibItemAnimations.playback(oldest).pause();
+                var oldestArgument = renderer.extractArgument(oldest);
+                var retained = new ArrayList<ItemStack>();
+                for (int i = 1; i < BlendLibItemAnimations.MAX_RETAINED_INSTANCES; i++) {
+                    var next = stack(Items.STICK); retained.add(next); BlendLibItemAnimations.playback(next).pause();
+                }
+                for (int i = 0; i < 3; i++) {
+                    renderer.submit(oldestArgument, new com.mojang.blaze3d.vertex.PoseStack(), collector, 1, 2, false, 0);
+                    assertTrue(BlendLibItemAnimations.observe(oldest).isPresent());
+                    assertTrue(BlendLibItemAnimations.extractionStatus(oldest).isPresent());
+                }
+                var newcomer = stack(Items.STICK);
+                BlendLibItemAnimations.playback(newcomer);
+                assertTrue(BlendLibItemAnimations.observe(oldest).isEmpty());
+                assertTrue(BlendLibItemAnimations.extractionStatus(oldest).isEmpty());
+                java.lang.ref.Reference.reachabilityFence(retained);
+            }
+        } finally {
+            BlendLibItemAnimations.clear();
         }
     }
 
@@ -406,5 +509,24 @@ class ItemAnimationObservationIntegrationTest {
                 List.of(clip), new SocketTable(Map.of()), Bounds.fromPositions(mesh.positions()), List.of());
         return new LoadedModelHandle(MODEL, asset, skinned ? SkinnedRenderHandle.prepare(MODEL, asset)
                 : StaticRigidRenderHandle.prepare(MODEL, asset));
+    }
+    private static com.liy.blendlib.fabric.client.render.MaterialSlotAppearance appearance(
+            com.liy.blendlib.fabric.client.render.ModelRenderSnapshot snapshot, int primitive) {
+        try {
+            var method = snapshot.getClass().getDeclaredMethod("materialAppearance", int.class);
+            method.setAccessible(true);
+            return (com.liy.blendlib.fabric.client.render.MaterialSlotAppearance) method.invoke(snapshot, primitive);
+        } catch (ReflectiveOperationException exception) {
+            throw new AssertionError(exception);
+        }
+    }
+    private static Object frameField(com.liy.blendlib.fabric.client.render.ModelRenderSnapshot snapshot, String name) {
+        try {
+            var method = snapshot.getClass().getDeclaredMethod(name);
+            method.setAccessible(true);
+            return method.invoke(snapshot);
+        } catch (ReflectiveOperationException exception) {
+            throw new AssertionError(exception);
+        }
     }
 }

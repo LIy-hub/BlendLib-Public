@@ -187,3 +187,5 @@ and the [compiled consumer fixture](examples/nested-entity-attachments/README.md
 For children beyond the root envelope, configure the additive ordinary-builder
 [culling envelope](docs/entity-culling-envelope.md) in entity-local blocks; vanilla and
 current root bounds remain included.
+
+Per-stack item RGB/visibility selection: [item material appearance](docs/item-material-appearance.md).

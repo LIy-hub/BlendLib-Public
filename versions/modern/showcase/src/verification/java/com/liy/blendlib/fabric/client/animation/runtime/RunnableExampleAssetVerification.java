@@ -35,7 +35,12 @@ public final class RunnableExampleAssetVerification {
         require(actor.skeleton() != null && wand.skeleton() != null, "actor and wand must be skinned");
         require(!marker.primitives().isEmpty(), "socket marker must have geometry");
         require(wand.unitsPerBlock() == 2.5, "wand must preserve its display scale");
-        verifyMaterialAppearance(load("appearance_actor"));
+        verifyMaterialAppearance(load("appearance_actor"), "appearance_actor",
+                com.liy.blendlib.examples.runnable.ExampleMaterialAppearance::forName);
+        var appearanceWand = load("appearance_wand");
+        require(appearanceWand.unitsPerBlock() == 2.5, "appearance wand preserves item scale");
+        verifyMaterialAppearance(appearanceWand, "appearance_wand",
+                com.liy.blendlib.examples.runnable.ExampleItemMaterialAppearance::forName);
         verifyLayerVisualEvents(actor);
         var layers = new ModelAnimationLayers(actor, ExampleAnimationScene.layers());
         var runtime = new AnimationV2InstanceRuntime(layers.plan());
@@ -102,37 +107,51 @@ public final class RunnableExampleAssetVerification {
         System.out.println("Verified packaged actor/wand/marker with strict loader, layers, procedural pose, final socket, duplicate/retrigger and reload cues");
     }
 
-    private static void verifyMaterialAppearance(ModelAsset actor) {
-        var body = com.liy.blendlib.examples.runnable.ExampleMaterialAppearance.BODY_SLOT;
-        var accessory = com.liy.blendlib.examples.runnable.ExampleMaterialAppearance.ACCESSORY_SLOT;
-        require(actor.primitives().size() == 2, "appearance actor needs actual body and accessory primitives");
+    private static void verifyMaterialAppearance(ModelAsset actor, String modelName,
+            java.util.function.Function<String, java.util.Map<String,
+                    com.liy.blendlib.fabric.client.render.MaterialSlotAppearance>> selection) {
+        boolean wand = modelName.equals("appearance_wand");
+        var body = wand ? com.liy.blendlib.examples.runnable.ExampleItemMaterialAppearance.BODY_SLOT
+                : com.liy.blendlib.examples.runnable.ExampleMaterialAppearance.BODY_SLOT;
+        var accessory = wand ? com.liy.blendlib.examples.runnable.ExampleItemMaterialAppearance.ACCESSORY_SLOT
+                : com.liy.blendlib.examples.runnable.ExampleMaterialAppearance.ACCESSORY_SLOT;
+        require(actor.primitives().size() == 2, "appearance model needs actual body and accessory primitives");
+        if (wand) {
+            var shaft = actor.primitives().getFirst().geometry();
+            require(shaft.indexCount() == 36, "wand shaft has twelve actual 3D triangles");
+            var bounds = shaft.localBounds();
+            require(bounds.max().y() - bounds.min().y() > 10 * (bounds.max().x() - bounds.min().x())
+                    && bounds.max().z() > bounds.min().z(), "wand shaft is slender and three-dimensional");
+        }
         require(actor.primitives().stream().map(p -> p.geometry().materialSlot()).toList()
                 .equals(List.of(body, accessory)), "selector names must match actual authored GLB primitive slots");
-        require(actor.primitives().get(1).geometry().indexCount() == 6,
+        require(actor.primitives().get(1).geometry().indexCount() == (wand ? 24 : 6),
                 "accessory must have real triangles, not just descriptor metadata");
-        require(actor.primitives().get(1).geometry().localBounds().min().x()
+        require(wand ? actor.primitives().get(1).geometry().localBounds().min().y()
+                > actor.primitives().get(0).geometry().localBounds().max().y()
+                : actor.primitives().get(1).geometry().localBounds().min().x()
                 > actor.primitives().get(0).geometry().localBounds().max().x(),
                 "accessory must be a distinct side badge rather than overlapping duplicate geometry");
         require(actor.bounds().max().x() >= actor.primitives().get(1).geometry().localBounds().max().x(),
                 "authored bounds must conservatively include the visible accessory");
-        var orange = com.liy.blendlib.examples.runnable.ExampleMaterialAppearance.forName("Orange");
-        var blue = com.liy.blendlib.examples.runnable.ExampleMaterialAppearance.forName("Blue bare");
+        var orange = selection.apply("Orange");
+        var blue = selection.apply("Blue bare");
         require(orange.get(body).rgbTint() == 0xff8844 && blue.get(body).rgbTint() == 0x4488ff,
                 "actual live selector must independently color the two actors");
         require(orange.get(accessory).visible() && !blue.get(accessory).visible()
                 && orange.get(accessory).rgbTint() == 0xffffff,
                 "actual selector must independently hide the accessory without recoloring it");
-        require(com.liy.blendlib.examples.runnable.ExampleMaterialAppearance.forName(null).isEmpty()
-                && com.liy.blendlib.examples.runnable.ExampleMaterialAppearance.forName("Unconfigured").isEmpty(),
+        require(selection.apply(null).isEmpty()
+                && selection.apply("Unconfigured").isEmpty(),
                 "unnamed and unconfigured actors must leave all slots unchanged");
-        require(com.liy.blendlib.examples.runnable.ExampleMaterialAppearance.forName("Orange bare")
+        require(selection.apply("Orange bare")
                 .get(body).equals(orange.get(body)), "hiding the accessory must preserve body selection");
-        require(com.liy.blendlib.examples.runnable.ExampleMaterialAppearance.forName("Blue")
+        require(selection.apply("Blue")
                 .get(accessory).visible(), "blue actor supports independently visible accessory too");
         try { orange.clear(); throw new AssertionError("mutable example selection"); }
         catch (UnsupportedOperationException expected) { }
         var handle = com.liy.blendlib.fabric.client.render.SkinnedRenderHandle.prepare(
-                BlendModelKey.parse(NS + "appearance_actor"), actor);
+                BlendModelKey.parse(NS + modelName), actor);
         require(handle.materialSlots().equals(List.of(body, accessory)), "prepared handle must preserve exact slot order");
         var transforms = new java.util.HashMap<Integer, com.liy.blendlib.core.model.Transform>();
         actor.nodes().forEach(node -> transforms.put(node.index(), node.localTransform()));
@@ -152,11 +171,12 @@ public final class RunnableExampleAssetVerification {
                 "both actual example selections must capture without fallback");
         require(first.handle() == second.handle() && first.culling().equals(second.culling()),
                 "per-actor appearance must share the handle and preserve conservative culling");
+        com.liy.blendlib.fabric.client.render.RunnableItemAppearanceVerification.verify(snapshot, first, second);
         var invalid = new java.util.HashMap<>(orange);
         invalid.put("NotAnAuthoredSlot", new com.liy.blendlib.fabric.client.render.MaterialSlotAppearance(0, false));
         require(snapshot.withMaterialAppearance(invalid).unknownMaterialSlots().equals(List.of("NotAnAuthoredSlot")),
                 "incompatible resource-pack names must diagnose authored fallback");
-        System.out.println("Verified actual example material selector, two authored slots, real accessory geometry, CPU capture and unknown-name diagnostic");
+        System.out.println("Verified " + modelName + " actual example material selector, two authored slots, real accessory geometry, CPU capture and unknown-name diagnostic");
     }
 
     private static void verifyLayerVisualEvents(ModelAsset actor) {

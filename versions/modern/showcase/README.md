@@ -388,3 +388,72 @@ Native frustum-edge acceptance remains **unverified**. With extended mode enable
 
 Record both JAR hashes, game version, property, commands and screenshots/logs before reporting
 native visual acceptance. The automated build does not establish these results.
+
+## Opt-in two-wand material appearance
+
+Enable the item selector once at client startup:
+
+```sh
+JAVA_TOOL_OPTIONS="-Dblendlib.examples.itemAppearance=true" ./gradlew -p versions/modern -Pminecraft_version=26.3 -Prunnable_examples=true runRunnableExamplesClient
+```
+
+For a packaged installation, add `-Dblendlib.examples.itemAppearance=true` to the launcher's
+Java/JVM arguments and install both JARs described above. Restart to switch modes. This is a
+JVM property, not a Gradle project property. Without it, the original one-slot animated wand
+registration and compact attachment geometry are unchanged.
+
+In a Creative world with commands enabled, run this function as a player:
+
+```mcfunction
+/function blendlib_runnable_examples:item_appearance
+```
+
+The function is packaged inside the example mod and gives exactly two named, non-stacking
+wand items. No external datapack or runtime mesh-generation script is required. Equivalent
+individual commands are:
+
+```mcfunction
+/give @s blendlib_runnable_examples:animated_wand[minecraft:custom_name={text:"Orange"}] 1
+/give @s blendlib_runnable_examples:animated_wand[minecraft:custom_name={text:"Blue bare"}] 1
+```
+
+`ExampleItemMaterialAppearance.register` registers the live item appearance callback before
+registering the idle animation. On extraction, `select(ItemStack)` reads only the stack's
+custom-name component and calls `forName`, the same selection helper checked by packaged
+verification. The Orange stack requests body RGB `0xff8844` and a visible tip crystal; Blue bare
+requests RGB `0x4488ff` and a hidden crystal. These are multiplicative RGB tints, not replacement
+texture colors. Both stacks use the same cached prepared model handle, body, skeleton, animation,
+and authored `WandAccessory` primitive. No geometry is copied or generated per stack.
+The opt-in `appearance_wand` descriptor uses the committed `appearance_wand.glb`: a slender
+3D shaft (`WandBody`) and an eight-triangle tip crystal (`WandAccessory`), authored by
+`tools/generate_appearance_wand.py`. It preserves the original demo wand's rig, clips and
+`units_per_block = 2.5`. The original demo wand used a technical quad from `actor.glb`, not
+an existing sculpted wand; the new geometry is explicitly authored at build-source time.
+The `wand` descriptor used by attached ornaments remains unchanged.
+
+Unknown or absent custom names return an empty appearance map and preserve authored colors
+and visibility. `Orange bare` and `Blue` also work, allowing color and visibility to be changed
+independently. The selector affects client presentation only; it does not edit stack data or
+synchronize state. Normal vanilla custom-name synchronization supplies the selection input.
+
+`verifyRunnableExamples` loads the packaged appearance-wand descriptor and actual GLB, checks
+both authored material slots and the distinct crystal triangles, executes the live name helper,
+and verifies CPU-skinned snapshot capture, independent RGB/visibility, shared handles,
+retained-snapshot isolation, restoration to authored defaults and unknown-slot diagnostics.
+It also checks that the helper and command function are packaged only in the optional example
+mod. These are headless data/lifecycle assertions, not GPU or native visual acceptance.
+
+Manual acceptance remains **unverified**:
+
+1. Keep Orange and Blue bare in separate hotbar slots and inspect both in the inventory GUI
+2. Alternate the main hand and put the other in the offhand; verify independent color and crystal
+3. Drop both items or place them in item frames; verify their appearance remains stack-specific
+4. Use `/blendlib_example item attack`, `pause`, `resume` and `status` on each held wand;
+   appearance must coexist with the existing per-stack animation controls
+5. Press F3+T, then repeat GUI/held/dropped views and disconnect/rejoin. Previously captured
+   snapshots must not acquire another stack's appearance; new extractions should use new resources
+6. Rename a wand to an unconfigured name and check authored defaults, then restore its name
+7. Restart without the JVM property to confirm the original wand registration still works
+
+Record the two JAR hashes, game/loader versions, property, commands and screenshots/logs
+before claiming native visual acceptance.

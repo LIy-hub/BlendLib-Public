@@ -27,3 +27,20 @@ The badge reuses the original topology, UVs, normals and skin weights, with sepa
 and expanded decoded bounds. Both slots use the already copied `textures/actor.png`; no new
 external source or texture is introduced. The build consumes the committed derivative without
 requiring Python. Original copied assets remain byte-for-byte unchanged.
+
+## Authored two-slot item derivative
+
+`models3d/appearance_wand.glb` is generated deterministically by
+`tools/generate_appearance_wand.py` from the original demo wand's repository-local source
+`showcase_animation/showcase_actor.glb`. No separate wand GLB existed previously: `wand.json`
+used that technical four-vertex fixture. The new script authors a narrow, three-dimensional
+shaft (12 triangles, `WandBody`) and a separate tip crystal (8 triangles, `WandAccessory`).
+It preserves the original skeleton, inverse binds, node hierarchy and idle/walk/attack clips.
+The shaft uses root-to-tip skin weights, and the crystal follows the tip joint. Both reuse
+the existing actor texture and repository license; no external assets are used.
+
+`blend_models/appearance_wand.json` retains the original wand animation states, socket and
+`units_per_block = 2.5`. The build consumes the committed derivative without requiring Python.
+Only the opt-in item registration uses this new mesh. The original `wand.json`, source fixture
+and attachment usages remain unchanged. Both appearance stacks share one prepared handle;
+there is no per-stack mesh copy or runtime asset-generation step.

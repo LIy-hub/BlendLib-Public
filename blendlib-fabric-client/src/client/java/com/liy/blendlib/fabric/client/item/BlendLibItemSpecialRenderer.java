@@ -21,9 +21,15 @@ import org.joml.Vector3fc;
  */
 final class BlendLibItemSpecialRenderer implements SpecialModelRenderer<BlendLibItemRenderArgument> {
     private final BlendLibItemBinding binding;
+    private final BlendLibItemMaterialAppearance appearance;
 
     BlendLibItemSpecialRenderer(BlendLibItemBinding binding) {
+        this(binding, null);
+    }
+
+    BlendLibItemSpecialRenderer(BlendLibItemBinding binding, BlendLibItemMaterialAppearance appearance) {
         this.binding = Objects.requireNonNull(binding, "binding");
+        this.appearance = appearance;
     }
 
     @Override
@@ -36,7 +42,7 @@ final class BlendLibItemSpecialRenderer implements SpecialModelRenderer<BlendLib
             handle = new com.liy.blendlib.fabric.client.render.MissingModelRenderHandle(
                     binding.modelKey(), handle.generation());
         }
-        return new BlendLibItemRenderArgument(binding, handle, snapshot.orElse(null));
+        return BlendLibItemRenderArgument.capture(binding, handle, snapshot.orElse(null), stack, appearance);
     }
 
     @Override
@@ -68,15 +74,19 @@ final class BlendLibItemSpecialRenderer implements SpecialModelRenderer<BlendLib
     /** Programmatic-only unbaked form; it is never inserted into vanilla's private type mapper. */
     static final class Unbaked implements SpecialModelRenderer.Unbaked<BlendLibItemRenderArgument> {
         private final BlendLibItemBinding binding;
+        private final BlendLibItemMaterialAppearance appearance;
 
-        Unbaked(BlendLibItemBinding binding) {
+        Unbaked(BlendLibItemBinding binding) { this(binding, null); }
+
+        Unbaked(BlendLibItemBinding binding, BlendLibItemMaterialAppearance appearance) {
             this.binding = Objects.requireNonNull(binding, "binding");
+            this.appearance = appearance;
         }
 
         @Override
         public SpecialModelRenderer<BlendLibItemRenderArgument> bake(BakingContext context) {
             Objects.requireNonNull(context, "context");
-            return new BlendLibItemSpecialRenderer(binding);
+            return new BlendLibItemSpecialRenderer(binding, appearance);
         }
 
         @Override

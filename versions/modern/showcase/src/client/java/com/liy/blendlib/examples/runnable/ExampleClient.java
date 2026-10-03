@@ -8,8 +8,6 @@ import com.liy.blendlib.fabric.client.entity.BlendEntityRenderer;
 import com.liy.blendlib.fabric.client.entity.BlendEntityRenderers;
 import com.liy.blendlib.fabric.client.entity.BlendEntitySnapshotRequest;
 import com.liy.blendlib.fabric.client.entity.BlendEntitySockets;
-import com.liy.blendlib.fabric.client.item.BlendLibItemAnimations;
-import com.liy.blendlib.fabric.client.item.BlendLibItemBinding;
 import java.util.List;
 import net.fabricmc.api.ClientModInitializer;
 
@@ -21,9 +19,7 @@ public final class ExampleClient implements ClientModInitializer {
 
     @Override
     public void onInitializeClient() {
-        BlendLibItemAnimations.register(new BlendLibItemBinding(
-                ExampleContent.WAND_ID, ExampleContent.WAND_MODEL, ExampleContent.id("item/animated_wand")),
-                ExampleContent.IDLE);
+        ExampleItemMaterialAppearance.register(Boolean.getBoolean("blendlib.examples.itemAppearance"));
         BlendEntityRenderers.register(ExampleContent.ACTOR,
                 context -> {
                     var builder = BlendEntityRenderer.<LayeredActor>builder(context, ExampleContent.APPEARANCE_ACTOR_MODEL)

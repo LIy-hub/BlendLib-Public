@@ -286,6 +286,10 @@ class X7ResourceIslandBoundaryTest {
             assertTrue(actualManifest.contains(addition), addition);
             actualManifest = actualManifest.replace(addition, "");
         }
+        // Item appearance adds only this overload; the original register descriptor remains exact.
+        String itemAppearanceAddition = "  public static void register(com.liy.blendlib.fabric.client.item.BlendLibItemBinding, com.liy.blendlib.fabric.client.item.BlendLibItemMaterialAppearance);\n    descriptor: (Lcom/liy/blendlib/fabric/client/item/BlendLibItemBinding;Lcom/liy/blendlib/fabric/client/item/BlendLibItemMaterialAppearance;)V\n\n";
+        assertTrue(actualManifest.contains(itemAppearanceAddition), itemAppearanceAddition);
+        actualManifest = actualManifest.replace(itemAppearanceAddition, "");
         // Whole-assembly culling is additive; retain the original reviewed descriptor resource untouched.
         String envelopeAddition = "  public com.liy.blendlib.fabric.client.entity.BlendEntityRendererBuilder<E> cullingEnvelope(com.liy.blendlib.fabric.client.entity.BlendEntityCullingEnvelope);\n    descriptor: (Lcom/liy/blendlib/fabric/client/entity/BlendEntityCullingEnvelope;)Lcom/liy/blendlib/fabric/client/entity/BlendEntityRendererBuilder;\n\n";
         assertTrue(actualManifest.contains(envelopeAddition));

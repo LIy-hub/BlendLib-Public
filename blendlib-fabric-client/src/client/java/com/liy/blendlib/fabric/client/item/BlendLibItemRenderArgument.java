@@ -23,6 +23,16 @@ record BlendLibItemRenderArgument(BlendLibItemBinding binding, ModelRenderHandle
         }
     }
 
+    static BlendLibItemRenderArgument capture(BlendLibItemBinding binding, ModelRenderHandle handle,
+            ModelRenderSnapshot animatedSnapshot, net.minecraft.world.item.ItemStack stack,
+            BlendLibItemMaterialAppearance appearance) {
+        var argument = new BlendLibItemRenderArgument(binding, handle, animatedSnapshot);
+        if (appearance == null || handle.missingModel()) return argument;
+        var captured = argument.snapshot(0, 0).withMaterialAppearance(appearance.select(stack));
+        appearance.captured(stack, captured);
+        return new BlendLibItemRenderArgument(binding, handle, captured);
+    }
+
     ModelRenderSnapshot snapshot(int packedLight, int packedOverlay) {
         if (animatedSnapshot != null) return animatedSnapshot.withLighting(packedLight, packedOverlay);
         return new ModelRenderSnapshot(
