@@ -67,3 +67,7 @@ world change. Models with no animated loaded handle retain the ordinary missing-
 
 Native visual testing is distinct from extraction and core tests; see the verification
 report for the checks actually run.
+
+`BlendLibClientServices.skinnedAnimationRuntime().layeredSnapshot(instanceKey)` exposes the latest
+immutable v2 publication and its bounded-work/sequence diagnostics. Native descriptor plans are
+shared in a bounded generation-scoped cache; mutable controller evaluators remain per instance.

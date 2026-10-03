@@ -24,3 +24,7 @@ Prepare or extract the child `ModelRenderSnapshot` inside the attachment provide
 `BlendEntityAttachment.at` copies the socket's entity-relative position and rotation. It inherits authored root/socket scale but removes the parent's model-unit conversion from the scale, because the child backend applies its own model-unit conversion. Thus a model authored with 16 units per block can hold a model authored with 8 units per block without shrinking it a second time. The optional `BlendEntitySocketPose` offset is in socket-oriented blocks and inherits the socket's authored scale. Child root transforms apply after that offset.
 
 Submit reads only captured placement, offset and child snapshot. It does not access the entity, world, socket table, animation controller or resource registry. Attachments follow parent visibility and child visibility. Children beyond the parent's bounds require a sufficiently conservative parent culling envelope; this API does not automatically expand the entity frustum bounds. Callbacks are per extraction, not once per game tick, and should not perform authoritative gameplay damage or hit detection.
+
+This first implementation draws up to 64 direct attachments per snapshot. Nested child attachment
+lists are not traversed. Existing `withLighting` and marker-copy operations preserve captured
+attachments; no mutable entity or provider is retained by the render snapshot.

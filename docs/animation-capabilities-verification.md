@@ -62,3 +62,28 @@ Only 26.3 is covered by this rollout. The new APIs remain opt-in; static registr
 existing behavior. Layer-specific event tracks/network replication, persistent item identity,
 nested attachment rendering, automatic attachment culling expansion and advanced foot IK remain
 outside this first implementation, as documented in the feature guides.
+
+## Exact runnable examples/checks
+
+Use the complete source archive or apply the patches to the baseline, with Java 25 installed.
+These commands execute the library's actual CPU extraction pipeline on the official 26.3 classpath:
+
+```sh
+bash gradlew -p versions/modern -Pminecraft_version=26.3 test --tests '*SkinnedAnimationRuntimeTest'
+bash gradlew -p versions/modern -Pminecraft_version=26.3 test --tests '*ProceduralPoseComponentsTest'
+bash gradlew -p versions/modern -Pminecraft_version=26.3 test --tests '*BlendEntitySocketsTest'
+bash gradlew -p versions/modern -Pminecraft_version=26.3 test --tests '*SynchronizedVisualEventCursorTest'
+bash gradlew -p versions/modern -Pminecraft_version=26.3 test --tests '*ItemAnimationPlaybackTest' --tests '*ItemAnimationInstancesTest' --tests '*BlendLibItemAdapterContractsTest'
+```
+
+`compileTestJava` compiles the full `LayeredAnimationConsumerSample` and
+`AnimatedItemConsumerExample` API-wiring examples. The procedural test also invokes
+`ProceduralPoseConsumerProbe.main`, an executable consumer example. The feature guides explain
+how to attach these entry points to a consumer's own entity/item and named asset clips/bones.
+No new ready-to-install visual Showcase mod was authored in this library-focused change.
+
+The actual cloud execution workspace was checked: `DISPLAY` is unset, Xvfb/xvfb-run are absent,
+and no `/dev/dri` device is exposed. Thus an interactive client was not attempted there. No
+Minecraft EULA file was changed and no new agreement accepted. The delivered tests do not launch
+Minecraft or require an EULA acceptance. Native visual acceptance needs a graphics-capable client
+setup and any required login/agreement remains the user's action.
