@@ -60,6 +60,14 @@ class BlendLibClientEntrypointLifecycleTest {
         assertTrue(entrypoint.contains("X7_DEFERRED_SUBMISSION_ENDPOINT.onReloadOrWorldLeave()"));
         assertTrue(entrypoint.contains("SKINNED_ANIMATION_RUNTIME.onWorldDisconnect"));
         assertTrue(entrypoint.contains("ANIMATION_SYNC.onDisconnect"));
+        String initBody = entrypoint.substring(entrypoint.indexOf("ClientPlayConnectionEvents.INIT.register"),
+                entrypoint.indexOf("ClientPlayConnectionEvents.DISCONNECT.register"));
+        String disconnectBody = entrypoint.substring(entrypoint.indexOf("ClientPlayConnectionEvents.DISCONNECT.register"),
+                entrypoint.indexOf("ClientLifecycleEvents.CLIENT_STOPPING.register"));
+        assertTrue(initBody.contains("BlendLibItemAnimations.clear();"));
+        assertTrue(disconnectBody.contains("BlendLibItemAnimations.clear();"));
+        assertTrue(initBody.indexOf("BlendLibItemAnimations.clear();") < initBody.indexOf("SKINNED_ANIMATION_RUNTIME.onPlayInit"));
+        assertTrue(disconnectBody.indexOf("BlendLibItemAnimations.clear();") < disconnectBody.indexOf("SKINNED_ANIMATION_RUNTIME.onWorldDisconnect"));
         assertTrue(entrypoint.contains("ClientAnimationPayloadReceivers.register(ANIMATION_SYNC)"));
         assertTrue(entrypoint.contains("ClientTickEvents.END_CLIENT_TICK.register"));
         assertTrue(entrypoint.contains("ClientEntityEvents.ENTITY_UNLOAD.register"));

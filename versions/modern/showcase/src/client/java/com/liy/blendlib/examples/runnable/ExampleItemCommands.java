@@ -16,6 +16,7 @@ final class ExampleItemCommands {
         ClientCommandRegistrationCallback.EVENT.register((dispatcher, registry) -> dispatcher.register(
                 ClientCommands.literal("blendlib_example")
                         .then(ClientCommands.literal("item")
+                                .then(ClientCommands.literal("status").executes(context -> status(context.getSource())))
                                 .then(ClientCommands.literal("idle").executes(context -> apply(context.getSource(),
                                         playback -> playback.play(ExampleContent.IDLE, ItemAnimationPlayback.Mode.LOOP))))
                                 .then(ClientCommands.literal("attack").executes(context -> apply(context.getSource(),
@@ -30,6 +31,17 @@ final class ExampleItemCommands {
                                         playback -> playback.speed(2.0))))
                                 .then(ClientCommands.literal("normal").executes(context -> apply(context.getSource(),
                                         playback -> playback.speed(1.0)))))));
+    }
+
+    private static int status(FabricClientCommandSource source) {
+        var stack = source.getPlayer().getMainHandItem();
+        if (!stack.is(ExampleContent.WAND)) {
+            source.sendError(Component.literal("Hold the BlendLib animated wand in your main hand first"));
+            return 0;
+        }
+        ExampleItemInspection.format(BlendLibItemAnimations.observe(stack))
+                .forEach(line -> source.sendFeedback(Component.literal(line)));
+        return 1;
     }
 
     private static int apply(FabricClientCommandSource source, Consumer<ItemAnimationPlayback> command) {

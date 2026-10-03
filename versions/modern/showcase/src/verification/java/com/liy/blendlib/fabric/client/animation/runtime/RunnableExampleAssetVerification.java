@@ -50,6 +50,7 @@ public final class RunnableExampleAssetVerification {
         require(frame.playheads().get(ExampleAnimationScene.BASE).state().equals(BlendAnimationKey.parse(NS + "walk")),
                 "upper action must not replace base walking");
         verifyInspection(frame);
+        verifyItemInspection();
         var pose = layers.localPose(frame.pose());
         var baseOnly = new ModelAnimationLayers(actor, List.of(ExampleAnimationScene.layers().getFirst()));
         var basePose = baseOnly.localPose(new AnimationV2InstanceRuntime(baseOnly.plan()).advance(0.2).pose());
@@ -94,6 +95,36 @@ public final class RunnableExampleAssetVerification {
         require(capture(commands, entity, 1, 29, 43, 2).getFirst().requestedPlayheadSeconds() == 0.7,
                 "disconnect must clear captured commands");
         System.out.println("Verified packaged actor/wand/marker with strict loader, layers, procedural pose, final socket, duplicate/retrigger and reload cues");
+    }
+
+    private static void verifyItemInspection() {
+        var missing = com.liy.blendlib.examples.runnable.ExampleItemInspection.format(java.util.Optional.empty());
+        require(missing.getFirst().contains("does not create playback"), "item missing status");
+        var sample = new com.liy.blendlib.fabric.client.item.ItemAnimationObservation.Sample(
+                com.liy.blendlib.api.BlendModelKey.parse("test:wand"),
+                com.liy.blendlib.api.BlendAnimationKey.parse("test:idle"), 1, 0.25, 2);
+        var status = new com.liy.blendlib.fabric.client.item.ItemAnimationObservation(
+                com.liy.blendlib.api.BlendAnimationKey.parse("test:attack"),
+                com.liy.blendlib.fabric.client.item.ItemAnimationPlayback.Mode.HOLD,
+                1.5, false, 9, java.util.Optional.of(sample), false);
+        var oldLocale = java.util.Locale.getDefault();
+        java.util.List<String> lines;
+        try {
+            java.util.Locale.setDefault(java.util.Locale.GERMANY);
+            lines = com.liy.blendlib.examples.runnable.ExampleItemInspection.format(java.util.Optional.of(status));
+        } finally { java.util.Locale.setDefault(oldLocale); }
+        require(lines.getFirst().contains("test:attack") && lines.getFirst().contains("storedSeconds=9.000")
+                && lines.getFirst().contains("speed=1.500"), "item current controls and locale");
+        require(lines.get(1).contains("test:idle") && lines.get(1).contains("clipSeconds=0.250")
+                && lines.get(1).contains("currentGeneration=false"), "item historical stale sample");
+        require(lines.equals(com.liy.blendlib.examples.runnable.ExampleItemInspection.format(java.util.Optional.of(status))),
+                "item repeat inspection");
+        try { lines.add("mutable"); throw new AssertionError("mutable item lines"); }
+        catch (UnsupportedOperationException expected) { }
+        var unsampled = new com.liy.blendlib.fabric.client.item.ItemAnimationObservation(status.animation(), status.mode(),
+                0, true, 0, java.util.Optional.empty(), false);
+        require(com.liy.blendlib.examples.runnable.ExampleItemInspection.format(java.util.Optional.of(unsampled))
+                .get(1).startsWith("No successful extraction"), "item retained but unsampled");
     }
 
     private static void verifyInspection(com.liy.blendlib.core.animation.v2.AnimationV2EvaluationSnapshot frame) {

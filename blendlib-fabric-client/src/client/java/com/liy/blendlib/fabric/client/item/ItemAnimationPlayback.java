@@ -16,6 +16,19 @@ public final class ItemAnimationPlayback {
     private double speed = 1.0;
     private long lastNanos;
     private boolean playing = true;
+    private ItemAnimationObservation.Sample lastSample;
+
+    ItemAnimationObservation.Sample lastSample() { return lastSample; }
+
+    void sampled(com.liy.blendlib.api.BlendModelKey model, long generation, double seconds, double duration) {
+        lastSample = new ItemAnimationObservation.Sample(model, animation, generation, seconds, duration);
+    }
+
+    ItemAnimationObservation observe(long currentGeneration) {
+        return new ItemAnimationObservation(animation, mode, speed, playing, seconds,
+                java.util.Optional.ofNullable(lastSample),
+                lastSample != null && lastSample.generation() == currentGeneration);
+    }
 
     ItemAnimationPlayback(BlendAnimationKey animation, LongSupplier clock) {
         this.animation = Objects.requireNonNull(animation, "animation");

@@ -45,6 +45,15 @@ final class ItemAnimationInstances {
         return created;
     }
 
+    /** Bounded identity scan: LinkedHashMap.get would refresh access order. No purge or retirement. */
+    Entry peek(Object stack) {
+        Objects.requireNonNull(stack, "stack");
+        for (var entry : entries.entrySet()) {
+            if (entry.getKey().get() == stack) return entry.getValue();
+        }
+        return null;
+    }
+
     void release(Object stack) {
         Entry removed = entries.remove(new IdentityReference(Objects.requireNonNull(stack, "stack"), null));
         if (removed != null) retire.accept(removed.key());

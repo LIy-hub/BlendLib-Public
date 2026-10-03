@@ -171,3 +171,14 @@ explicit-ID targeting, wrong/missing target feedback, two actors with different 
 reads, F3+T then reinspection, tracking unload, and disconnect/rejoin. The packaged headless
 verification covers formatter output and immutable runtime lifecycle behavior, not command UI
 or visual rendering acceptance.
+
+### Inspect the held item without creating playback
+
+Hold the example wand and run `/blendlib_example item status`. This reads the exact main-hand
+stack object; it never calls `playback`. Current controls and stored raw playhead are printed
+separately from the last successful extraction's clip time, duration and generation. Seek/play/
+stop can change controls before extraction. After resource reload, old sample metadata is
+explicitly stale until re-extraction. Unseen, copied, evicted, released and disconnected stack
+identities have no retained status; inspection does not recreate them. Repeated status queries
+do not advance animation or keep the stack in the LRU. Samples describe extraction, not proof
+that a frame was submitted. As with other controls, the command is client-only and opt-in.

@@ -423,7 +423,7 @@ if (providers.gradleProperty("runnable_examples").orNull == "true") {
                         it.startsWith("com/liy/blendlib/core/") || it.startsWith("com/liy/blendlib/api/") }) {
                     "Example JAR must not embed library implementation or API classes"
                 }
-                listOf("ExampleContent", "LayeredActor", "ExampleClient", "ExampleItemCommands", "ExampleAnimationScene", "ExampleInspectionCommands", "ExampleLayerInspection").forEach {
+                listOf("ExampleContent", "LayeredActor", "ExampleClient", "ExampleItemCommands", "ExampleAnimationScene", "ExampleInspectionCommands", "ExampleLayerInspection", "ExampleItemInspection").forEach {
                     check("com/liy/blendlib/examples/runnable/$it.class" in names) { "Missing example class: $it" }
                 }
                 val metadata = zip.getInputStream(zip.getEntry("fabric.mod.json")).reader().readText()

@@ -23,7 +23,7 @@ import net.minecraft.world.item.ItemStack;
  * All playback, extraction, release and clear calls must run on the client/extraction thread.
  */
 public final class BlendLibItemAnimations {
-    /** Hard bound across all item types; evicted stacks restart when next observed. */
+    /** Hard bound across all item types; evicted stacks restart on next extraction or playback acquisition. */
     public static final int MAX_RETAINED_INSTANCES = 256;
     private static final ConcurrentMap<Identifier, BlendAnimationKey> DEFAULTS = new ConcurrentHashMap<>();
     private static final ItemAnimationInstances INSTANCES = new ItemAnimationInstances(
@@ -57,6 +57,24 @@ public final class BlendLibItemAnimations {
         return INSTANCES.get(stack, animation).playback();
     }
 
+    /**
+     * Observes an already retained exact stack identity on the client/extraction thread.
+     * Empty for empty, unseen, copied, released, disconnected or evicted stacks; absence does not
+     * identify which cause applies. Does not create playback, read its clock, sample animation,
+     * refresh LRU, purge weak entries or retire resources. The immutable return value may allocate.
+     * Reload preserves controls but marks a previous-generation successful sample stale.
+     */
+    public static Optional<ItemAnimationObservation> observe(ItemStack stack) {
+        Objects.requireNonNull(stack, "stack");
+        if (stack.isEmpty()) return Optional.empty();
+        var entry = INSTANCES.peek(stack);
+        if (entry == null) return Optional.empty();
+        var sample = entry.playback().lastSample();
+        long generation = sample == null || !BlendLibClientServices.isInitialized() ? -1
+                : BlendLibClientServices.models().resolve(sample.model()).generationId();
+        return Optional.of(entry.playback().observe(generation));
+    }
+
     /** Explicitly releases a stack and its runtime pose/controller cache entries. */
     public static void release(ItemStack stack) { INSTANCES.release(stack); }
 
@@ -77,6 +95,10 @@ public final class BlendLibItemAnimations {
                 RenderVisibility.VISIBLE, new CullingMetadata(handle.bounds(), true));
         var input = new SkinnedAnimationRuntimeInput(binding.modelKey(), entry.key(), 0L, 0F,
                 playback.animation(), Optional.empty(), AnimationUpdateBucket.VISIBLE_NEAR, request);
-        return runtime.extractClipAt(input, seconds, null).map(result -> result.frame().renderSnapshot());
+        return runtime.extractClipAt(input, seconds, null).map(result -> {
+            var snapshot = result.frame().renderSnapshot();
+            playback.sampled(binding.modelKey(), snapshot.generation(), seconds, duration.getAsDouble());
+            return snapshot;
+        });
     }
 }

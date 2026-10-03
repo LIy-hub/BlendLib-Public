@@ -53,7 +53,7 @@ starting the registered default. This API does not persist state in components, 
 it over the network, or automatically transfer it on copy, splitting or merging.
 
 The registry holds weak stack references and at most 256 entries across all types.
-Garbage-collected references are retired on the next registry operation; least-recently
+Garbage-collected references are retired on the next mutating registry operation; least-recently
 used entries are retired immediately at capacity. Eviction releases runtime clocks,
 controllers and cached poses. An evicted stack restarts at its next extraction.
 `release(stack)` explicitly retires it. Play initialization and disconnect clear all
@@ -70,3 +70,29 @@ use the existing missing-model fallback.
 The compiled `AnimatedItemConsumerExample` and item contract tests cover registration
 and API usage, independent identities, end modes, controls and bounded retirement.
 In-game visual checks for GUI/hand/dropped transforms remain a separate manual check.
+
+## Read-only item observation
+
+`BlendLibItemAnimations.observe(stack)` returns an immutable `Optional<ItemAnimationObservation>`
+for the exact already-retained stack object. Call it on the client/extraction thread. Unlike
+`playback(stack)`, it does not create playback, read its clock, sample, refresh LRU, purge weak
+references or retire caches. Lookup scans at most 256 weak identities; the returned value may
+allocate. Normal mutating registry operations still perform weak-reference cleanup.
+
+The current animation key (descriptor state), mode, speed and playing flag are controls.
+`storedSeconds` is the raw playhead at its last update, not elapsed wall time projected to now.
+After seeking it may exceed clip duration until extraction applies the mode's endpoint rule.
+`lastSample` is absent until a successful extraction; otherwise it records that extraction's
+animation key, model key, raw clip seconds, duration and generation. It is historical: play,
+pause, seek, speed and stop can change controls before another sample. It does not establish
+that the frame was submitted or displayed. No display-context claim is made.
+
+Reload keeps controls and historical sample metadata; `sampleCurrentGeneration=false` marks an
+old-generation sample until a fresh successful extraction. The flag compares generations only;
+even `true` does not mean the sample reflects current controls. A captured observation never
+changes. The API retains no stack, loaded asset, render handle or mutable controller in its
+return value. Empty/unseen/copied/released/evicted/disconnected stacks return empty; the API
+does not guess which absence cause applies. `null` is rejected.
+
+The opt-in runnable consumer exposes `/blendlib_example item status` for the actual main-hand
+wand and distinguishes absent playback, unsampled controls and historical/stale sample output.
