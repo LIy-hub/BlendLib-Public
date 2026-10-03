@@ -11,6 +11,8 @@ import com.liy.blendlib.core.limits.BlendAssetLimits;
 import com.liy.blendlib.core.model.ModelAsset;
 import com.liy.blendlib.fabric.BlendFabricResourceIds;
 import com.liy.blendlib.fabric.client.render.ModelRenderHandle;
+import com.liy.blendlib.fabric.client.render.BlendLibModelSkins;
+import com.liy.blendlib.core.diagnostic.DiagnosticSeverity;
 import com.liy.blendlib.fabric.client.render.SkinnedRenderHandle;
 import com.liy.blendlib.fabric.client.render.StaticRigidRenderHandle;
 import com.liy.blendlib.fabric.client.render.UnsupportedRenderMaterialException;
@@ -91,6 +93,7 @@ public final class ClientModelReloadListener extends SimpleReloadListener<Prepar
 
     @Override
     protected PreparedModelGeneration prepare(PreparableReloadListener.SharedState state) {
+        var skinDefinitions = BlendLibModelSkins.snapshotForReload();
         ResourceManager resourceManager = Objects.requireNonNull(state, "state").resourceManager();
         long generationId = registry.reserveNextGenerationId();
         Map<BlendModelKey, ModelAsset> loadedAssets = new LinkedHashMap<>();
@@ -113,7 +116,14 @@ public final class ClientModelReloadListener extends SimpleReloadListener<Prepar
                     globalDiagnostics);
         }
 
-        return new PreparedModelGeneration(generationId, loadedAssets, primaryDiagnostics, globalDiagnostics);
+        Map<BlendModelKey, PreparedNamedSkins> namedSkins = new LinkedHashMap<>();
+        skinDefinitions.entrySet().stream().sorted(Comparator.comparing(entry -> entry.getKey().resourceId().value()))
+                .forEach(entry -> {
+                    ModelAsset asset = loadedAssets.get(entry.getKey());
+                    if (asset != null) namedSkins.put(entry.getKey(), validateNamedSkins(
+                            resourceManager, entry.getKey(), asset, entry.getValue(), globalDiagnostics));
+                });
+        return new PreparedModelGeneration(generationId, loadedAssets, primaryDiagnostics, globalDiagnostics, namedSkins);
     }
 
     @Override
@@ -191,6 +201,7 @@ public final class ClientModelReloadListener extends SimpleReloadListener<Prepar
     static ModelRegistryGeneration createPublishedGeneration(PreparedModelGeneration prepared) {
         Objects.requireNonNull(prepared, "prepared");
         long generationId = prepared.generationId();
+        List<BlendDiagnostic> globalDiagnostics = new ArrayList<>(prepared.globalDiagnostics());
         Map<BlendModelKey, ModelHandle> handles = new LinkedHashMap<>();
         Map<BlendModelKey, BlendDiagnostic> primaryDiagnostics = new LinkedHashMap<>(prepared.primaryDiagnostics());
 
@@ -202,7 +213,15 @@ public final class ClientModelReloadListener extends SimpleReloadListener<Prepar
             BlendModelKey modelKey = entry.getKey();
             ModelAsset asset = entry.getValue();
             try {
-                handles.put(modelKey, new LoadedModelHandle(modelKey, asset, prepareRenderHandle(modelKey, asset)));
+                PreparedNamedSkins skins = prepared.namedSkins(modelKey);
+                ModelRenderHandle render = prepareRenderHandle(modelKey, asset, skins);
+                render.namedSkins().diagnostics().entrySet().stream()
+                        .sorted(Comparator.comparing(value -> value.getKey().value())).forEach(value -> {
+                    if (!skins.invalid().containsKey(value.getKey())) {
+                        globalDiagnostics.add(skinDiagnostic(modelKey, value.getKey(), value.getValue()));
+                    }
+                });
+                handles.put(modelKey, new LoadedModelHandle(modelKey, asset, render));
             } catch (UnsupportedRenderMaterialException exception) {
                 recordBackendMissing(
                         modelKey,
@@ -221,15 +240,47 @@ public final class ClientModelReloadListener extends SimpleReloadListener<Prepar
                 recordBackendMissing(modelKey, generationId, diagnostic, handles, primaryDiagnostics);
             }
         }
-        return new ModelRegistryGeneration(generationId, handles, primaryDiagnostics, prepared.globalDiagnostics());
+        return new ModelRegistryGeneration(generationId, handles, primaryDiagnostics, globalDiagnostics);
     }
 
     /** Selects a complete immutable adapter handle at reload time before a generation becomes visible. */
-    private static ModelRenderHandle prepareRenderHandle(BlendModelKey modelKey, ModelAsset asset) {
+    private static ModelRenderHandle prepareRenderHandle(BlendModelKey modelKey, ModelAsset asset, PreparedNamedSkins skins) {
         return switch (asset.profile()) {
-            case RIGID_V1 -> StaticRigidRenderHandle.prepare(modelKey, asset);
-            case SKINNED_V1 -> SkinnedRenderHandle.prepare(modelKey, asset);
+            case RIGID_V1 -> StaticRigidRenderHandle.prepareWithSkins(modelKey, asset, skins.valid(), skins.invalid());
+            case SKINNED_V1 -> SkinnedRenderHandle.prepareWithSkins(modelKey, asset, skins.valid(), skins.invalid());
         };
+    }
+
+    /** Validates only selected resource existence; no decoding or runtime texture ownership. */
+    static PreparedNamedSkins validateNamedSkins(ResourceManager resources, BlendModelKey model, ModelAsset asset,
+            Map<BlendResourceId, Map<String, BlendResourceId>> definitions, List<BlendDiagnostic> diagnostics) {
+        Map<BlendResourceId, Map<String, BlendResourceId>> valid = new LinkedHashMap<>();
+        Map<BlendResourceId, String> invalid = new LinkedHashMap<>();
+        definitions.entrySet().stream().sorted(Comparator.comparing(entry -> entry.getKey().value())).forEach(entry -> {
+            BlendResourceId name = entry.getKey();
+            List<String> problems = new ArrayList<>();
+            entry.getValue().entrySet().stream().sorted(Map.Entry.comparingByKey()).forEach(replacement -> {
+                String slot = replacement.getKey();
+                if (!asset.materials().containsKey(slot)) problems.add("Unknown exact slot '" + slot + "'");
+                if (resources.getResource(BlendFabricResourceIds.toIdentifier(replacement.getValue())).isEmpty()) {
+                    problems.add("Missing texture " + replacement.getValue().value() + " for slot '" + slot + "'");
+                }
+            });
+            if (problems.isEmpty()) valid.put(name, entry.getValue());
+            else {
+                String message = "Named skin " + name.value() + " uses authored fallback: " + String.join("; ", problems);
+                // Bound captured diagnostics as well as the reporting DTO.
+                if (message.length() > 1024) message = message.substring(0, 1024);
+                invalid.put(name, message);
+                diagnostics.add(skinDiagnostic(model, name, message));
+            }
+        });
+        return new PreparedNamedSkins(valid, invalid);
+    }
+
+    private static BlendDiagnostic skinDiagnostic(BlendModelKey model, BlendResourceId skin, String message) {
+        return new BlendDiagnostic(DiagnosticSeverity.WARN, "SKIN_001", model.resourceId(), skin,
+                "/named_skins/" + escapeJsonPointerSegment(skin.value()), message, "");
     }
 
     private static BlendDiagnostic unsupportedMaterialDiagnostic(

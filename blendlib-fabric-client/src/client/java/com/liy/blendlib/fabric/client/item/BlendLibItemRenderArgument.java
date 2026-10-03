@@ -26,10 +26,19 @@ record BlendLibItemRenderArgument(BlendLibItemBinding binding, ModelRenderHandle
     static BlendLibItemRenderArgument capture(BlendLibItemBinding binding, ModelRenderHandle handle,
             ModelRenderSnapshot animatedSnapshot, net.minecraft.world.item.ItemStack stack,
             BlendLibItemMaterialAppearance appearance) {
+        return capture(binding, handle, animatedSnapshot, stack, appearance, null);
+    }
+
+    static BlendLibItemRenderArgument capture(BlendLibItemBinding binding, ModelRenderHandle handle,
+            ModelRenderSnapshot animatedSnapshot, net.minecraft.world.item.ItemStack stack,
+            BlendLibItemMaterialAppearance appearance, BlendLibItemSkinSelector skin) {
         var argument = new BlendLibItemRenderArgument(binding, handle, animatedSnapshot);
-        if (appearance == null || handle.missingModel()) return argument;
-        var captured = argument.snapshot(0, 0).withMaterialAppearance(appearance.select(stack));
-        appearance.captured(stack, captured);
+        if ((appearance == null && skin == null) || handle.missingModel()) return argument;
+        var captured = argument.snapshot(0, 0);
+        if (skin != null) captured = captured.withSkin(skin.select(stack));
+        if (appearance != null) captured = captured.withMaterialAppearance(appearance.select(stack));
+        if (skin != null) skin.captured(stack, captured);
+        if (appearance != null) appearance.captured(stack, captured);
         return new BlendLibItemRenderArgument(binding, handle, captured);
     }
 

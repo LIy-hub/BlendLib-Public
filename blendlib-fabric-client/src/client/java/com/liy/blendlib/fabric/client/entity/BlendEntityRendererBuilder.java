@@ -29,6 +29,7 @@ public final class BlendEntityRendererBuilder<E extends Entity> {
     private BlendEntitySocketHandler<? super E> socketHandler;
     private BlendEntityAttachmentProvider<? super E> attachmentProvider;
     private BlendEntityMaterialAppearance<? super E> materialAppearance;
+    private BlendEntitySkinSelector<? super E> skinSelector;
     private BlendEntityCullingEnvelope cullingEnvelope;
     private float shadowRadius = 0.5F;
     private float shadowStrength = 1.0F;
@@ -248,6 +249,12 @@ public final class BlendEntityRendererBuilder<E extends Entity> {
         return this;
     }
 
+    /** Selects a registered named skin once per extraction, before material appearance. */
+    public BlendEntityRendererBuilder<E> skin(BlendEntitySkinSelector<? super E> selector) {
+        this.skinSelector = Objects.requireNonNull(selector, "selector");
+        return this;
+    }
+
     /**
      * Adds a fixed whole-assembly culling envelope on any snapshot path. Captured at build time;
      * no attachment, animation, entity or rotation selector is invoked during culling. The
@@ -289,7 +296,7 @@ public final class BlendEntityRendererBuilder<E extends Entity> {
         if (snapshotFactory == null) {
             throw new IllegalStateException("A BlendEntityRenderer requires an extraction-only snapshotFactory");
         }
-        BlendEntitySnapshotFactory<E> capturedFactory = captureMaterialAppearance(snapshotFactory, materialAppearance);
+        BlendEntitySnapshotFactory<E> capturedFactory = captureMaterialAppearance(captureSkin(snapshotFactory, skinSelector), materialAppearance);
         return new BlendEntityRenderer<>(
                 context,
                 modelKey,
@@ -309,6 +316,16 @@ public final class BlendEntityRendererBuilder<E extends Entity> {
             var snapshot = factory.create(entity, request);
             return snapshot == null || appearance == null || snapshot.handle().missingModel()
                     ? snapshot : snapshot.withMaterialAppearance(appearance.select(entity, request));
+        };
+    }
+
+    /** Captures the selector without retaining the mutable builder. */
+    static <E extends Entity> BlendEntitySnapshotFactory<E> captureSkin(
+            BlendEntitySnapshotFactory<? super E> factory, BlendEntitySkinSelector<? super E> selector) {
+        return (entity, request) -> {
+            var snapshot = factory.create(entity, request);
+            return snapshot == null || selector == null || snapshot.handle().missingModel()
+                    ? snapshot : snapshot.withSkin(selector.select(entity, request));
         };
     }
 

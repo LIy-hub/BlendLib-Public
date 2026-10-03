@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased: named entity and item texture skins
+
+- Register bounded, model-scoped named slot-to-texture definitions at client startup and prepare immutable per-generation catalogs during reload
+- Add extraction-only entity and item skin selectors, keeping geometry shared and independent per-instance selection frozen for submission
+- Compose selected textures with existing RGB/visibility; keep authored materials and captured diagnostics on invalid selections
+- Add opt-in runnable Ember/Frost actors and wands with two original PNGs, public consumer compile coverage and packaged asset/selection verification; graphics acceptance remains deferred
+
 ## Unreleased: opt-in item visual events
 
 - Add an optional exact-stack extraction-thread handler with immutable model, animation, generation and descriptor-marker metadata

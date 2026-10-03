@@ -220,13 +220,7 @@ public final class X6VariantPlanCompiler {
         return new X6DrawPrimitive(
                 draw.partId(),
                 draw.binding(),
-                new RenderMaterial(
-                        skin.textureId(),
-                        material.layer(),
-                        material.emissive(),
-                        material.doubleSided(),
-                        material.argbTint(),
-                        material.missingModelMaterial()),
+                TextureOnlyMaterial.replace(material, skin.textureId()),
                 draw.argbTint());
     }
 

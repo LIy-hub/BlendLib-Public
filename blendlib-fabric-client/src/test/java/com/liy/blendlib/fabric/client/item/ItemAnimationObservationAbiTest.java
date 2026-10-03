@@ -125,6 +125,8 @@ class ItemAnimationObservationAbiTest {
         assertEquals(Set.of(
                 "public static register(Lcom/liy/blendlib/fabric/client/item/BlendLibItemBinding;)V",
                 "public static register(Lcom/liy/blendlib/fabric/client/item/BlendLibItemBinding;Lcom/liy/blendlib/fabric/client/item/BlendLibItemMaterialAppearance;)V",
+                "public static registerWithSkin(Lcom/liy/blendlib/fabric/client/item/BlendLibItemBinding;Lcom/liy/blendlib/fabric/client/item/BlendLibItemSkinSelector;)V",
+                "public static registerWithSkin(Lcom/liy/blendlib/fabric/client/item/BlendLibItemBinding;Lcom/liy/blendlib/fabric/client/item/BlendLibItemMaterialAppearance;Lcom/liy/blendlib/fabric/client/item/BlendLibItemSkinSelector;)V",
                 "public static find(Lnet/minecraft/resources/Identifier;)Ljava/util/Optional;",
                 "public static bindings()Ljava/util/Map;",
                 "public static installModelLoadingPlugin()V"), exportedDescriptors(BlendLibItemModelBindings.class));
@@ -145,6 +147,23 @@ class ItemAnimationObservationAbiTest {
                 com.liy.blendlib.fabric.client.render.ModelRenderSnapshot.class));
         assertNotNull(BlendLibItemSpecialRenderer.class.getDeclaredConstructor(BlendLibItemBinding.class));
         assertNotNull(BlendLibItemSpecialRenderer.Unbaked.class.getDeclaredConstructor(BlendLibItemBinding.class));
+    }
+
+    @Test void namedSkinSelectionIsAnAdditiveSmallFunctionalCallback() throws Exception {
+        assertEquals(Set.of(
+                "public abstract select(Lnet/minecraft/world/item/ItemStack;)Ljava/util/Optional;",
+                "public captured(Lnet/minecraft/world/item/ItemStack;Lcom/liy/blendlib/fabric/client/render/ModelRenderSnapshot;)V"),
+                exportedDescriptors(BlendLibItemSkinSelector.class));
+        assertTrue(BlendLibItemSkinSelector.class.isAnnotationPresent(FunctionalInterface.class));
+        assertTrue(BlendLibItemSkinSelector.class.getMethod("captured", net.minecraft.world.item.ItemStack.class,
+                com.liy.blendlib.fabric.client.render.ModelRenderSnapshot.class).isDefault());
+        assertEquals("java.util.Optional<com.liy.blendlib.api.BlendResourceId>",
+                BlendLibItemSkinSelector.class.getMethod("select", net.minecraft.world.item.ItemStack.class)
+                        .getGenericReturnType().getTypeName());
+        assertNotNull(BlendLibItemSpecialRenderer.class.getDeclaredConstructor(BlendLibItemBinding.class,
+                BlendLibItemMaterialAppearance.class));
+        assertNotNull(BlendLibItemSpecialRenderer.Unbaked.class.getDeclaredConstructor(BlendLibItemBinding.class,
+                BlendLibItemMaterialAppearance.class));
     }
 
     @Test void itemVisualEventsExposeOnlyTheAdditiveImmutablePresentationContract() {

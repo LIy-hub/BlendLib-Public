@@ -1,6 +1,8 @@
 package com.liy.blendlib.fabric.client.render;
 
 import com.liy.blendlib.core.model.Transform;
+import com.liy.blendlib.api.BlendResourceId;
+import java.util.Optional;
 import java.util.Map;
 import java.util.Objects;
 
@@ -13,6 +15,7 @@ import java.util.Objects;
 public final class ModelRenderSnapshot {
     private final java.util.List<com.liy.blendlib.fabric.client.entity.BlendEntityAttachment> attachments;
     private final MaterialAppearanceSnapshot materialAppearance;
+    private final NamedSkinSnapshot namedSkin;
     private final ModelRenderHandle handle;
     private final Transform rootTransform;
     private final int packedLight;
@@ -110,7 +113,7 @@ public final class ModelRenderSnapshot {
             Transform presentationSocketTransform,
             java.util.List<com.liy.blendlib.fabric.client.entity.BlendEntityAttachment> attachments) {
         this(handle, rootTransform, packedLight, packedOverlay, tintArgb, visibility, culling,
-                rigidNodePalette, skinnedRenderSnapshot, presentationSocketTransform, attachments, null);
+                rigidNodePalette, skinnedRenderSnapshot, presentationSocketTransform, attachments, null, null);
     }
 
     private ModelRenderSnapshot(
@@ -119,7 +122,9 @@ public final class ModelRenderSnapshot {
             RigidNodePaletteSnapshot rigidNodePalette, SkinnedRenderSnapshot skinnedRenderSnapshot,
             Transform presentationSocketTransform,
             java.util.List<com.liy.blendlib.fabric.client.entity.BlendEntityAttachment> attachments,
-            MaterialAppearanceSnapshot materialAppearance) {
+            MaterialAppearanceSnapshot materialAppearance, NamedSkinSnapshot namedSkin) {
+        this.namedSkin = namedSkin;
+        if (namedSkin != null) namedSkin.requireCompatible(handle);
         this.materialAppearance = materialAppearance;
         if (materialAppearance != null) materialAppearance.requireCompatible(handle);
         this.attachments = java.util.List.copyOf(attachments);
@@ -187,7 +192,7 @@ public final class ModelRenderSnapshot {
     /** Copies captured geometry with vanilla submit-time lighting; performs no animation work. */
     public ModelRenderSnapshot withLighting(int light, int overlay) {
         return new ModelRenderSnapshot(handle, rootTransform, light, overlay, tintArgb, visibility,
-                culling, rigidNodePalette, skinnedRenderSnapshot, presentationSocketTransform, attachments, materialAppearance);
+                culling, rigidNodePalette, skinnedRenderSnapshot, presentationSocketTransform, attachments, materialAppearance, namedSkin);
     }
 
     /**
@@ -211,7 +216,7 @@ public final class ModelRenderSnapshot {
                 culling,
                 rigidNodePalette,
                 skinnedRenderSnapshot,
-                Objects.requireNonNull(socketTransform, "socketTransform"), attachments, materialAppearance);
+                Objects.requireNonNull(socketTransform, "socketTransform"), attachments, materialAppearance, namedSkin);
     }
 
     public java.util.List<com.liy.blendlib.fabric.client.entity.BlendEntityAttachment> attachments() {
@@ -222,7 +227,7 @@ public final class ModelRenderSnapshot {
     public ModelRenderSnapshot withAttachments(
             java.util.List<com.liy.blendlib.fabric.client.entity.BlendEntityAttachment> captured) {
         return new ModelRenderSnapshot(handle, rootTransform, packedLight, packedOverlay, tintArgb, visibility,
-                culling, rigidNodePalette, skinnedRenderSnapshot, presentationSocketTransform, captured, materialAppearance);
+                culling, rigidNodePalette, skinnedRenderSnapshot, presentationSocketTransform, captured, materialAppearance, namedSkin);
     }
 
     /**
@@ -233,7 +238,27 @@ public final class ModelRenderSnapshot {
     public ModelRenderSnapshot withMaterialAppearance(Map<String, MaterialSlotAppearance> selection) {
         return new ModelRenderSnapshot(handle, rootTransform, packedLight, packedOverlay, tintArgb, visibility,
                 culling, rigidNodePalette, skinnedRenderSnapshot, presentationSocketTransform, attachments,
-                MaterialAppearanceSnapshot.capture(handle, selection));
+                MaterialAppearanceSnapshot.capture(handle, selection), namedSkin);
+    }
+
+    /** Captures one named skin once; unknown or invalid skins retain all authored materials. */
+    public ModelRenderSnapshot withSkin(Optional<BlendResourceId> selection) {
+        return new ModelRenderSnapshot(handle, rootTransform, packedLight, packedOverlay, tintArgb, visibility,
+                culling, rigidNodePalette, skinnedRenderSnapshot, presentationSocketTransform, attachments,
+                materialAppearance, NamedSkinSnapshot.capture(handle, selection));
+    }
+
+    /** Requested skin identity, including an invalid selection; empty for diagnostic models. */
+    public Optional<BlendResourceId> selectedSkin() {
+        return namedSkin == null ? Optional.empty() : namedSkin.selected();
+    }
+
+    public Optional<String> skinDiagnostic() {
+        return namedSkin == null ? Optional.empty() : namedSkin.diagnostic();
+    }
+
+    RenderMaterial material(int primitiveIndex, RenderMaterial authored) {
+        return namedSkin == null ? authored : namedSkin.material(primitiveIndex, authored);
     }
 
     /** Immutable sorted unresolved exact slot names; empty for successful or diagnostic-model captures. */

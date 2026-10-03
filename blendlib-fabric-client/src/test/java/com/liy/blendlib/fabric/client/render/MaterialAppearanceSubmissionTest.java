@@ -87,6 +87,30 @@ class MaterialAppearanceSubmissionTest {
                 Map.of("Helmet", new MaterialSlotAppearance(0, false)))));
     }
 
+    @Test
+    void namedSkinsComposeWithRgbVisibilityAcrossStaticRigidAndSkinnedSubmission() {
+        for (var modes : List.of(new boolean[]{false, false}, new boolean[]{false, true}, new boolean[]{true, false})) {
+            var base = fixture(modes[0], modes[1]);
+            var skin = BlendResourceId.parse("appearance_test:winter");
+            var selected = base.withSkin(java.util.Optional.of(skin)).withMaterialAppearance(Map.of(
+                    "Helmet", new MaterialSlotAppearance(0x8040FF, true),
+                    "Body", new MaterialSlotAppearance(0xffffff, false)));
+            var actual = submit(selected);
+            var baseline = submit(base);
+            assertEquals(3, actual.size());
+            var expectedType = new Minecraft2612StaticRigidRenderBackend().renderTypeFor(
+                    base.handle().namedSkins().materials().get(skin).getFirst());
+            assertEquals(expectedType, actual.get(0).type());
+            assertEquals(expectedType, actual.get(1).type());
+            assertEquals(baseline.get(0).vertices().stream().map(v -> v.withColor(SLOT_COLOR)).toList(), actual.get(0).vertices());
+            assertEquals(baseline.get(2).vertices().stream().map(v -> v.withColor(SLOT_COLOR)).toList(), actual.get(1).vertices());
+            assertEquals(baseline.get(3), actual.get(2));
+            assertSame(base.skinnedRenderSnapshot(), selected.skinnedRenderSnapshot());
+            assertSame(base.rigidNodePalette(), selected.rigidNodePalette());
+            assertEquals(baseline, submit(base.withSkin(java.util.Optional.of(BlendResourceId.parse("appearance_test:unknown")))));
+        }
+    }
+
     private static void assertAppearanceSubmission(ModelRenderSnapshot original) {
         List<Draw> baseline = submit(original);
         assertEquals(4, baseline.size());
@@ -153,7 +177,7 @@ class MaterialAppearanceSubmissionTest {
                 new RenderMaterial(definition.baseColor(), RenderLayer.CUTOUT, true, false, AUTHORED_TINT, false));
         Transform root = translation(5, 6, 7);
         if (skinned) {
-            SkinnedRenderHandle handle = SkinnedRenderHandle.prepare(KEY, asset, resolver);
+            SkinnedRenderHandle handle = SkinnedRenderHandle.prepareWithSkins(KEY, asset, resolver, namedSkins(), Map.of());
             SkinPalette palette = SkinPalette.from(skin, NodePalette.from(
                     new LocalPose(Map.of(0, translation(3, 5, 7), 1, translation(0, 1, 0))), nodes));
             SkinnedRenderSnapshot capture = SkinnedRenderSnapshot.capture(handle, handle.skinnedPrimitives().stream()
@@ -161,12 +185,17 @@ class MaterialAppearanceSubmissionTest {
             return ModelRenderSnapshot.skinned(handle, root, LIGHT, OVERLAY, WHOLE_TINT,
                     RenderVisibility.VISIBLE, new CullingMetadata(handle.bounds(), true), capture);
         }
-        StaticRigidRenderHandle handle = StaticRigidRenderHandle.prepare(KEY, asset, resolver);
+        StaticRigidRenderHandle handle = StaticRigidRenderHandle.prepareWithSkins(KEY, asset, resolver, namedSkins(), Map.of());
         CullingMetadata culling = new CullingMetadata(handle.bounds(), true);
         return animated
                 ? ModelRenderSnapshot.rigid(handle, root, LIGHT, OVERLAY, WHOLE_TINT, RenderVisibility.VISIBLE,
                         culling, Map.of(0, translation(9, 8, 7)))
                 : new ModelRenderSnapshot(handle, root, LIGHT, OVERLAY, WHOLE_TINT, RenderVisibility.VISIBLE, culling);
+    }
+
+    private static Map<BlendResourceId, Map<String, BlendResourceId>> namedSkins() {
+        return Map.of(BlendResourceId.parse("appearance_test:winter"),
+                Map.of("Helmet", BlendResourceId.parse("appearance_test:textures/winter.png")));
     }
 
     private static MeshPrimitive geometry(String slot, boolean skinned) {

@@ -106,6 +106,105 @@ class BlendEntityMaterialAppearanceTest {
                 MaterialSlotAppearance.class.getRecordComponents()).map(RecordComponent::getType).toArray(Class<?>[]::new));
     }
 
+    @Test
+    void skinRunsOnceBeforeAppearanceAndSnapshotSelectionIsFrozen() {
+        var selected = new java.util.concurrent.atomic.AtomicReference<>(
+                Optional.of(com.liy.blendlib.api.BlendResourceId.parse("appearance:blue")));
+        var order = new ArrayList<String>();
+        var base = snapshot(false);
+        BlendEntitySnapshotFactory<Entity> factory = (entity, request) -> base;
+        var capturedFactory = BlendEntityRendererBuilder.captureMaterialAppearance(
+                BlendEntityRendererBuilder.captureSkin(factory, (entity, request) -> {
+                    assertSame(REQUEST, request); order.add("skin"); return selected.get();
+                }), (entity, request) -> { order.add("appearance"); return Map.of(); });
+        var captured = capturedFactory.create(null, REQUEST);
+        assertEquals(List.of("skin", "appearance"), order);
+        assertTrue(captured.skinDiagnostic().isPresent(), "Unregistered skin must diagnose fallback");
+        selected.set(Optional.empty());
+        var relit = captured.withLighting(4, 5);
+        assertEquals(captured.skinDiagnostic(), relit.skinDiagnostic());
+        assertEquals(captured.selectedSkin(), relit.selectedSkin());
+        assertEquals(List.of("skin", "appearance"), order);
+        assertTrue(capturedFactory.create(null, REQUEST).skinDiagnostic().isEmpty());
+        assertTrue(base.skinDiagnostic().isEmpty());
+    }
+
+    @Test
+    void skinBypassesMissingAndAbsentSnapshotsAndSupportsEveryBuilderPath() {
+        BlendEntitySkinSelector<Entity> unexpected = (entity, request) -> {
+            fail("Diagnostic and absent snapshots bypass skin selectors"); return Optional.empty();
+        };
+        assertNull(BlendEntityRendererBuilder.captureSkin(
+                (Entity entity, BlendEntitySnapshotRequest request) -> null, unexpected).create(null, REQUEST));
+        var missing = snapshot(true);
+        assertSame(missing, BlendEntityRendererBuilder.captureSkin(
+                (Entity entity, BlendEntitySnapshotRequest request) -> missing, unexpected).create(null, REQUEST));
+        var ordinary = snapshot(false);
+        assertSame(ordinary, BlendEntityRendererBuilder.captureSkin(
+                (Entity entity, BlendEntitySnapshotRequest request) -> ordinary, null).create(null, REQUEST));
+        for (var builder : List.of(builder(), builder().staticRestPose(),
+                builder().snapshotFactory((entity, request) -> null),
+                builder().skinnedAnimation((entity, request) -> BlendAnimationKey.parse("appearance:idle")),
+                builder().synchronizedSkinnedAnimation((entity, request) -> BlendAnimationKey.parse("appearance:idle")))) {
+            assertSame(builder, builder.skin((entity, request) -> Optional.empty()));
+            assertThrows(NullPointerException.class, () -> builder.skin(null));
+        }
+    }
+
+    @Test
+    void separateEntityExtractionsFreezeDifferentValidNamedSkinsOnTheSameHandle() {
+        var blue = com.liy.blendlib.api.BlendResourceId.parse("appearance:blue");
+        var gold = com.liy.blendlib.api.BlendResourceId.parse("appearance:gold");
+        var base = preparedSkinSnapshot(Map.of(
+                blue, Map.of("body", com.liy.blendlib.api.BlendResourceId.parse("appearance:textures/blue.png")),
+                gold, Map.of("body", com.liy.blendlib.api.BlendResourceId.parse("appearance:textures/gold.png"))));
+        var selected = new java.util.concurrent.atomic.AtomicReference<>(Optional.of(blue));
+        var calls = new AtomicInteger();
+        var factory = BlendEntityRendererBuilder.captureSkin(
+                (Entity entity, BlendEntitySnapshotRequest request) -> base, (entity, request) -> {
+                    calls.incrementAndGet(); return selected.get();
+                });
+        var first = factory.create(null, REQUEST);
+        selected.set(Optional.of(gold));
+        var second = factory.create(null, REQUEST);
+        assertSame(first.handle(), second.handle());
+        assertEquals(Optional.of(blue), first.selectedSkin());
+        assertEquals(Optional.of(gold), second.selectedSkin());
+        assertTrue(first.skinDiagnostic().isEmpty());
+        assertTrue(second.skinDiagnostic().isEmpty());
+        assertTrue(base.selectedSkin().isEmpty());
+        assertEquals(2, calls.get());
+    }
+
+    private static ModelRenderSnapshot preparedSkinSnapshot(Map<com.liy.blendlib.api.BlendResourceId,
+            Map<String, com.liy.blendlib.api.BlendResourceId>> definitions) {
+        var mesh = new com.liy.blendlib.core.model.MeshPrimitive("body",
+                new float[]{0, 0, 0, 1, 0, 0, 0, 1, 0}, new float[]{0, 0, 1, 0, 0, 1, 0, 0, 1},
+                new float[]{0, 0, 1, 0, 0, 1}, new int[]{0, 1, 2}, null, null);
+        var asset = new com.liy.blendlib.core.model.ModelAsset(KEY.resourceId(), KEY.descriptorResourceId(), 8,
+                com.liy.blendlib.core.model.ModelProfile.RIGID_V1, 1,
+                Map.of("body", new com.liy.blendlib.core.descriptor.MaterialDefinition(
+                        com.liy.blendlib.api.BlendResourceId.parse("appearance:textures/authored.png"),
+                        com.liy.blendlib.core.descriptor.MaterialDefinition.Mode.OPAQUE, false, false, null)),
+                null, List.of(new com.liy.blendlib.core.model.ModelNode(0, "mesh", Transform.IDENTITY, List.of(), 0, -1, false)),
+                List.of(0), List.of(new com.liy.blendlib.core.model.ModelPrimitive(0, 0, 0, mesh)), null,
+                List.of(), new com.liy.blendlib.core.model.SocketTable(Map.of()),
+                Bounds.fromPositions(new float[]{0, 0, 0, 1, 1, 1}), List.of());
+        var handle = StaticRigidRenderHandle.prepareWithSkins(KEY, asset, definitions, Map.of());
+        return new ModelRenderSnapshot(handle, Transform.IDENTITY, 1, 2, 0xffffffff,
+                RenderVisibility.VISIBLE, new CullingMetadata(handle.bounds(), true));
+    }
+
+    @Test
+    void skinCallbackPinsExactPublicSignature() throws ReflectiveOperationException {
+        assertTrue(BlendEntitySkinSelector.class.isAnnotationPresent(FunctionalInterface.class));
+        var select = BlendEntitySkinSelector.class.getDeclaredMethod("select", Entity.class, BlendEntitySnapshotRequest.class);
+        assertEquals("java.util.Optional<com.liy.blendlib.api.BlendResourceId>", select.getGenericReturnType().getTypeName());
+        assertEquals(1, BlendEntitySkinSelector.class.getDeclaredMethods().length);
+        assertEquals(BlendEntityRendererBuilder.class,
+                BlendEntityRendererBuilder.class.getMethod("skin", BlendEntitySkinSelector.class).getReturnType());
+    }
+
     private static BlendEntityRendererBuilder<Entity> builder() {
         try {
             var type = Class.forName("sun.misc.Unsafe");

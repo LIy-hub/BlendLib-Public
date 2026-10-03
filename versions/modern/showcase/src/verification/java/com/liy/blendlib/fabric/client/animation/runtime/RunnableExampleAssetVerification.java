@@ -42,6 +42,7 @@ public final class RunnableExampleAssetVerification {
         verifyMaterialAppearance(appearanceWand, "appearance_wand",
                 com.liy.blendlib.examples.runnable.ExampleItemMaterialAppearance::forName);
         com.liy.blendlib.fabric.client.item.RunnableItemVisualEventVerification.verify(wand, appearanceWand);
+        com.liy.blendlib.fabric.client.render.RunnableNamedSkinVerification.verify(load("appearance_actor"), appearanceWand);
         verifyLayerVisualEvents(actor);
         var layers = new ModelAnimationLayers(actor, ExampleAnimationScene.layers());
         var runtime = new AnimationV2InstanceRuntime(layers.plan());

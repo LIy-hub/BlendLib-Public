@@ -121,14 +121,14 @@ class BlendLibItemAdapterContractsTest {
     }
 
     @Test
-    void legacyWrapperTransformRetainsTheConfiguredAppearanceArgument() throws IOException {
+    void legacyWrapperTransformRetainsBothConfiguredSelectorArguments() throws IOException {
         var repository = Path.of(System.getProperty("blendlib.projectDir")).getParent();
         var transform = Files.readString(repository.resolve("versions/legacy/transforms.gradle"));
         assertTrue(transform.contains("s.replace('binding.baseModelId(), Optional.empty(),',"));
         String source = Files.readString(clientSource("item/BlendLibItemModelBindings.java"));
         String ported = source.replace("binding.baseModelId(), Optional.empty(),", "binding.baseModelId(),");
         assertFalse(ported.contains("binding.baseModelId(), Optional.empty(),"));
-        assertTrue(ported.contains("binding.baseModelId(), new BlendLibItemSpecialRenderer.Unbaked(binding, registration.appearance())"));
+        assertTrue(ported.contains("binding.baseModelId(), new BlendLibItemSpecialRenderer.Unbaked(binding, registration.appearance(), registration.skin())"));
     }
 
     private static Path clientSource(String relativePath) {

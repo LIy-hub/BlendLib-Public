@@ -17,19 +17,32 @@ public final class ExampleItemMaterialAppearance {
     private ExampleItemMaterialAppearance() { }
 
     public static void register(boolean enabled) {
-        BlendLibItemAnimations.register(binding(enabled), ExampleContent.IDLE);
+        register(enabled, false);
     }
 
     /** The separate visual-event opt-in composes with either authored item appearance. */
     public static void register(boolean enabled, ItemAnimationVisualEventHandler handler) {
-        BlendLibItemAnimations.register(binding(enabled), ExampleContent.IDLE, handler);
+        register(enabled, false, handler);
     }
 
-    private static BlendLibItemBinding binding(boolean enabled) {
+    public static void register(boolean appearance, boolean skins) {
+        BlendLibItemAnimations.register(binding(appearance, skins), ExampleContent.IDLE);
+    }
+
+    public static void register(boolean appearance, boolean skins, ItemAnimationVisualEventHandler handler) {
+        BlendLibItemAnimations.register(binding(appearance, skins), ExampleContent.IDLE, handler);
+    }
+
+    private static BlendLibItemBinding binding(boolean enabled, boolean skins) {
         var binding = new BlendLibItemBinding(ExampleContent.WAND_ID,
-                enabled ? ExampleContent.APPEARANCE_WAND_MODEL : ExampleContent.WAND_MODEL,
+                (enabled || skins) ? ExampleContent.APPEARANCE_WAND_MODEL : ExampleContent.WAND_MODEL,
                 ExampleContent.id("item/animated_wand"));
-        if (enabled) {
+        if (skins && enabled) {
+            BlendLibItemModelBindings.registerWithSkin(binding,
+                    ExampleItemMaterialAppearance::selectWithSkin, ExampleNamedSkins::select);
+        } else if (skins) {
+            BlendLibItemModelBindings.registerWithSkin(binding, ExampleNamedSkins::select);
+        } else if (enabled) {
             BlendLibItemModelBindings.register(binding, ExampleItemMaterialAppearance::select);
         }
         // Animation registration retains the selector configured above.
@@ -39,6 +52,11 @@ public final class ExampleItemMaterialAppearance {
     public static Map<String, MaterialSlotAppearance> select(ItemStack stack) {
         var name = stack.get(DataComponents.CUSTOM_NAME);
         return forName(name == null ? null : name.getString());
+    }
+
+    private static Map<String, MaterialSlotAppearance> selectWithSkin(ItemStack stack) {
+        var name = stack.get(DataComponents.CUSTOM_NAME);
+        return forName(ExampleNamedSkins.appearanceName(name == null ? null : name.getString()));
     }
 
     /** Also exercised by the packaged headless example verification. */

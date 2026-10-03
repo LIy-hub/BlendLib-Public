@@ -23,16 +23,18 @@ public final class ExampleClient implements ClientModInitializer {
     @Override
     public void onInitializeClient() {
         boolean itemAppearance = Boolean.getBoolean("blendlib.examples.itemAppearance");
+        boolean namedSkins = Boolean.getBoolean("blendlib.examples.namedSkins");
+        if (namedSkins) ExampleNamedSkins.register();
         if (ITEM_VISUAL_EVENTS_ENABLED) {
-            ExampleItemMaterialAppearance.register(itemAppearance, ITEM_VISUAL_EVENTS::accept);
+            ExampleItemMaterialAppearance.register(itemAppearance, namedSkins, ITEM_VISUAL_EVENTS::accept);
         } else {
-            ExampleItemMaterialAppearance.register(itemAppearance);
+            ExampleItemMaterialAppearance.register(itemAppearance, namedSkins);
         }
         BlendEntityRenderers.register(ExampleContent.ACTOR,
                 context -> {
                     var builder = BlendEntityRenderer.<LayeredActor>builder(context, ExampleContent.APPEARANCE_ACTOR_MODEL)
                         .materialAppearance((entity, request) -> ExampleMaterialAppearance.forName(
-                                entity.getCustomName() == null ? null : entity.getCustomName().getString()))
+                                appearanceName(entity, namedSkins)))
                         .skinnedAnimation((entity, request) -> ExampleContent.WALK)
                         .animationLayerCues(ExampleAnimationScene.layers(), ExampleClient::cues)
                         .onAnimationLayerVisualEvent((entity, event) -> entity.visualEvents().accept(event))
@@ -41,6 +43,8 @@ public final class ExampleClient implements ClientModInitializer {
                         .poseComponents(ExampleAnimationScene.procedural())
                         .attachments(ExampleClient::attachments)
                         .shadowRadius(0.45F);
+                    if (namedSkins) builder.skin((entity, request) -> ExampleNamedSkins.forName(
+                            entity.getCustomName() == null ? null : entity.getCustomName().getString()));
                     ATTACHMENT_MODE.cullingEnvelope().ifPresent(builder::cullingEnvelope);
                     return builder.build();
                 });
@@ -54,6 +58,11 @@ public final class ExampleClient implements ClientModInitializer {
                 });
         ExampleItemCommands.register(ITEM_VISUAL_EVENTS_ENABLED, ITEM_VISUAL_EVENTS);
         ExampleInspectionCommands.register();
+    }
+
+    private static String appearanceName(LayeredActor entity, boolean namedSkins) {
+        String name = entity.getCustomName() == null ? null : entity.getCustomName().getString();
+        return namedSkins ? ExampleNamedSkins.appearanceName(name) : name;
     }
 
     private static List<BlendEntityLayerCue> cues(LayeredActor entity, BlendEntitySnapshotRequest request) {

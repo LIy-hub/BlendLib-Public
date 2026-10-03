@@ -244,6 +244,7 @@ if (minecraftVersion == "26.3") {
     sourceSets["test"].java.apply {
         srcDir(repository.resolve("blendlib-core/src/test/java"))
         srcDir(repository.resolve("blendlib-fabric-client/src/test/java"))
+        srcDir(repository.resolve("blendlib-fabric-consumer-fixture/src/client/java"))
         include(
             "**/X7PipelinePortTest.java",
             "**/Minecraft263ShutdownMixinTest.java",
@@ -256,6 +257,9 @@ if (minecraftVersion == "26.3") {
             "**/EntityLayerCueCacheTest.java",
             "**/MaterialAppearanceSubmissionTest.java",
             "**/MaterialAppearanceCaptureTest.java",
+            "**/*NamedSkin*Test.java",
+            "**/BlendLibModelSkinsTest.java",
+            "**/NamedSkinConsumerFixture.java",
             "**/ClientAnimationRigViewTestAccess.java",
             "**/animation/runtime/procedural/*.java",
             "**/entity/BlendEntitySocketsTest.java",
@@ -434,7 +438,7 @@ if (providers.gradleProperty("runnable_examples").orNull == "true") {
                         it.startsWith("com/liy/blendlib/core/") || it.startsWith("com/liy/blendlib/api/") }) {
                     "Example JAR must not embed library implementation or API classes"
                 }
-                listOf("ExampleContent", "LayeredActor", "ExampleClient", "ExampleItemCommands", "ExampleAnimationScene", "ExampleInspectionCommands", "ExampleLayerInspection", "ExampleItemInspection", "ExampleLayerVisualEvents", "ExampleMaterialAppearance", "ExampleItemMaterialAppearance", "ExampleAttachmentScene", "ExampleAttachmentOwners").forEach {
+                listOf("ExampleContent", "LayeredActor", "ExampleClient", "ExampleItemCommands", "ExampleAnimationScene", "ExampleInspectionCommands", "ExampleLayerInspection", "ExampleItemInspection", "ExampleLayerVisualEvents", "ExampleMaterialAppearance", "ExampleItemMaterialAppearance", "ExampleNamedSkins", "ExampleAttachmentScene", "ExampleAttachmentOwners").forEach {
                     check("com/liy/blendlib/examples/runnable/$it.class" in names) { "Missing example class: $it" }
                 }
                 val metadata = zip.getInputStream(zip.getEntry("fabric.mod.json")).reader().readText()
@@ -473,6 +477,14 @@ if (providers.gradleProperty("runnable_examples").orNull == "true") {
                         check((descriptor["sockets"] as Map<*, *>).containsKey("blendlib_runnable_examples:tip"))
                     }
                 }
+                listOf("ember", "frost").forEach { skin ->
+                    val texture = "textures/skins/$skin.png"
+                    val bytes = zip.getInputStream(zip.getEntry(namespace + texture)).readBytes()
+                    check(bytes.contentEquals(file("showcase/src/main/resources/$namespace$texture").readBytes())) {
+                        "Named skin texture must be the committed authored PNG: $texture"
+                    }
+                }
+                check("data/blendlib_runnable_examples/function/named_skins.mcfunction" in names)
                 check("data/blendlib_runnable_examples/function/item_appearance.mcfunction" in names)
                 check(namespace + "items/animated_wand.json" in names)
                 check(namespace + "models/item/animated_wand.json" in names)

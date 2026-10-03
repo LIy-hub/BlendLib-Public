@@ -524,3 +524,86 @@ Manual acceptance remains **unverified**:
 
 Record the two JAR hashes, game/loader versions, property, commands and screenshots/logs
 before claiming native visual acceptance.
+
+## Opt-in named texture skins
+
+Named skins are disabled by default. Enable them once at client startup, independently of
+item RGB/visibility and visual events:
+
+```sh
+JAVA_TOOL_OPTIONS="-Dblendlib.examples.namedSkins=true" ./gradlew -p versions/modern -Pminecraft_version=26.3 -Prunnable_examples=true runRunnableExamplesClient
+```
+
+For a packaged install, add `-Dblendlib.examples.namedSkins=true` to the launcher's Java/JVM
+arguments and restart. This is a JVM property, not a Gradle project property. Both the entity
+and wand consumers use it; the server needs no matching JVM property. The optional example
+mod must still be installed on both sides when playing multiplayer.
+
+In a Creative test world with commands enabled, create two actors and two wands together:
+
+```mcfunction
+/function blendlib_runnable_examples:named_skins
+```
+
+Or create them separately:
+
+```mcfunction
+/summon blendlib_runnable_examples:layered_actor ~-1 ~ ~3 {CustomName:{text:"Ember"}}
+/summon blendlib_runnable_examples:layered_actor ~1 ~ ~3 {CustomName:{text:"Frost"}}
+/give @s blendlib_runnable_examples:animated_wand[minecraft:custom_name={text:"Ember"}]
+/give @s blendlib_runnable_examples:animated_wand[minecraft:custom_name={text:"Frost"}]
+```
+
+`Ember` uses the original warm pixel pattern on the body and the cool pattern on the accessory;
+`Frost` reverses them. These are two real, opaque 8×8 PNG assets under `textures/skins/`, not RGB
+multipliers or per-instance mesh copies. Both actors share `appearance_actor`; both wands share
+`appearance_wand`. The wand skin opt-in uses that real two-slot shaft/crystal mesh even when
+`itemAppearance` is false. The separate weapon and ornament attachments retain their own
+materials. Unnamed and unrecognized names retain authored textures. Rename an existing actor
+or wand using vanilla synchronized custom-name data to change its next extracted skin.
+
+`ExampleNamedSkins.register()` runs during client initialization, before the first model reload.
+It registers the same model-scoped `ember` and `frost` names for the two actual model keys using
+`BlendLibModelSkins.register`. Actor slots are `ShowcaseAnimationSurface` and `ExampleAccessory`;
+wand slots are `WandBody` and `WandAccessory`. The entity builder calls `.skin(...)`; items use
+`registerWithSkin(binding, selector)` or `registerWithSkin(binding, appearance, selector)` before
+ordinary animation registration. Definition maps are immutable. Selection reads only the current
+custom name during extraction; there is no resource lookup, GLB parsing or texture decoding in
+that callback or during submission. No registration takes place from render callbacks.
+
+The optional suffix after a skin name selects the existing RGB/visibility behavior. For example,
+`Frost Blue bare` keeps Frost textures, multiplies body RGB by blue, and hides the accessory.
+Actor material appearance is already enabled. To apply the same suffix to items, launch with
+both properties:
+
+```sh
+JAVA_TOOL_OPTIONS="-Dblendlib.examples.namedSkins=true -Dblendlib.examples.itemAppearance=true -Dblendlib.examples.itemVisualEvents=true" ./gradlew -p versions/modern -Pminecraft_version=26.3 -Prunnable_examples=true runRunnableExamplesClient
+```
+
+```mcfunction
+/give @s blendlib_runnable_examples:animated_wand[minecraft:custom_name={text:"Frost Blue bare"}]
+```
+
+Appearance multiplies the selected texture color, so its final color need not equal the RGB
+multiplier. Plain `Orange`/`Blue bare` names preserve the previous appearance example. A bare
+skin name leaves tint and visibility authored. Disabling `namedSkins` leaves the original
+registration and name behavior unchanged. Item playback commands and the optional visual-event
+counter continue to use the same stack and animation binding.
+
+`verifyRunnableExamples` checks both committed PNGs are packaged unchanged and decodes them,
+loads the actual actor/wand GLBs, verifies exact slot matches, exercises the live name selection,
+proves shared handle and captured CPU-skinned geometry, tests appearance/copy preservation, and
+checks unknown-skin authored fallback and immutable definitions. The public client compile
+fixture covers both item overloads and observing `selectedSkin()` / `skinDiagnostic()` from
+`BlendLibItemSkinSelector.captured`. Requested skin identity can remain present on a failed
+selection; inspect its diagnostic too. These are extraction observations, not evidence that a
+frame was submitted or displayed. Reload validation and backend routing have separate library
+tests. The probe deliberately does not mutate or freeze the global startup registry.
+
+Manual graphics acceptance is still deferred. Compare both actors and both held wands, change a
+name, use a combined RGB/hidden-accessory name, exercise attack and status, then press F3+T and
+confirm the same choices survive fresh extraction. A resource pack may replace these PNGs at
+the same resource IDs; after reload the new resources should be used. Removing a replacement
+resource or changing an authored slot should produce atomic authored fallback and a diagnostic,
+not a partially replaced skin. Also check a launch without the opt-in. No client session or
+visual/GPU acceptance is implied by a passing headless probe.

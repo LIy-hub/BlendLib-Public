@@ -12,10 +12,11 @@ import java.util.Objects;
 /**
  * Immutable resource-I/O result produced by the reload prepare phase.
  *
- * <p>This DTO intentionally contains core assets and diagnostics only. Backend render handles are created once in
+ * <p>This DTO intentionally contains core assets, frozen named-skin definitions and diagnostics only. Backend render handles are created once in
  * the apply phase, before a complete {@link ModelRegistryGeneration} is atomically published.</p>
  */
 public final class PreparedModelGeneration {
+    private final Map<BlendModelKey, PreparedNamedSkins> namedSkins;
     private final long generationId;
     private final Map<BlendModelKey, ModelAsset> loadedAssets;
     private final Map<BlendModelKey, BlendDiagnostic> primaryDiagnostics;
@@ -26,6 +27,13 @@ public final class PreparedModelGeneration {
             Map<BlendModelKey, ModelAsset> loadedAssets,
             Map<BlendModelKey, BlendDiagnostic> primaryDiagnostics,
             List<BlendDiagnostic> globalDiagnostics) {
+        this(generationId, loadedAssets, primaryDiagnostics, globalDiagnostics, Map.of());
+    }
+
+    PreparedModelGeneration(long generationId, Map<BlendModelKey, ModelAsset> loadedAssets,
+            Map<BlendModelKey, BlendDiagnostic> primaryDiagnostics, List<BlendDiagnostic> globalDiagnostics,
+            Map<BlendModelKey, PreparedNamedSkins> namedSkins) {
+        this.namedSkins = Map.copyOf(namedSkins);
         if (generationId < 0L) {
             throw new IllegalArgumentException("generationId must be non-negative");
         }
@@ -33,6 +41,10 @@ public final class PreparedModelGeneration {
         this.loadedAssets = immutableAssets(loadedAssets, generationId);
         this.primaryDiagnostics = immutableDiagnostics(primaryDiagnostics, this.loadedAssets);
         this.globalDiagnostics = List.copyOf(Objects.requireNonNull(globalDiagnostics, "globalDiagnostics"));
+    }
+
+    PreparedNamedSkins namedSkins(BlendModelKey model) {
+        return namedSkins.getOrDefault(model, PreparedNamedSkins.EMPTY);
     }
 
     public long generationId() {

@@ -189,3 +189,15 @@ For children beyond the root envelope, configure the additive ordinary-builder
 current root bounds remain included.
 
 Per-stack item RGB/visibility selection: [item material appearance](docs/item-material-appearance.md).
+
+### Named entity and item texture skins
+
+Startup-registered, model-scoped named skins replace textures by exact authored material slot.
+Entity and item selectors capture one name during extraction; RGB tint/visibility compose on
+top, and incompatible selections fall back atomically with snapshot diagnostics. Existing
+unselected behavior and animation stay unchanged. See the
+[opt-in runnable actor and wand consumers](versions/modern/showcase/README.md#opt-in-named-texture-skins)
+and [public client compile fixture](blendlib-fabric-consumer-fixture/README.md).
+Headless verification does not establish native-window or graphics acceptance.
+
+Named entity/item texture skins: [API and reload contract](docs/named-texture-skins.md).

@@ -54,7 +54,7 @@ public final class Minecraft2612StaticRigidRenderBackend implements ModelRenderB
                 poseStack.pushPose();
                 try {
                     applyTransform(poseStack, nodeTransformFor(snapshot, primitive.nodeIndex()));
-                    RenderMaterial material = primitive.material();
+                    RenderMaterial material = snapshot.material(primitiveIndex, primitive.material());
                     RenderType renderType = renderTypeFor(material);
                     int color = multiplyArgb(
                             multiplyArgb(snapshot.tintArgb(), material.argbTint()), 0xFF000000 | appearance.rgbTint());
@@ -93,7 +93,7 @@ public final class Minecraft2612StaticRigidRenderBackend implements ModelRenderB
                     continue;
                 }
                 SkinnedMeshSnapshot mesh = meshes.get(primitiveIndex);
-                RenderMaterial material = mesh.material();
+                RenderMaterial material = snapshot.material(primitiveIndex, mesh.material());
                 RenderType renderType = renderTypeFor(material);
                 int color = multiplyArgb(
                         multiplyArgb(snapshot.tintArgb(), material.argbTint()), 0xFF000000 | appearance.rgbTint());

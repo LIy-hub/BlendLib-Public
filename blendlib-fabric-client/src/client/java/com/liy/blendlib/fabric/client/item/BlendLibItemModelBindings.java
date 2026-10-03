@@ -34,7 +34,7 @@ public final class BlendLibItemModelBindings {
      * than making model ownership depend on entrypoint ordering.</p>
      */
     public static void register(BlendLibItemBinding binding) {
-        registerInternal(binding, null);
+        registerInternal(binding, null, null);
     }
 
     /**
@@ -45,22 +45,42 @@ public final class BlendLibItemModelBindings {
      * the next bake. Do not capture stack objects in a registration-lifetime callback.
      */
     public static void register(BlendLibItemBinding binding, BlendLibItemMaterialAppearance appearance) {
-        registerInternal(binding, Objects.requireNonNull(appearance, "appearance"));
+        registerInternal(binding, Objects.requireNonNull(appearance, "appearance"), null);
     }
 
-    private static void registerInternal(BlendLibItemBinding binding, BlendLibItemMaterialAppearance appearance) {
+    /** Registers a named-skin selector without overloading the appearance callback API. */
+    public static void registerWithSkin(BlendLibItemBinding binding, BlendLibItemSkinSelector selector) {
+        registerInternal(binding, null, Objects.requireNonNull(selector, "selector"));
+    }
+
+    /**
+     * Registers skin and appearance atomically. Existing callbacks are preserved by registrations
+     * that omit them; adding a callback is allowed, replacing a different callback is rejected.
+     * Already baked renderers retain their captured configuration until the next bake.
+     */
+    public static void registerWithSkin(BlendLibItemBinding binding,
+            BlendLibItemMaterialAppearance appearance, BlendLibItemSkinSelector selector) {
+        registerInternal(binding, Objects.requireNonNull(appearance, "appearance"),
+                Objects.requireNonNull(selector, "selector"));
+    }
+
+    private static void registerInternal(BlendLibItemBinding binding,
+            BlendLibItemMaterialAppearance appearance, BlendLibItemSkinSelector skin) {
         BlendLibItemBinding checked = Objects.requireNonNull(binding, "binding");
         BINDINGS.compute(checked.itemId(), (id, previous) -> {
             if (previous != null && (!previous.binding().equals(checked)
-                    || (previous.appearance() != null && appearance != null && previous.appearance() != appearance))) {
-                throw new IllegalStateException("Marker item already has a different BlendLib binding or appearance: " + id);
+                    || (previous.appearance() != null && appearance != null && previous.appearance() != appearance)
+                    || (previous.skin() != null && skin != null && previous.skin() != skin))) {
+                throw new IllegalStateException("Marker item already has a different BlendLib binding or selector: " + id);
             }
-            return previous != null && (appearance == null || previous.appearance() != null)
-                    ? previous : new Registration(checked, appearance);
+            return new Registration(checked,
+                    previous != null && previous.appearance() != null ? previous.appearance() : appearance,
+                    previous != null && previous.skin() != null ? previous.skin() : skin);
         });
     }
 
-    private record Registration(BlendLibItemBinding binding, BlendLibItemMaterialAppearance appearance) { }
+    private record Registration(BlendLibItemBinding binding, BlendLibItemMaterialAppearance appearance,
+            BlendLibItemSkinSelector skin) { }
 
     /** Read-only binding lookup, primarily useful for diagnostics and deterministic adapter tests. */
     public static Optional<BlendLibItemBinding> find(Identifier itemId) {
@@ -92,6 +112,6 @@ public final class BlendLibItemModelBindings {
         }
         var binding = registration.binding();
         return new SpecialModelWrapper.Unbaked(
-                binding.baseModelId(), Optional.empty(), new BlendLibItemSpecialRenderer.Unbaked(binding, registration.appearance()));
+                binding.baseModelId(), Optional.empty(), new BlendLibItemSpecialRenderer.Unbaked(binding, registration.appearance(), registration.skin()));
     }
 }

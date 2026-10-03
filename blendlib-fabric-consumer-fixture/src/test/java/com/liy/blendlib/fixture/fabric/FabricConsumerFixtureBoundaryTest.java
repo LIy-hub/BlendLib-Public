@@ -21,6 +21,22 @@ class FabricConsumerFixtureBoundaryTest {
             "com.liy.blendlib.fabric.common.animation.BlendAnimations");
 
     @Test
+    void namedSkinClientFixtureUsesOnlyPublicFacadeTypes() throws IOException {
+        String source = Files.readString(Path.of(System.getProperty("blendlib.projectDir"),
+                "src", "client", "java", "com", "liy", "blendlib", "fixture", "fabric",
+                "NamedSkinConsumerFixture.java"));
+        for (String forbidden : List.of(".impl.", "com.liy.blendlib.core.", ".reload.",
+                ".resource.", ".animation.runtime.", "RenderBackend", "prepareWithSkins")) {
+            assertFalse(source.contains(forbidden), forbidden);
+        }
+        assertTrue(source.contains("BlendLibModelSkins.register"));
+        assertTrue(source.contains("builder.skin"));
+        assertTrue(source.contains("registerWithSkin(binding, selector)"));
+        assertTrue(source.contains("registerWithSkin(binding, appearance, selector)"));
+        assertTrue(source.contains("snapshot.selectedSkin(), snapshot.skinDiagnostic()"));
+    }
+
+    @Test
     void fixtureCompilesAgainstTheDocumentedSemanticKeys() {
         assertEquals("consumer:fixture_actor", FabricConsumerFixture.canonicalModelId().value());
         assertEquals("consumer:attack", FabricConsumerFixture.ATTACK_KEY.value());

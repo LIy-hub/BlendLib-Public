@@ -1,7 +1,8 @@
 # Asset provenance
 
-No new binary files or third-party assets are added. `prepareRunnableExampleAssets` copies these
-existing repository-local files byte-for-byte into generated example resources at build time:
+No third-party assets are added. `prepareRunnableExampleAssets` copies these existing
+repository-local files byte-for-byte into generated example resources at build time; committed
+mesh derivatives and the two original named-skin PNGs are documented below:
 
 | Source under `blendlib-showcase/src/main/resources/assets/blendlib_showcase/` | Generated destination under `assets/blendlib_runnable_examples/` |
 | --- | --- |
@@ -44,3 +45,14 @@ the existing actor texture and repository license; no external assets are used.
 Only the opt-in item registration uses this new mesh. The original `wand.json`, source fixture
 and attachment usages remain unchanged. Both appearance stacks share one prepared handle;
 there is no per-stack mesh copy or runtime asset-generation step.
+
+## Original named-skin pixel textures
+
+`textures/skins/ember.png` and `textures/skins/frost.png` are original, hand-authored 8×8 RGBA
+pixel patterns committed specifically for the named-skin consumer. They have three colors each
+and fully opaque pixels. `tools/generate_named_skin_textures.py` reproduces both PNGs from the
+explicit authored rows and palettes using only Python's standard library. They are covered by
+the repository's Apache-2.0 license; there are no external images, downloads or attribution
+requirements beyond the existing repository notices. The build consumes the committed files
+and does not run this authoring script. Both actual model definitions reuse these two textures
+in opposite body/accessory combinations; original copied assets and GLB geometry are unchanged.

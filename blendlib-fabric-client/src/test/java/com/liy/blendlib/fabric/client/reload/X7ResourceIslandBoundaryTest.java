@@ -287,6 +287,21 @@ class X7ResourceIslandBoundaryTest {
             assertTrue(actualManifest.contains(addition), addition);
             actualManifest = actualManifest.replace(addition, "");
         }
+        // Named skins add only these exact descriptors; retain the baseline ABI unchanged.
+        for (String addition : List.of(
+                "  public default com.liy.blendlib.fabric.client.render.NamedSkinCatalog namedSkins();\n    descriptor: ()Lcom/liy/blendlib/fabric/client/render/NamedSkinCatalog;\n\n",
+                "  public com.liy.blendlib.fabric.client.render.NamedSkinCatalog namedSkins();\n    descriptor: ()Lcom/liy/blendlib/fabric/client/render/NamedSkinCatalog;\n\n",
+                "  public static com.liy.blendlib.fabric.client.render.StaticRigidRenderHandle prepareWithSkins(com.liy.blendlib.api.BlendModelKey, com.liy.blendlib.core.model.ModelAsset, java.util.Map<com.liy.blendlib.api.BlendResourceId, java.util.Map<java.lang.String, com.liy.blendlib.api.BlendResourceId>>, java.util.Map<com.liy.blendlib.api.BlendResourceId, java.lang.String>);\n    descriptor: (Lcom/liy/blendlib/api/BlendModelKey;Lcom/liy/blendlib/core/model/ModelAsset;Ljava/util/Map;Ljava/util/Map;)Lcom/liy/blendlib/fabric/client/render/StaticRigidRenderHandle;\n\n",
+                "  public static com.liy.blendlib.fabric.client.render.SkinnedRenderHandle prepareWithSkins(com.liy.blendlib.api.BlendModelKey, com.liy.blendlib.core.model.ModelAsset, java.util.Map<com.liy.blendlib.api.BlendResourceId, java.util.Map<java.lang.String, com.liy.blendlib.api.BlendResourceId>>, java.util.Map<com.liy.blendlib.api.BlendResourceId, java.lang.String>);\n    descriptor: (Lcom/liy/blendlib/api/BlendModelKey;Lcom/liy/blendlib/core/model/ModelAsset;Ljava/util/Map;Ljava/util/Map;)Lcom/liy/blendlib/fabric/client/render/SkinnedRenderHandle;\n\n",
+                "  public com.liy.blendlib.fabric.client.render.ModelRenderSnapshot withSkin(java.util.Optional<com.liy.blendlib.api.BlendResourceId>);\n    descriptor: (Ljava/util/Optional;)Lcom/liy/blendlib/fabric/client/render/ModelRenderSnapshot;\n\n",
+                "  public java.util.Optional<com.liy.blendlib.api.BlendResourceId> selectedSkin();\n    descriptor: ()Ljava/util/Optional;\n\n",
+                "  public java.util.Optional<java.lang.String> skinDiagnostic();\n    descriptor: ()Ljava/util/Optional;\n\n",
+                "  public com.liy.blendlib.fabric.client.entity.BlendEntityRendererBuilder<E> skin(com.liy.blendlib.fabric.client.entity.BlendEntitySkinSelector<? super E>);\n    descriptor: (Lcom/liy/blendlib/fabric/client/entity/BlendEntitySkinSelector;)Lcom/liy/blendlib/fabric/client/entity/BlendEntityRendererBuilder;\n\n",
+                "  public static void registerWithSkin(com.liy.blendlib.fabric.client.item.BlendLibItemBinding, com.liy.blendlib.fabric.client.item.BlendLibItemSkinSelector);\n    descriptor: (Lcom/liy/blendlib/fabric/client/item/BlendLibItemBinding;Lcom/liy/blendlib/fabric/client/item/BlendLibItemSkinSelector;)V\n\n",
+                "  public static void registerWithSkin(com.liy.blendlib.fabric.client.item.BlendLibItemBinding, com.liy.blendlib.fabric.client.item.BlendLibItemMaterialAppearance, com.liy.blendlib.fabric.client.item.BlendLibItemSkinSelector);\n    descriptor: (Lcom/liy/blendlib/fabric/client/item/BlendLibItemBinding;Lcom/liy/blendlib/fabric/client/item/BlendLibItemMaterialAppearance;Lcom/liy/blendlib/fabric/client/item/BlendLibItemSkinSelector;)V\n\n")) {
+            assertTrue(actualManifest.contains(addition), addition);
+            actualManifest = actualManifest.replace(addition, "");
+        }
         // Item appearance adds only this overload; the original register descriptor remains exact.
         String itemAppearanceAddition = "  public static void register(com.liy.blendlib.fabric.client.item.BlendLibItemBinding, com.liy.blendlib.fabric.client.item.BlendLibItemMaterialAppearance);\n    descriptor: (Lcom/liy/blendlib/fabric/client/item/BlendLibItemBinding;Lcom/liy/blendlib/fabric/client/item/BlendLibItemMaterialAppearance;)V\n\n";
         assertTrue(actualManifest.contains(itemAppearanceAddition), itemAppearanceAddition);

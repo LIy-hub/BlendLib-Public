@@ -1,6 +1,7 @@
 package com.liy.blendlib.fabric.client.render;
 
 import com.liy.blendlib.api.BlendModelKey;
+import com.liy.blendlib.api.BlendResourceId;
 import com.liy.blendlib.core.animation.runtime.PreparedSkinnedGeometry;
 import com.liy.blendlib.core.descriptor.MaterialDefinition;
 import com.liy.blendlib.core.model.Bounds;
@@ -30,6 +31,7 @@ public final class SkinnedRenderHandle implements ModelRenderHandle {
     private final List<PreparedSkinnedRenderPrimitive> skinnedPrimitives;
     private final int[][] skinJointNodeIndexes;
     private final List<String> materialSlots;
+    private final NamedSkinCatalog namedSkins;
     private final Bounds bounds;
     private final float unitsToBlocksScale;
 
@@ -40,8 +42,11 @@ public final class SkinnedRenderHandle implements ModelRenderHandle {
             List<PreparedSkinnedRenderPrimitive> skinnedPrimitives,
             int[][] skinJointNodeIndexes,
             List<String> materialSlots,
+            java.util.Set<String> authoredSlots,
             Bounds bounds,
-            float unitsToBlocksScale) {
+            float unitsToBlocksScale,
+            Map<BlendResourceId, Map<String, BlendResourceId>> validDefinitions,
+            Map<BlendResourceId, String> invalidDiagnostics) {
         this.modelKey = Objects.requireNonNull(modelKey, "modelKey");
         if (generation < 0L) {
             throw new IllegalArgumentException("generation must be non-negative");
@@ -54,6 +59,8 @@ public final class SkinnedRenderHandle implements ModelRenderHandle {
             throw new IllegalArgumentException("A skinned render handle needs at least one primitive");
         }
         this.materialSlots = List.copyOf(materialSlots);
+        this.namedSkins = NamedSkinCatalog.prepare(this.skinnedPrimitives.stream().map(PreparedSkinnedRenderPrimitive::material).toList(),
+                this.materialSlots, authoredSlots, validDefinitions, invalidDiagnostics);
         this.bounds = Objects.requireNonNull(bounds, "bounds");
         this.unitsToBlocksScale = unitsToBlocksScale;
     }
@@ -66,6 +73,21 @@ public final class SkinnedRenderHandle implements ModelRenderHandle {
     /** Internal reload-time preparation hook for the default material resolver seam. */
     static SkinnedRenderHandle prepare(
             BlendModelKey modelKey, ModelAsset asset, MaterialRenderMapper.MaterialResolver materialResolver) {
+        return prepareWithSkins(modelKey, asset, materialResolver, Map.of(), Map.of());
+    }
+
+    /** Prepares named texture skins without additional resource I/O or geometry copies. */
+    public static SkinnedRenderHandle prepareWithSkins(
+            BlendModelKey modelKey, ModelAsset asset,
+            Map<BlendResourceId, Map<String, BlendResourceId>> validDefinitions,
+            Map<BlendResourceId, String> invalidDiagnostics) {
+        return prepareWithSkins(modelKey, asset, MaterialRenderMapper.defaultResolver(), validDefinitions, invalidDiagnostics);
+    }
+
+    static SkinnedRenderHandle prepareWithSkins(
+            BlendModelKey modelKey, ModelAsset asset, MaterialRenderMapper.MaterialResolver materialResolver,
+            Map<BlendResourceId, Map<String, BlendResourceId>> validDefinitions,
+            Map<BlendResourceId, String> invalidDiagnostics) {
         Objects.requireNonNull(modelKey, "modelKey");
         Objects.requireNonNull(asset, "asset");
         Objects.requireNonNull(materialResolver, "materialResolver");
@@ -111,7 +133,7 @@ public final class SkinnedRenderHandle implements ModelRenderHandle {
                     ((MaterialMapping.Supported) mapping).material()));
         }
         return new SkinnedRenderHandle(
-                modelKey, asset.generation(), transforms, prepared, skinJointNodeIndexes, asset.primitives().stream().map(p -> p.geometry().materialSlot()).toList(), bounds, unitsToBlocksScale);
+                modelKey, asset.generation(), transforms, prepared, skinJointNodeIndexes, asset.primitives().stream().map(p -> p.geometry().materialSlot()).toList(), asset.materials().keySet(), bounds, unitsToBlocksScale, validDefinitions, invalidDiagnostics);
     }
 
     @Override
@@ -123,6 +145,9 @@ public final class SkinnedRenderHandle implements ModelRenderHandle {
     public long generation() {
         return generation;
     }
+
+    @Override
+    public NamedSkinCatalog namedSkins() { return namedSkins; }
 
     @Override
     public List<String> materialSlots() { return materialSlots; }

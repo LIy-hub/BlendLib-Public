@@ -24,8 +24,10 @@ class ItemAnimationMaterialAppearanceTest {
     @Test void captureFreezesSelectionAndRelightingPreservesRigidAndCpuSkinnedFrames() {
         for (boolean skinned : List.of(false, true)) {
             var asset = asset(8, skinned, "body", "eye");
-            ModelRenderHandle handle = skinned ? SkinnedRenderHandle.prepare(KEY, asset)
-                    : StaticRigidRenderHandle.prepare(KEY, asset);
+            var skinId = BlendResourceId.parse("appearance:blue");
+            var skinDefinitions = Map.of(skinId, Map.of("body", BlendResourceId.parse("appearance:textures/blue.png")));
+            ModelRenderHandle handle = skinned ? SkinnedRenderHandle.prepareWithSkins(KEY, asset, skinDefinitions, Map.of())
+                    : StaticRigidRenderHandle.prepareWithSkins(KEY, asset, skinDefinitions, Map.of());
             var root = new Transform(new Vec3(2, 3, 4), Quaternion.IDENTITY, Vec3.ONE);
             ModelRenderSnapshot base;
             if (skinned) {
@@ -43,6 +45,9 @@ class ItemAnimationMaterialAppearanceTest {
             }
             var selections = new AtomicInteger();
             var observations = new AtomicInteger();
+            var skinSelections = new AtomicInteger();
+            var skinObservations = new AtomicInteger();
+            var selectedSkin = new java.util.concurrent.atomic.AtomicReference<>(Optional.of(skinId));
             var mutable = new HashMap<>(Map.of("body", RED));
             var argument = BlendLibItemRenderArgument.capture(BINDING, handle, base, null,
                     new BlendLibItemMaterialAppearance() {
@@ -52,8 +57,19 @@ class ItemAnimationMaterialAppearanceTest {
                         public void captured(net.minecraft.world.item.ItemStack stack, ModelRenderSnapshot snapshot) {
                             observations.incrementAndGet();
                             assertEquals(RED, appearance(snapshot, 0));
+                            assertEquals(Optional.of(skinId), snapshot.selectedSkin());
+                        }
+                    }, new BlendLibItemSkinSelector() {
+                        public Optional<BlendResourceId> select(net.minecraft.world.item.ItemStack stack) {
+                            skinSelections.incrementAndGet(); return selectedSkin.get();
+                        }
+                        public void captured(net.minecraft.world.item.ItemStack stack, ModelRenderSnapshot snapshot) {
+                            skinObservations.incrementAndGet();
+                            assertEquals(Optional.of(skinId), snapshot.selectedSkin());
+                            assertEquals(RED, appearance(snapshot, 0));
                         }
                     });
+            selectedSkin.set(Optional.empty());
             mutable.clear();
             mutable.put("unknown", RED);
             for (int i = 0; i < 3; i++) {
@@ -70,7 +86,11 @@ class ItemAnimationMaterialAppearanceTest {
                 assertEquals(RED, appearance(frame, 0));
                 assertEquals(MaterialSlotAppearance.unchanged(), appearance(frame, 1));
                 assertTrue(frame.unknownMaterialSlots().isEmpty());
+                assertEquals(Optional.of(skinId), frame.selectedSkin());
+                assertTrue(frame.skinDiagnostic().isEmpty());
             }
+            assertEquals(1, skinSelections.get());
+            assertEquals(1, skinObservations.get());
             assertEquals(1, selections.get());
             assertEquals(1, observations.get());
             assertEquals(12, base.packedLight());
@@ -139,6 +159,116 @@ class ItemAnimationMaterialAppearanceTest {
         assertSame(first, field.get(replacement(binding)));
         assertEquals(binding, BlendLibItemModelBindings.find(binding.itemId()).orElseThrow());
         assertThrows(UnsupportedOperationException.class, () -> BlendLibItemModelBindings.bindings().clear());
+    }
+
+    @Test void staticItemCapturesValidSkinWithoutChangingAuthoredSnapshotOrHandle() {
+        var skinId = BlendResourceId.parse("appearance:static_blue");
+        var handle = StaticRigidRenderHandle.prepareWithSkins(KEY, asset(43, false, "body"),
+                Map.of(skinId, Map.of("body", BlendResourceId.parse("appearance:textures/blue.png"))), Map.of());
+        var selected = new java.util.concurrent.atomic.AtomicReference<>(Optional.of(skinId));
+        var calls = new AtomicInteger();
+        var argument = BlendLibItemRenderArgument.capture(BINDING, handle, null, null, null, stack -> {
+            calls.incrementAndGet(); return selected.get();
+        });
+        selected.set(Optional.empty());
+        for (int i = 0; i < 3; i++) {
+            var frame = argument.snapshot(i, i + 1);
+            assertSame(handle, frame.handle());
+            assertEquals(Optional.of(skinId), frame.selectedSkin());
+            assertTrue(frame.skinDiagnostic().isEmpty());
+            assertEquals(MaterialSlotAppearance.unchanged(), appearance(frame, 0));
+        }
+        assertEquals(1, calls.get());
+        assertTrue(snapshot(handle).selectedSkin().isEmpty());
+    }
+
+    @Test void namedSkinRegistrationPreservesBothCallbacksAndOldConstructors() throws Exception {
+        BlendLibItemMaterialAppearance appearance = stack -> Map.of();
+        BlendLibItemSkinSelector skin = stack -> Optional.empty();
+        BlendLibItemSkinSelector other = stack -> Optional.of(BlendResourceId.parse("appearance:other"));
+        var appearanceField = BlendLibItemSpecialRenderer.Unbaked.class.getDeclaredField("appearance");
+        var skinField = BlendLibItemSpecialRenderer.Unbaked.class.getDeclaredField("skin");
+        appearanceField.setAccessible(true);
+        skinField.setAccessible(true);
+        for (boolean skinFirst : List.of(false, true)) {
+            var binding = binding("skin_registration_" + skinFirst);
+            if (skinFirst) BlendLibItemModelBindings.registerWithSkin(binding, skin);
+            else BlendLibItemModelBindings.register(binding, appearance);
+            var before = replacement(binding);
+            BlendLibItemModelBindings.registerWithSkin(binding, appearance, skin);
+            BlendLibItemModelBindings.register(binding);
+            BlendLibItemModelBindings.register(binding, appearance);
+            BlendLibItemModelBindings.registerWithSkin(binding, skin);
+            var after = replacement(binding);
+            assertSame(appearance, appearanceField.get(after));
+            assertSame(skin, skinField.get(after));
+            assertNull((skinFirst ? appearanceField : skinField).get(before));
+            assertThrows(IllegalStateException.class, () -> BlendLibItemModelBindings.registerWithSkin(binding, other));
+            assertThrows(IllegalStateException.class, () -> BlendLibItemModelBindings.registerWithSkin(
+                    binding, stack -> Map.of(), skin));
+            assertSame(appearance, appearanceField.get(replacement(binding)), "Conflict is atomic");
+            assertSame(skin, skinField.get(replacement(binding)), "Conflict is atomic");
+            assertThrows(NullPointerException.class, () -> BlendLibItemModelBindings.registerWithSkin(binding, null));
+            assertThrows(NullPointerException.class, () -> BlendLibItemModelBindings.registerWithSkin(binding, null, skin));
+            assertThrows(NullPointerException.class, () -> BlendLibItemModelBindings.registerWithSkin(binding, appearance, null));
+        }
+        assertNull(skinField.get(new BlendLibItemSpecialRenderer.Unbaked(BINDING)));
+        assertNull(skinField.get(new BlendLibItemSpecialRenderer.Unbaked(BINDING, appearance)));
+        assertNotNull(new BlendLibItemSpecialRenderer(BINDING));
+        assertNotNull(new BlendLibItemSpecialRenderer(BINDING, appearance));
+    }
+
+    @Test void skinAndAppearanceObserveOneCompletedStaticCaptureAndNeverRunDuringRelighting() {
+        var order = new ArrayList<String>();
+        var selected = new java.util.concurrent.atomic.AtomicReference<>(Optional.of(BlendResourceId.parse("appearance:blue")));
+        var skin = new BlendLibItemSkinSelector() {
+            public Optional<BlendResourceId> select(net.minecraft.world.item.ItemStack stack) {
+                order.add("skin"); return selected.get();
+            }
+            public void captured(net.minecraft.world.item.ItemStack stack, ModelRenderSnapshot frame) {
+                order.add("skin-observer");
+                assertTrue(frame.skinDiagnostic().isPresent());
+                assertEquals(RED, appearance(frame, 0));
+            }
+        };
+        var material = new BlendLibItemMaterialAppearance() {
+            public Map<String, MaterialSlotAppearance> select(net.minecraft.world.item.ItemStack stack) {
+                order.add("appearance"); return Map.of("body", RED);
+            }
+            public void captured(net.minecraft.world.item.ItemStack stack, ModelRenderSnapshot frame) {
+                order.add("appearance-observer"); assertTrue(frame.skinDiagnostic().isPresent());
+            }
+        };
+        var handle = rigid(42, "body");
+        var captured = BlendLibItemRenderArgument.capture(BINDING, handle, null, null, material, skin);
+        selected.set(Optional.empty());
+        for (int i = 0; i < 3; i++) {
+            var frame = captured.snapshot(i, i + 1);
+            assertTrue(frame.skinDiagnostic().isPresent());
+            assertEquals(RED, appearance(frame, 0));
+            assertEquals(i, frame.packedLight());
+            assertEquals(i + 1, frame.packedOverlay());
+        }
+        assertEquals(List.of("skin", "appearance", "skin-observer", "appearance-observer"), order);
+    }
+
+    @Test void missingAndWrongHandleBypassSkinSelectionAndObservation() {
+        var unexpected = new BlendLibItemSkinSelector() {
+            public Optional<BlendResourceId> select(net.minecraft.world.item.ItemStack stack) {
+                fail("Must bypass skin selection"); return Optional.empty();
+            }
+            public void captured(net.minecraft.world.item.ItemStack stack, ModelRenderSnapshot frame) {
+                fail("Must bypass skin observation");
+            }
+        };
+        var missing = new MissingModelRenderHandle(KEY, 1);
+        var captured = BlendLibItemRenderArgument.capture(BINDING, missing, null, null, null, unexpected);
+        assertSame(missing, captured.snapshot(1, 2).handle());
+        var handle = rigid(1, "body");
+        assertThrows(IllegalArgumentException.class, () -> BlendLibItemRenderArgument.capture(
+                BINDING, rigid(1, "body"), snapshot(handle), null, null, unexpected));
+        assertThrows(IllegalArgumentException.class, () -> BlendLibItemRenderArgument.capture(
+                BINDING, rigid(2, "body"), snapshot(handle), null, null, unexpected));
     }
 
     private static BlendLibItemSpecialRenderer.Unbaked replacement(BlendLibItemBinding binding) {

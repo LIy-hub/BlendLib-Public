@@ -22,14 +22,21 @@ import org.joml.Vector3fc;
 final class BlendLibItemSpecialRenderer implements SpecialModelRenderer<BlendLibItemRenderArgument> {
     private final BlendLibItemBinding binding;
     private final BlendLibItemMaterialAppearance appearance;
+    private final BlendLibItemSkinSelector skin;
 
     BlendLibItemSpecialRenderer(BlendLibItemBinding binding) {
         this(binding, null);
     }
 
     BlendLibItemSpecialRenderer(BlendLibItemBinding binding, BlendLibItemMaterialAppearance appearance) {
+        this(binding, appearance, null);
+    }
+
+    BlendLibItemSpecialRenderer(BlendLibItemBinding binding, BlendLibItemMaterialAppearance appearance,
+            BlendLibItemSkinSelector skin) {
         this.binding = Objects.requireNonNull(binding, "binding");
         this.appearance = appearance;
+        this.skin = skin;
     }
 
     @Override
@@ -42,7 +49,7 @@ final class BlendLibItemSpecialRenderer implements SpecialModelRenderer<BlendLib
             handle = new com.liy.blendlib.fabric.client.render.MissingModelRenderHandle(
                     binding.modelKey(), handle.generation());
         }
-        return BlendLibItemRenderArgument.capture(binding, handle, snapshot.orElse(null), stack, appearance);
+        return BlendLibItemRenderArgument.capture(binding, handle, snapshot.orElse(null), stack, appearance, skin);
     }
 
     @Override
@@ -75,18 +82,24 @@ final class BlendLibItemSpecialRenderer implements SpecialModelRenderer<BlendLib
     static final class Unbaked implements SpecialModelRenderer.Unbaked<BlendLibItemRenderArgument> {
         private final BlendLibItemBinding binding;
         private final BlendLibItemMaterialAppearance appearance;
+        private final BlendLibItemSkinSelector skin;
 
         Unbaked(BlendLibItemBinding binding) { this(binding, null); }
 
         Unbaked(BlendLibItemBinding binding, BlendLibItemMaterialAppearance appearance) {
+            this(binding, appearance, null);
+        }
+
+        Unbaked(BlendLibItemBinding binding, BlendLibItemMaterialAppearance appearance, BlendLibItemSkinSelector skin) {
             this.binding = Objects.requireNonNull(binding, "binding");
             this.appearance = appearance;
+            this.skin = skin;
         }
 
         @Override
         public SpecialModelRenderer<BlendLibItemRenderArgument> bake(BakingContext context) {
             Objects.requireNonNull(context, "context");
-            return new BlendLibItemSpecialRenderer(binding, appearance);
+            return new BlendLibItemSpecialRenderer(binding, appearance, skin);
         }
 
         @Override

@@ -1,6 +1,7 @@
 package com.liy.blendlib.fabric.client.render;
 
 import com.liy.blendlib.api.BlendModelKey;
+import com.liy.blendlib.api.BlendResourceId;
 import com.liy.blendlib.core.descriptor.MaterialDefinition;
 import com.liy.blendlib.core.model.Bounds;
 import com.liy.blendlib.core.model.ModelAsset;
@@ -29,6 +30,7 @@ public final class StaticRigidRenderHandle implements ModelRenderHandle {
     private final List<Transform> nodeWorldTransforms;
     private final List<PreparedRenderPrimitive> primitives;
     private final List<String> materialSlots;
+    private final NamedSkinCatalog namedSkins;
     private final Bounds bounds;
     private final float unitsToBlocksScale;
 
@@ -39,12 +41,16 @@ public final class StaticRigidRenderHandle implements ModelRenderHandle {
             List<PreparedRenderPrimitive> primitives,
             List<String> materialSlots,
             Bounds bounds,
-            float unitsToBlocksScale) {
+            float unitsToBlocksScale,
+            Map<BlendResourceId, Map<String, BlendResourceId>> validDefinitions,
+            Map<BlendResourceId, String> invalidDiagnostics) {
         this.modelKey = Objects.requireNonNull(modelKey, "modelKey");
         this.asset = Objects.requireNonNull(asset, "asset");
         this.nodeWorldTransforms = List.copyOf(nodeWorldTransforms);
         this.primitives = List.copyOf(primitives);
         this.materialSlots = List.copyOf(materialSlots);
+        this.namedSkins = NamedSkinCatalog.prepare(this.primitives.stream().map(PreparedRenderPrimitive::material).toList(),
+                this.materialSlots, asset.materials().keySet(), validDefinitions, invalidDiagnostics);
         this.bounds = Objects.requireNonNull(bounds, "bounds");
         this.unitsToBlocksScale = unitsToBlocksScale;
         if (this.primitives.isEmpty()) {
@@ -60,6 +66,21 @@ public final class StaticRigidRenderHandle implements ModelRenderHandle {
     /** Internal reload-time preparation hook for the default material resolver seam. */
     static StaticRigidRenderHandle prepare(
             BlendModelKey modelKey, ModelAsset asset, MaterialRenderMapper.MaterialResolver materialResolver) {
+        return prepareWithSkins(modelKey, asset, materialResolver, Map.of(), Map.of());
+    }
+
+    /** Prepares named texture skins without additional resource I/O or geometry copies. */
+    public static StaticRigidRenderHandle prepareWithSkins(
+            BlendModelKey modelKey, ModelAsset asset,
+            Map<BlendResourceId, Map<String, BlendResourceId>> validDefinitions,
+            Map<BlendResourceId, String> invalidDiagnostics) {
+        return prepareWithSkins(modelKey, asset, MaterialRenderMapper.defaultResolver(), validDefinitions, invalidDiagnostics);
+    }
+
+    static StaticRigidRenderHandle prepareWithSkins(
+            BlendModelKey modelKey, ModelAsset asset, MaterialRenderMapper.MaterialResolver materialResolver,
+            Map<BlendResourceId, Map<String, BlendResourceId>> validDefinitions,
+            Map<BlendResourceId, String> invalidDiagnostics) {
         Objects.requireNonNull(modelKey, "modelKey");
         Objects.requireNonNull(asset, "asset");
         Objects.requireNonNull(materialResolver, "materialResolver");
@@ -90,7 +111,7 @@ public final class StaticRigidRenderHandle implements ModelRenderHandle {
             RenderMaterial material = ((MaterialMapping.Supported) mapping).material();
             prepared.add(new PreparedRenderPrimitive(primitive.nodeIndex(), StaticGeometry.copyOf(primitive.geometry()), material));
         }
-        return new StaticRigidRenderHandle(modelKey, asset, transforms, prepared, asset.primitives().stream().map(p -> p.geometry().materialSlot()).toList(), bounds, unitsToBlocksScale);
+        return new StaticRigidRenderHandle(modelKey, asset, transforms, prepared, asset.primitives().stream().map(p -> p.geometry().materialSlot()).toList(), bounds, unitsToBlocksScale, validDefinitions, invalidDiagnostics);
     }
 
     @Override
@@ -102,6 +123,9 @@ public final class StaticRigidRenderHandle implements ModelRenderHandle {
     public long generation() {
         return asset.generation();
     }
+
+    @Override
+    public NamedSkinCatalog namedSkins() { return namedSkins; }
 
     @Override
     public List<String> materialSlots() { return materialSlots; }

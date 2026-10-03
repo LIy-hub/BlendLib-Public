@@ -49,6 +49,9 @@ public interface ModelRenderHandle {
         return List.of();
     }
 
+    /** Generation-prepared named textures; legacy and diagnostic handles default to none. */
+    default NamedSkinCatalog namedSkins() { return NamedSkinCatalog.empty(); }
+
     Transform nodeTransform(int nodeIndex);
 
     boolean missingModel();
