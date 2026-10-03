@@ -2,7 +2,7 @@ name: Minecraft 26.3 verification
 
 on:
   push:
-    branches: ["mc/26.3", "feature/mc26.3-animation-capabilities"]
+    branches: ["mc/26.3", "feature/mc26.3-animation-capabilities", "feature/mc26.3-sync-recovery-showcase"]
   workflow_dispatch:
 
 permissions:
@@ -20,8 +20,8 @@ jobs:
           java-version: '25'
       - uses: gradle/actions/wrapper-validation@v4
       - uses: gradle/actions/setup-gradle@v4
-      - name: Build and verify Minecraft 26.3
-        run: bash gradlew -p versions/modern -Pminecraft_version=26.3 --no-daemon --max-workers=2 build verifyRuntimeJar --stacktrace --console=plain
+      - name: Build and verify Minecraft 26.3 and opt-in consumer
+        run: bash gradlew -p versions/modern -Pminecraft_version=26.3 -Prunnable_examples=true --no-daemon --max-workers=2 build verifyRuntimeJar verifyRunnableExamples --stacktrace --console=plain
       - uses: actions/upload-artifact@v4
         if: always()
         with:
