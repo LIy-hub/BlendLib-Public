@@ -96,6 +96,70 @@ speed and `normal` restores 1x. `stop` freezes at the selected clip's first pose
 are visual only and do not alter server gameplay or another player's item. Stack copies have
 independent playback. The adapter owns bounded instance retention and disconnect cleanup.
 
+### Opt-in wand visual-marker counter
+
+The item handler is disabled by default, independently of the example mod and material-appearance
+opt-ins. Enable it once at client startup:
+
+```sh
+JAVA_TOOL_OPTIONS="-Dblendlib.examples.itemVisualEvents=true" ./gradlew -p versions/modern -Pminecraft_version=26.3 -Prunnable_examples=true runRunnableExamplesClient
+```
+
+For a packaged install, add `-Dblendlib.examples.itemVisualEvents=true` to the launcher's
+Java/JVM arguments and restart. This is a JVM property, not a Gradle project property.
+It can be combined with `-Dblendlib.examples.itemAppearance=true`; both packaged wand
+descriptors already contain `blendlib_runnable_examples:attack_whoosh` at 0.25 clip-local
+seconds. The idle clip has no marker, so idle playback alone does not increase the counter.
+The property changes only callback registration; the default playback and existing commands
+are unchanged.
+
+Hold the actual wand, close chat after starting the attack so it can be extracted, and wait
+for the marker crossing before inspecting:
+
+```mcfunction
+/blendlib_example item attack
+/blendlib_example item events
+/blendlib_example item status
+```
+
+`events` reads callback evidence only. `status` also prints the same evidence separately from
+controls, the historical successful sample, and the last extraction attempt. The output shows
+the retained count and last marker's model, animation state, generation, key and declared time.
+Neither command acquires playback, advances a clock, consumes markers or refreshes the counter
+LRU. A disabled handler reports the required startup property; no retained callback evidence
+is reported as absent, rather than as proof that a frame was displayed.
+
+`ExampleClient` actually registers `ITEM_VISUAL_EVENTS::accept` through the public three-argument
+`BlendLibItemAnimations.register` overload. The counter retains at most 256 weak exact-stack
+identities and one immutable last callback per identity; counts saturate instead of overflowing.
+New callbacks refresh its own least-recently-used order. Equal/copy stacks are independent.
+Collected identities are purged on the next callback, and disconnect clears all counters.
+This example-owned callback history is separate from the library's playback retention: a
+playback release/eviction does not itself erase a still-retained counter entry. Reload retains
+counts for the same stack object, and the last callback remains explicitly historical.
+Counter eviction means the next callback on that stack starts a new count.
+
+First successful extraction after play/restart, seek, stop, reload or missing-state recovery
+silently establishes the marker baseline. Keep the wand rendering across 0.25 seconds to
+observe a callback; a first sample after that point deliberately does not backfill it.
+Replaying attack can then add a callback, while repeated inspection or a held final pose
+cannot. Callbacks count successful animation extraction, not submit, display, sound, server
+gameplay or a display-context identity. The example makes no sound, particle, network or
+world-position calls. See [animated item callback semantics](../../../docs/animated-items.md#opt-in-item-visual-event-callbacks)
+for endpoints, explicit LOOP/ONCE/HOLD behavior, bounded catch-up and callback failure/reentrancy.
+
+The packaged headless verifier loads both real wand descriptors and clips, crosses their
+marker using the production item playback/cursor, and exercises the same live counter helper.
+It checks exact-identity isolation, repeated sampling, retrigger/reload baselines, immutable
+inspection, locale-independent output, bounded read-only LRU behavior and disconnect cleanup.
+Real stack extraction is also covered by the library's 26.3 integration tests. These checks
+do not launch Minecraft or establish visible graphics or sound acceptance.
+
+When graphical validation is resumed, compare two held wands, repeat the status query, pause
+and resume across a marker, retrigger attack, reload with F3+T, and disconnect/rejoin. Confirm
+there is no replay burst after reload/recovery and that the default-disabled launch still
+reports callbacks disabled. Those manual checks remain deferred until explicitly requested.
+
 ## Code and resource map
 
 - `ExampleContent` / `LayeredActor`: server-safe item/entity registration and authoritative cue
@@ -104,6 +168,7 @@ independent playback. The adapter owns bounded instance retention and disconnect
 - `ExampleAttachmentScene` / `ExampleAttachmentOwners`: rigid weapon mount, independently
   animated skinned ornament, generation checks, optional-child fallback and lifecycle retirement
 - `ExampleItemCommands`: public item playback API on the real current main-hand stack
+- `ExampleItemVisualEvents`: separately opt-in bounded weak exact-stack callback measurements
 - `ExampleLayerVisualEvents`: actor-owned, bounded measurement of real layer-event callbacks
 - `blend_models/actor.json`, `wand.json`, `marker.json`: ordinary strict-v1 model descriptors
 - `prepareRunnableExampleAssets`: deterministic build-time copy of four tracked repository assets
@@ -231,6 +296,8 @@ static/missing-model fallback, requested animation and attempt generation. Reloa
 samples remain labeled historical. If a resource pack removes the selected animation, controls
 remain intact; restoring it resumes with the requested LOOP/ONCE/HOLD behavior. Playing time
 includes the outage; paused time does not. No fallback is represented as a successful animation.
+It also prints the separately opt-in [wand callback counter](#opt-in-wand-visual-marker-counter);
+this history is distinct from both playback observations and extraction-attempt status.
 
 ## Dynamic clip-layer weights
 

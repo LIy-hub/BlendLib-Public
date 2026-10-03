@@ -230,6 +230,21 @@ public final class SkinnedAnimationRuntime {
         return java.util.OptionalDouble.of(preparedAsset(loaded).definition().state(animation).clip().durationSeconds());
     }
 
+    /**
+     * Immutable descriptor markers for explicit clip-local presentation, without advancing an
+     * instance. Empty for unavailable models/states. This does not apply descriptor speed,
+     * looping or next-state semantics; the explicit playback owner determines crossings.
+     */
+    public List<com.liy.blendlib.core.animation.runtime.AnimationVisualEvent> animationVisualEvents(
+            BlendModelKey key, BlendAnimationKey animation) {
+        Objects.requireNonNull(animation, "animation");
+        var handle = modelRegistry.current().find(Objects.requireNonNull(key, "key"));
+        if (handle.isEmpty() || !(handle.get() instanceof LoadedModelHandle loaded)
+                || loaded.asset().animationDefinition() == null
+                || !loaded.asset().animationDefinition().states().containsKey(animation.resourceId())) return List.of();
+        return preparedAsset(loaded).definition().state(animation).events();
+    }
+
     /** Retires explicit item/ephemeral owners as soon as their bounded registry evicts them. */
     public void retire(BlendInstanceKey key) {
         Objects.requireNonNull(key, "key");

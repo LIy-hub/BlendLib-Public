@@ -41,6 +41,7 @@ public final class RunnableExampleAssetVerification {
         require(appearanceWand.unitsPerBlock() == 2.5, "appearance wand preserves item scale");
         verifyMaterialAppearance(appearanceWand, "appearance_wand",
                 com.liy.blendlib.examples.runnable.ExampleItemMaterialAppearance::forName);
+        com.liy.blendlib.fabric.client.item.RunnableItemVisualEventVerification.verify(wand, appearanceWand);
         verifyLayerVisualEvents(actor);
         var layers = new ModelAnimationLayers(actor, ExampleAnimationScene.layers());
         var runtime = new AnimationV2InstanceRuntime(layers.plan());

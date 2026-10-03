@@ -10,16 +10,24 @@ import com.liy.blendlib.fabric.client.entity.BlendEntitySnapshotRequest;
 import com.liy.blendlib.fabric.client.entity.BlendEntitySockets;
 import java.util.List;
 import net.fabricmc.api.ClientModInitializer;
+import net.minecraft.world.item.ItemStack;
 
 /** A real client consumer of the shipped version-specific public animation adapters. */
 public final class ExampleClient implements ClientModInitializer {
     private static final ExampleAttachmentScene.Mode ATTACHMENT_MODE = ExampleAttachmentScene.configuredMode();
     private static final ExampleAttachmentOwners ATTACHMENT_OWNERS = new ExampleAttachmentOwners();
     private static final BlendAnimationKey ATTACK = BlendAnimationKey.parse(ExampleContent.MOD_ID + ":attack");
+    private static final boolean ITEM_VISUAL_EVENTS_ENABLED = Boolean.getBoolean("blendlib.examples.itemVisualEvents");
+    private static final ExampleItemVisualEvents<ItemStack> ITEM_VISUAL_EVENTS = new ExampleItemVisualEvents<>();
 
     @Override
     public void onInitializeClient() {
-        ExampleItemMaterialAppearance.register(Boolean.getBoolean("blendlib.examples.itemAppearance"));
+        boolean itemAppearance = Boolean.getBoolean("blendlib.examples.itemAppearance");
+        if (ITEM_VISUAL_EVENTS_ENABLED) {
+            ExampleItemMaterialAppearance.register(itemAppearance, ITEM_VISUAL_EVENTS::accept);
+        } else {
+            ExampleItemMaterialAppearance.register(itemAppearance);
+        }
         BlendEntityRenderers.register(ExampleContent.ACTOR,
                 context -> {
                     var builder = BlendEntityRenderer.<LayeredActor>builder(context, ExampleContent.APPEARANCE_ACTOR_MODEL)
@@ -40,9 +48,11 @@ public final class ExampleClient implements ClientModInitializer {
                 (entity, level) -> ATTACHMENT_OWNERS.remove(entity,
                         BlendLibClientServices.skinnedAnimationRuntime()::retire));
         net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents.DISCONNECT.register(
-                (handler, client) -> ATTACHMENT_OWNERS.clear(
-                        BlendLibClientServices.skinnedAnimationRuntime()::retire));
-        ExampleItemCommands.register();
+                (handler, client) -> {
+                    ATTACHMENT_OWNERS.clear(BlendLibClientServices.skinnedAnimationRuntime()::retire);
+                    ITEM_VISUAL_EVENTS.clear();
+                });
+        ExampleItemCommands.register(ITEM_VISUAL_EVENTS_ENABLED, ITEM_VISUAL_EVENTS);
         ExampleInspectionCommands.register();
     }
 

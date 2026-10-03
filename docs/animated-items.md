@@ -33,10 +33,78 @@ BlendLibItemAnimations.playback(stack).stop();
   applies the end behavior of ONCE/HOLD seeks at or beyond the clip duration
 - `speed` accepts finite non-negative multipliers, including zero. Reverse playback
   is not supported. Explicit item playback overrides descriptor speed, next-state,
-  and loop settings; it does not emit descriptor events or drive gameplay
+  and loop settings. Descriptor visual markers require the separate opt-in below;
+  playback never drives gameplay
 - Time uses the monotonic client clock, so GUI animation works without a loaded world.
   Time advances while a stack is not drawn or Minecraft is paused. Explicit playback
   pause freezes it. The next extraction applies endpoint handling
+
+## Opt-in item visual-event callbacks
+
+The existing two-argument `register(binding, defaultAnimation)` does not install a listener.
+To count descriptor markers or update client-only presentation, register an
+`ItemAnimationVisualEventHandler` before model baking:
+
+```java
+BlendLibItemAnimations.register(new BlendLibItemBinding(
+    Identifier.parse("example:animated_wand"),
+    BlendModelKey.parse("example:wand"),
+    Identifier.withDefaultNamespace("item/stick")),
+    BlendAnimationKey.parse("example:idle"),
+    (stack, info) -> System.out.println(info.animation() + " crossed "
+        + info.event().eventKey() + " at " + info.event().timeSeconds()));
+```
+
+`onVisualEvent(ItemStack stack, ItemAnimationVisualEvent info)` runs on the client/extraction
+thread after successful animated extraction. The stack is the exact object being extracted.
+The immutable `info` contains `model()`, `animation()` (the selected descriptor state),
+`generation()` and `event()`. Its core `AnimationVisualEvent` contains the declared
+`timeSeconds()` and `eventKey()`. It holds no stack, live controller, asset or render handle.
+Keep the registration-lifetime handler free of captured stack references. Re-registering the
+same binding/default and handler identity is harmless; a different non-null handler is rejected.
+Plain registration preserves an already-installed listener and appearance selector.
+
+Delivery follows explicit item playback, independently of descriptor loop, speed and next-state
+settings:
+
+- Only automatically advanced crossings in `(start, end]` are delivered: the left endpoint
+  is excluded and the right endpoint is included. Reading status or invoking a control does
+  not call the handler; delivery requires a later successful extraction
+- First success, play/restart, seek, stop, the first success in a new model generation, and
+  recovery after missing/unavailable extraction silently establish a baseline. No seek,
+  reload or recovery backlog is emitted. Pause/resume and speed changes retain genuine
+  advancement; paused wall time contributes nothing
+- LOOP can cross markers over a wrap. At an exact boundary, a marker at the previous cycle's
+  duration is delivered before one at the next cycle's zero. Both can be delivered; time zero
+  is never synthesized for initial playback. ONCE/HOLD do not loop. Duration markers are
+  considered before ONCE returns the visible pose to zero or HOLD freezes the final pose
+- Catch-up retains at most the last one **clip-time second**, after clamping ONCE/HOLD to the
+  endpoint. Speed therefore affects wall-clock coverage. The existing 4,096-cycle and
+  16,384-event advance budgets bound work; an over-budget batch is dropped atomically, not
+  partially delivered or saved for the next extraction. Numerically unusable extreme times
+  are also discarded and silently rebased so ordinary-speed playback can recover
+- One retained exact stack shares a cursor across GUI/hand and other render views. Repeating
+  extraction at the same playhead cannot replay a marker. Stack copies have independent
+  playback and baselines; no per-display-context identity is inferred
+- The complete interval is consumed before callback delivery. A callback exception propagates
+  without replaying that interval, including its remaining markers. Nested extraction consumes
+  silently. Changing that stack's controls or retiring its playback during a callback stops
+  the remaining batch
+
+These are presentation-only extraction callbacks, not evidence of submit or visible display.
+They provide no world position or display context, perform no network synchronization, and
+must not authorize damage, item consumption or other gameplay. Submission still consumes only
+captured immutable render data and never invokes these handlers. Fallback extraction emits no
+markers. Cursors share the existing weak-identity 256-entry playback retention and cleanup.
+
+A callback proves only that the animated runtime produced a snapshot. It runs before the
+optional material-appearance selector/capture hook; a later appearance callback can still
+throw and prevent the renderer argument from being returned. Marker delivery is not rolled
+back in that case and does not prove submit, display or a successful whole render pipeline.
+
+The [runnable 26.3 consumer](../versions/modern/showcase/README.md#opt-in-wand-visual-marker-counter)
+offers a separately enabled exact-stack counter for its real `attack_whoosh` descriptor marker.
+Headless runtime and counter checks do not establish visible graphics or sound acceptance.
 
 ## Identity, contexts and retention
 

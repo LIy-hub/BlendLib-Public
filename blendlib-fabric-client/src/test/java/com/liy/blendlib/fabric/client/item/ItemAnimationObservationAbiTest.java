@@ -11,10 +11,11 @@ import org.junit.jupiter.api.Test;
 
 /** Exact compiled public/protected JVM descriptors, following the retained X7 ABI boundary pins. */
 class ItemAnimationObservationAbiTest {
-    @Test void existingItemFacadeAndPlaybackAbiHaveOnlyTheApprovedObservationAdditions() throws Exception {
+    @Test void existingItemFacadeAndPlaybackAbiHaveOnlyTheApprovedAdditions() throws Exception {
         assertEquals(Set.of(
                 "public static final MAX_RETAINED_INSTANCES:I",
                 "public static synchronized register(Lcom/liy/blendlib/fabric/client/item/BlendLibItemBinding;Lcom/liy/blendlib/api/BlendAnimationKey;)V",
+                "public static synchronized register(Lcom/liy/blendlib/fabric/client/item/BlendLibItemBinding;Lcom/liy/blendlib/api/BlendAnimationKey;Lcom/liy/blendlib/fabric/client/item/ItemAnimationVisualEventHandler;)V",
                 "public static playback(Lnet/minecraft/world/item/ItemStack;)Lcom/liy/blendlib/fabric/client/item/ItemAnimationPlayback;",
                 "public static observe(Lnet/minecraft/world/item/ItemStack;)Ljava/util/Optional;",
                 "public static extractionStatus(Lnet/minecraft/world/item/ItemStack;)Ljava/util/Optional;",
@@ -144,6 +145,23 @@ class ItemAnimationObservationAbiTest {
                 com.liy.blendlib.fabric.client.render.ModelRenderSnapshot.class));
         assertNotNull(BlendLibItemSpecialRenderer.class.getDeclaredConstructor(BlendLibItemBinding.class));
         assertNotNull(BlendLibItemSpecialRenderer.Unbaked.class.getDeclaredConstructor(BlendLibItemBinding.class));
+    }
+
+    @Test void itemVisualEventsExposeOnlyTheAdditiveImmutablePresentationContract() {
+        assertEquals(Set.of(
+                "public abstract onVisualEvent(Lnet/minecraft/world/item/ItemStack;Lcom/liy/blendlib/fabric/client/item/ItemAnimationVisualEvent;)V"),
+                exportedDescriptors(ItemAnimationVisualEventHandler.class));
+        assertTrue(ItemAnimationVisualEventHandler.class.isAnnotationPresent(FunctionalInterface.class));
+        assertEquals(Set.of(
+                "public <init>(Lcom/liy/blendlib/api/BlendModelKey;Lcom/liy/blendlib/api/BlendAnimationKey;JLcom/liy/blendlib/core/animation/runtime/AnimationVisualEvent;)V",
+                "public model()Lcom/liy/blendlib/api/BlendModelKey;",
+                "public animation()Lcom/liy/blendlib/api/BlendAnimationKey;",
+                "public generation()J",
+                "public event()Lcom/liy/blendlib/core/animation/runtime/AnimationVisualEvent;",
+                "public final equals(Ljava/lang/Object;)Z",
+                "public final hashCode()I",
+                "public final toString()Ljava/lang/String;"), exportedDescriptors(ItemAnimationVisualEvent.class));
+        assertTrue(ItemAnimationVisualEvent.class.isRecord());
     }
 
     private static Set<String> exportedDescriptors(Class<?> type) {

@@ -7,16 +7,20 @@ import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallba
 import net.fabricmc.fabric.api.client.command.v2.ClientCommands;
 import net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource;
 import net.minecraft.network.chat.Component;
+import net.minecraft.world.item.ItemStack;
 
 /** Client-only controls always reacquire the actual held stack, rather than an ItemStack copy. */
 final class ExampleItemCommands {
     private ExampleItemCommands() { }
 
-    static void register() {
+    static void register(boolean visualEventsEnabled, ExampleItemVisualEvents<ItemStack> visualEvents) {
         ClientCommandRegistrationCallback.EVENT.register((dispatcher, registry) -> dispatcher.register(
                 ClientCommands.literal("blendlib_example")
                         .then(ClientCommands.literal("item")
-                                .then(ClientCommands.literal("status").executes(context -> status(context.getSource())))
+                                .then(ClientCommands.literal("status").executes(context ->
+                                        status(context.getSource(), visualEventsEnabled, visualEvents)))
+                                .then(ClientCommands.literal("events").executes(context ->
+                                        events(context.getSource(), visualEventsEnabled, visualEvents)))
                                 .then(ClientCommands.literal("idle").executes(context -> apply(context.getSource(),
                                         playback -> playback.play(ExampleContent.IDLE, ItemAnimationPlayback.Mode.LOOP))))
                                 .then(ClientCommands.literal("attack").executes(context -> apply(context.getSource(),
@@ -33,13 +37,28 @@ final class ExampleItemCommands {
                                         playback -> playback.speed(1.0)))))));
     }
 
-    private static int status(FabricClientCommandSource source) {
+    private static int status(FabricClientCommandSource source, boolean enabled,
+            ExampleItemVisualEvents<ItemStack> visualEvents) {
         var stack = source.getPlayer().getMainHandItem();
         if (!stack.is(ExampleContent.WAND)) {
             source.sendError(Component.literal("Hold the BlendLib animated wand in your main hand first"));
             return 0;
         }
         ExampleItemInspection.format(BlendLibItemAnimations.observe(stack), BlendLibItemAnimations.extractionStatus(stack))
+                .forEach(line -> source.sendFeedback(Component.literal(line)));
+        ExampleItemVisualEvents.format(enabled, visualEvents.snapshot(stack))
+                .forEach(line -> source.sendFeedback(Component.literal(line)));
+        return 1;
+    }
+
+    private static int events(FabricClientCommandSource source, boolean enabled,
+            ExampleItemVisualEvents<ItemStack> visualEvents) {
+        var stack = source.getPlayer().getMainHandItem();
+        if (!stack.is(ExampleContent.WAND)) {
+            source.sendError(Component.literal("Hold the BlendLib animated wand in your main hand first"));
+            return 0;
+        }
+        ExampleItemVisualEvents.format(enabled, visualEvents.snapshot(stack))
                 .forEach(line -> source.sendFeedback(Component.literal(line)));
         return 1;
     }

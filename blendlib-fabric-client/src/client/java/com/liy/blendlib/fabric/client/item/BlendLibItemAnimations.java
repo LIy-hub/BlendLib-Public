@@ -25,23 +25,47 @@ import net.minecraft.world.item.ItemStack;
 public final class BlendLibItemAnimations {
     /** Hard bound across all item types; evicted stacks restart on next extraction or playback acquisition. */
     public static final int MAX_RETAINED_INSTANCES = 256;
-    private static final ConcurrentMap<Identifier, BlendAnimationKey> DEFAULTS = new ConcurrentHashMap<>();
+    private static final ConcurrentMap<Identifier, Registration> DEFAULTS = new ConcurrentHashMap<>();
     private static final ItemAnimationInstances INSTANCES = new ItemAnimationInstances(
             MAX_RETAINED_INSTANCES, System::nanoTime,
             key -> BlendLibClientServices.skinnedAnimationRuntime().retire(key));
+
+    // All extraction is client-thread-only. Suppress recursion across stacks as well as identities.
+    private static boolean dispatchingEvents;
+
+    private record Registration(BlendAnimationKey animation, ItemAnimationVisualEventHandler handler) { }
 
     private BlendLibItemAnimations() { }
 
     /** Registers a marker binding and its default looping descriptor animation state before bake. */
     public static synchronized void register(BlendLibItemBinding binding, BlendAnimationKey defaultAnimation) {
+        registerInternal(binding, defaultAnimation, null);
+    }
+
+    /**
+     * Opts this marker item into descriptor visual markers on successful extraction only.
+     * Register before bake. Repeating the same callback identity is harmless; a conflicting
+     * non-null handler is rejected. Plain registration preserves a handler already installed.
+     * Do not capture stacks in the registration-lifetime handler. See the handler contract for
+     * callback failures and reentrancy; no callback runs from rendering submission.
+     */
+    public static synchronized void register(BlendLibItemBinding binding, BlendAnimationKey defaultAnimation,
+            ItemAnimationVisualEventHandler handler) {
+        registerInternal(binding, defaultAnimation, Objects.requireNonNull(handler, "handler"));
+    }
+
+    private static void registerInternal(BlendLibItemBinding binding, BlendAnimationKey defaultAnimation,
+            ItemAnimationVisualEventHandler handler) {
         Objects.requireNonNull(binding, "binding");
         Objects.requireNonNull(defaultAnimation, "defaultAnimation");
-        BlendAnimationKey previous = DEFAULTS.get(binding.itemId());
-        if (previous != null && !previous.equals(defaultAnimation)) {
-            throw new IllegalStateException("Marker item already has a different default animation: " + binding.itemId());
+        Registration previous = DEFAULTS.get(binding.itemId());
+        if (previous != null && (!previous.animation().equals(defaultAnimation)
+                || (handler != null && previous.handler() != null && previous.handler() != handler))) {
+            throw new IllegalStateException("Marker item already has a different default animation or handler: " + binding.itemId());
         }
         BlendLibItemModelBindings.register(binding);
-        DEFAULTS.put(binding.itemId(), defaultAnimation);
+        DEFAULTS.put(binding.itemId(), new Registration(defaultAnimation,
+                handler == null && previous != null ? previous.handler() : handler));
     }
 
     /**
@@ -52,9 +76,9 @@ public final class BlendLibItemAnimations {
         Objects.requireNonNull(stack, "stack");
         if (stack.isEmpty()) throw new IllegalArgumentException("Cannot animate an empty stack");
         Identifier id = BuiltInRegistries.ITEM.getKey(stack.getItem());
-        BlendAnimationKey animation = DEFAULTS.get(id);
-        if (animation == null) throw new IllegalArgumentException("Item has no animated binding: " + id);
-        return INSTANCES.get(stack, animation).playback();
+        Registration registration = DEFAULTS.get(id);
+        if (registration == null) throw new IllegalArgumentException("Item has no animated binding: " + id);
+        return INSTANCES.get(stack, registration.animation()).playback();
     }
 
     /**
@@ -100,9 +124,9 @@ public final class BlendLibItemAnimations {
 
     static Optional<ModelRenderSnapshot> extract(
             BlendLibItemBinding binding, ItemStack stack, ModelRenderHandle handle) {
-        BlendAnimationKey defaultAnimation = DEFAULTS.get(binding.itemId());
-        if (defaultAnimation == null || stack.isEmpty()) return Optional.empty();
-        ItemAnimationInstances.Entry entry = INSTANCES.get(stack, defaultAnimation);
+        Registration registration = DEFAULTS.get(binding.itemId());
+        if (registration == null || stack.isEmpty()) return Optional.empty();
+        ItemAnimationInstances.Entry entry = INSTANCES.get(stack, registration.animation());
         ItemAnimationPlayback playback = entry.playback();
         if (handle.missingModel()) {
             unavailable(playback, binding, handle, ItemAnimationExtractionStatus.Outcome.MODEL_UNAVAILABLE);
@@ -120,7 +144,14 @@ public final class BlendLibItemAnimations {
                 RenderVisibility.VISIBLE, new CullingMetadata(handle.bounds(), true));
         var input = new SkinnedAnimationRuntimeInput(binding.modelKey(), entry.key(), 0L, 0F,
                 playback.animation(), Optional.empty(), AnimationUpdateBucket.VISIBLE_NEAR, request);
-        var extracted = runtime.extractClipAt(input, seconds, null);
+        Optional<com.liy.blendlib.fabric.client.animation.runtime.SkinnedAnimationRuntimeResult> extracted;
+        try {
+            extracted = runtime.extractClipAt(input, seconds, null);
+        } catch (RuntimeException | Error failure) {
+            playback.restore(checkpoint);
+            playback.events().invalidate();
+            throw failure;
+        }
         if (extracted.isEmpty()) {
             playback.restore(checkpoint);
             unavailable(playback, binding, handle, ItemAnimationExtractionStatus.Outcome.EXTRACTION_UNAVAILABLE);
@@ -131,12 +162,35 @@ public final class BlendLibItemAnimations {
             playback.extracted(new ItemAnimationExtractionStatus(binding.modelKey(), playback.animation(),
                     snapshot.generation(), ItemAnimationExtractionStatus.Outcome.ANIMATED,
                     ItemAnimationExtractionStatus.Fallback.NONE, true));
+            var interval = playback.consumeEventInterval();
+            var events = playback.events().consume(binding.modelKey(), snapshot.generation(), interval,
+                    duration.getAsDouble(), registration.handler() == null ? java.util.List.of()
+                            : runtime.animationVisualEvents(binding.modelKey(), playback.animation()));
+            if (playback.events().rebaseAfterConsume()) playback.rebaseEventTimeline();
+            // The complete interval is consumed above, including when nested extraction occurs.
+            if (registration.handler() != null && !dispatchingEvents && !events.isEmpty()) {
+                long controls = playback.controlRevision();
+                var animation = playback.animation();
+                dispatchingEvents = true;
+                try {
+                    for (var event : events) {
+                        if (INSTANCES.peek(stack) != entry || playback.controlRevision() != controls
+                                || BlendLibClientServices.models().resolve(binding.modelKey()).generationId()
+                                        != snapshot.generation()) break;
+                        registration.handler().onVisualEvent(stack,
+                                new ItemAnimationVisualEvent(binding.modelKey(), animation, snapshot.generation(), event));
+                    }
+                } finally {
+                    dispatchingEvents = false;
+                }
+            }
             return snapshot;
         });
     }
 
     private static void unavailable(ItemAnimationPlayback playback, BlendLibItemBinding binding,
             ModelRenderHandle handle, ItemAnimationExtractionStatus.Outcome outcome) {
+        playback.events().invalidate();
         playback.extracted(new ItemAnimationExtractionStatus(binding.modelKey(), playback.animation(),
                 handle.generation(), outcome, handle.skinned() || handle.missingModel()
                         ? ItemAnimationExtractionStatus.Fallback.MISSING_MODEL

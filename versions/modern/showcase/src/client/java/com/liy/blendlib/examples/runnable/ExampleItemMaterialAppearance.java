@@ -3,6 +3,7 @@ package com.liy.blendlib.examples.runnable;
 import com.liy.blendlib.fabric.client.item.BlendLibItemAnimations;
 import com.liy.blendlib.fabric.client.item.BlendLibItemBinding;
 import com.liy.blendlib.fabric.client.item.BlendLibItemModelBindings;
+import com.liy.blendlib.fabric.client.item.ItemAnimationVisualEventHandler;
 import com.liy.blendlib.fabric.client.render.MaterialSlotAppearance;
 import java.util.Map;
 import net.minecraft.core.component.DataComponents;
@@ -16,6 +17,15 @@ public final class ExampleItemMaterialAppearance {
     private ExampleItemMaterialAppearance() { }
 
     public static void register(boolean enabled) {
+        BlendLibItemAnimations.register(binding(enabled), ExampleContent.IDLE);
+    }
+
+    /** The separate visual-event opt-in composes with either authored item appearance. */
+    public static void register(boolean enabled, ItemAnimationVisualEventHandler handler) {
+        BlendLibItemAnimations.register(binding(enabled), ExampleContent.IDLE, handler);
+    }
+
+    private static BlendLibItemBinding binding(boolean enabled) {
         var binding = new BlendLibItemBinding(ExampleContent.WAND_ID,
                 enabled ? ExampleContent.APPEARANCE_WAND_MODEL : ExampleContent.WAND_MODEL,
                 ExampleContent.id("item/animated_wand"));
@@ -23,7 +33,7 @@ public final class ExampleItemMaterialAppearance {
             BlendLibItemModelBindings.register(binding, ExampleItemMaterialAppearance::select);
         }
         // Animation registration retains the selector configured above.
-        BlendLibItemAnimations.register(binding, ExampleContent.IDLE);
+        return binding;
     }
 
     public static Map<String, MaterialSlotAppearance> select(ItemStack stack) {

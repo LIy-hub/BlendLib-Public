@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased: opt-in item visual events
+
+- Add an optional exact-stack extraction-thread handler with immutable model, animation, generation and descriptor-marker metadata
+- Honor explicit item LOOP/ONCE/HOLD crossings, silent control/reload/recovery baselines and bounded one-clip-second catch-up without changing gameplay, networking or submission
+- Consume before callback delivery; suppress replay, nested delivery and remaining callbacks after control mutation or retirement
+- Add a separately opt-in runnable wand counter, read-only held-item event inspection and packaged descriptor/counter verification; graphics acceptance remains deferred
+
 ## Unreleased: explicit assembly culling envelope
 
 - Add an immutable, opt-in entity-local envelope to the ordinary entity renderer builder
