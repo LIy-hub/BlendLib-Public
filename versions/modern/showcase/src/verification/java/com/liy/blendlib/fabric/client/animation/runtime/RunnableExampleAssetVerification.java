@@ -15,6 +15,7 @@ import com.liy.blendlib.core.loader.ModelAssetLoader;
 import com.liy.blendlib.core.model.ModelAsset;
 import com.liy.blendlib.core.model.Vec3;
 import com.liy.blendlib.examples.runnable.ExampleAnimationScene;
+import com.liy.blendlib.examples.runnable.ExampleLayerInspection;
 import com.liy.blendlib.fabric.client.entity.BlendEntityLayerCue;
 import java.io.IOException;
 import java.util.List;
@@ -48,6 +49,7 @@ public final class RunnableExampleAssetVerification {
         require(frame.playheads().get(ExampleAnimationScene.UPPER).state().equals(attack), "upper action must play");
         require(frame.playheads().get(ExampleAnimationScene.BASE).state().equals(BlendAnimationKey.parse(NS + "walk")),
                 "upper action must not replace base walking");
+        verifyInspection(frame);
         var pose = layers.localPose(frame.pose());
         var baseOnly = new ModelAnimationLayers(actor, List.of(ExampleAnimationScene.layers().getFirst()));
         var basePose = baseOnly.localPose(new AnimationV2InstanceRuntime(baseOnly.plan()).advance(0.2).pose());
@@ -92,6 +94,46 @@ public final class RunnableExampleAssetVerification {
         require(capture(commands, entity, 1, 29, 43, 2).getFirst().requestedPlayheadSeconds() == 0.7,
                 "disconnect must clear captured commands");
         System.out.println("Verified packaged actor/wand/marker with strict loader, layers, procedural pose, final socket, duplicate/retrigger and reload cues");
+    }
+
+    private static void verifyInspection(com.liy.blendlib.core.animation.v2.AnimationV2EvaluationSnapshot frame) {
+        require(ExampleLayerInspection.targets(List.of()).getFirst().startsWith("No loaded example actors"),
+                "empty discovery does not select an actor");
+        require(ExampleLayerInspection.targets(List.of(42, 7, 42)).equals(List.of(
+                "Loaded example actors in the 16-block search box: 2", "  /blendlib_example inspect 7",
+                "  /blendlib_example inspect 42")), "discovery presents sorted unique explicit target commands");
+        var many = ExampleLayerInspection.targets(java.util.stream.IntStream.range(0, 20).boxed().toList());
+        require(many.size() == 10 && many.getLast().contains("Additional actors omitted"), "discovery output is bounded");
+        var locale = java.util.Locale.getDefault();
+        List<String> lines;
+        try {
+            java.util.Locale.setDefault(java.util.Locale.GERMANY);
+            lines = ExampleLayerInspection.format(ExampleAnimationScene.layers(), frame);
+        } finally {
+            java.util.Locale.setDefault(locale);
+        }
+        var text = String.join("\n", lines);
+        require(text.contains("Last sampled layer revision=" + frame.revision()), "inspection labels last sampled revision");
+        require(text.contains("weight=1.000 mask=[all bones]"), "base configured weight and full mask are explicit");
+        require(text.contains("mask=[ShowcaseTipBone=1.000]"), "named bone mask is visible");
+        require(text.contains("Sampled state=" + NS + "attack clipSeconds=0.300 acceptedSequence=1"),
+                "inspection exposes exact sampled state/time/sequence, independent of locale");
+        require(text.contains("previousState=") && text.contains("transition="), "transition details are visible");
+        require(lines.equals(ExampleLayerInspection.format(ExampleAnimationScene.layers(), frame)),
+                "repeated read-only formatting is deterministic");
+        try {
+            lines.add("mutation");
+            throw new AssertionError("inspection must return immutable lines");
+        } catch (UnsupportedOperationException expected) { }
+        var diagnostic = new com.liy.blendlib.core.animation.v2.AnimationV2Diagnostic(
+                AnimationV2DiagnosticCode.COMMAND_SEQUENCE_CONFLICT, ExampleAnimationScene.UPPER, null, -1, "conflict");
+        var missing = new com.liy.blendlib.core.animation.v2.AnimationV2EvaluationSnapshot(
+                frame.revision(), frame.pose(), java.util.Map.of(), java.util.Collections.nCopies(9, diagnostic));
+        var absent = String.join("\n", ExampleLayerInspection.format(ExampleAnimationScene.layers(), missing));
+        require(absent.contains("No sampled playhead"), "missing playhead is not presented as current configuration state");
+        require(absent.contains("Sampled diagnostics=9") && absent.contains("COMMAND_SEQUENCE_CONFLICT")
+                && absent.contains("Additional diagnostics omitted"), "diagnostics are visible and chat output is bounded");
+        System.out.println("Verified read-only inspection formatting: masks, sampled state/time/sequence, transitions, locale, absence and bounded diagnostics");
     }
 
     private static List<AnimationV2Command> capture(EntityLayerCueCache cache, Object owner, long sequence,

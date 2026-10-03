@@ -38,6 +38,7 @@ public final class ExampleClient implements ClientModInitializer {
                         .shadowRadius(0.45F)
                         .build());
         ExampleItemCommands.register();
+        ExampleInspectionCommands.register();
     }
 
     private static List<BlendEntityLayerCue> cues(LayeredActor entity, BlendEntitySnapshotRequest request) {

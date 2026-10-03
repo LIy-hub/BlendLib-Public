@@ -120,3 +120,54 @@ visual acceptance. The following still needs a real client session:
 
 Record game version, both JAR hashes, commands used and screenshots/logs when making any visual
 acceptance claim. A successful build alone is not evidence for rendering, timing or GPU behavior.
+
+## Inspect a sampled entity without changing playback
+
+With the separate example mod installed, list nearby loaded actors and their numeric IDs:
+
+```mcfunction
+/blendlib_example inspect
+```
+
+Then choose an actor explicitly using one of the listed commands:
+
+```mcfunction
+/blendlib_example inspect 42
+```
+
+The no-argument list queries a 16-block box around the player and shows at most eight actor IDs,
+sorted by ID. It does not select one automatically or depend on vanilla crosshair targeting
+(the example actor is intentionally not pickable). The command never loads an entity, starts an animation,
+creates an animation instance, or changes gameplay. It only accepts this example's actor type.
+The original `/blendlib inspect <model-id>` and `/blendlib diagnostics [model-id]` remain the
+right tools for asset loading problems. This new command answers a different question: what
+was the actor's most recent layered animation evaluation?
+
+Output separates:
+
+- Received entity cue sequence/start tick, which may be newer than the last evaluated cue
+- Last sampled revision, controller state, clip-local seconds, accepted sequence, previous
+  state and transition progress (`-1` accepted sequence means no command has been accepted yet)
+- **Configured** layer priority, mode, weight and per-bone mask weights; these are not measured
+  final bone influence or a claim about final blended/procedural transforms
+- Diagnostics from that sampled evaluation, with at most eight diagnostic lines in chat
+
+A culled actor's publication can be old: inspection intentionally does not force extraction or
+advance its clock. After reload, inspection returns unavailable until a new-generation sample
+exists. An unloaded/disconnected actor is unavailable. Look at the actor and retry after it has
+rendered. Repeated inspection does not consume events, replay cues or clear diagnostics; only
+another extraction replaces the sampled publication.
+
+`ExampleLayerInspection.format(layers, snapshot)` is a small Minecraft-free formatter you can
+copy into your own development consumer. Obtain the immutable snapshot using the existing
+`SkinnedAnimationRuntime.layeredSnapshot(instanceKey)` on its extraction owner thread. It does
+not retain the snapshot or expose mutable controllers. The utility stays in the separate
+example JAR, and no new public library API is required. Socket transforms and procedural results
+remain available through their existing extraction callbacks; this command does not retain or
+pretend to measure them. Animated items already have the playback controls documented above.
+
+Manual command checks still required in a working graphical client: nearby-ID discovery and
+explicit-ID targeting, wrong/missing target feedback, two actors with different cues, repeated
+reads, F3+T then reinspection, tracking unload, and disconnect/rejoin. The packaged headless
+verification covers formatter output and immutable runtime lifecycle behavior, not command UI
+or visual rendering acceptance.

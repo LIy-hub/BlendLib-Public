@@ -527,10 +527,16 @@ public final class SkinnedAnimationRuntime {
         }
     }
 
-    /** Most recent immutable layered publication, including sequence and bounded-work diagnostics. */
+    /**
+     * Most recent immutable layered publication from the current resource generation.
+     * Call on the extraction owner thread. This read never advances playback, binds an instance,
+     * or performs lifecycle cleanup; a reload before the next extraction returns empty instead
+     * of exposing a retired generation. A retained publication may lag while an instance is culled.
+     */
     public Optional<AnimationV2EvaluationSnapshot> layeredSnapshot(BlendInstanceKey key) {
         InstanceClock clock = clocks.get(Objects.requireNonNull(key, "key"));
-        return clock == null || clock.layered == null ? Optional.empty()
+        return clock == null || clock.layered == null || clock.generation != modelRegistry.current().generationId()
+                ? Optional.empty()
                 : Optional.of(clock.layered.runtime.latestSnapshot());
     }
 

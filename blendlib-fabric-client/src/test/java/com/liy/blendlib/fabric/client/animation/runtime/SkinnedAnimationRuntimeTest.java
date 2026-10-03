@@ -68,6 +68,38 @@ class SkinnedAnimationRuntimeTest {
     private static final BlendResourceId OVERLAY = BlendResourceId.parse("runtime_test:overlay");
 
     @Test
+    void layeredInspectionIsReadOnlyAndRejectsReloadBeforeExtractionCleanup() {
+        var fixture = skinnedFixture(130L);
+        var harness = harness();
+        harness.runtime().onPlayInit();
+        publish(harness.models(), fixture.loaded());
+        var key = harness.runtime().entityKey(42);
+        assertTrue(harness.runtime().layeredSnapshot(key).isEmpty());
+        var layers = List.of(layer(BASE, 0, AnimationV2LayerMode.OVERRIDE, 1F, WALK, List.of()));
+        harness.runtime().extractLayered(input(MODEL, key, 12, 0F, IDLE, Optional.empty(),
+                AnimationUpdateBucket.VISIBLE_NEAR, fixture.handle()), layers, List.of(), null).orElseThrow();
+        var before = harness.runtime().layeredSnapshot(key).orElseThrow();
+        var metrics = harness.runtime().measurementSnapshot();
+        assertSame(before, harness.runtime().layeredSnapshot(key).orElseThrow());
+        assertEquals(metrics, harness.runtime().measurementSnapshot());
+        assertTrue(harness.runtime().layeredSnapshot(harness.runtime().entityKey(99)).isEmpty());
+        assertEquals(metrics, harness.runtime().measurementSnapshot());
+        // Registry publication can precede the extraction/lifecycle generation callback.
+        var replacement = skinnedFixture(131L);
+        publish(harness.models(), replacement.loaded());
+        assertTrue(harness.runtime().layeredSnapshot(key).isEmpty());
+        assertEquals(metrics, harness.runtime().measurementSnapshot()); // querying does not retire/create state
+        harness.runtime().extractLayered(input(MODEL, key, 13, 0F, IDLE, Optional.empty(),
+                AnimationUpdateBucket.VISIBLE_NEAR, replacement.handle()), layers, List.of(), null).orElseThrow();
+        assertTrue(harness.runtime().layeredSnapshot(key).isPresent());
+        assertEquals(0, before.playheads().get(BASE).timeSeconds()); // old publication stays immutable
+        harness.runtime().onEntityUnload(42);
+        assertTrue(harness.runtime().layeredSnapshot(key).isEmpty());
+        harness.runtime().onWorldDisconnect();
+        assertTrue(harness.runtime().layeredSnapshot(key).isEmpty());
+    }
+
+    @Test
     void tickCueCaptureUsesDescriptorSpeedAndStaysStableAcrossLayerExtractionAndReload() {
         var fixture = skinnedFixture(120L, 1.0, 2.0, 1.0);
         var harness = harness();
