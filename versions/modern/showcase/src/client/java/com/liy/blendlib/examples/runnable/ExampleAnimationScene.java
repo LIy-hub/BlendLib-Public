@@ -30,6 +30,14 @@ public final class ExampleAnimationScene {
                         BlendAnimationKey.parse(ExampleContent.MOD_ID + ":idle")));
     }
 
+    /** A four-second per-entity fade, independent of cues and procedural pose weighting. */
+    public static com.liy.blendlib.core.animation.v2.AnimationV2LayerWeights clipLayerWeights(double ticks) {
+        if (!Double.isFinite(ticks)) throw new IllegalArgumentException("ticks must be finite");
+        float upper = (float) (0.5 - 0.5 * Math.cos((ticks % 80.0) * Math.PI / 40.0));
+        return new com.liy.blendlib.core.animation.v2.AnimationV2LayerWeights(Map.of(
+                new com.liy.blendlib.core.animation.v2.AnimationV2LayerWeights.Key(UPPER, UPPER), upper));
+    }
+
     public static ProceduralPosePipeline procedural() {
         return ProceduralPosePipeline.of(
                 new WeightedPoseComponent(new LookAtPoseComponent(TIP_BONE, new Vec3(0, 1, 0), 0.3F,

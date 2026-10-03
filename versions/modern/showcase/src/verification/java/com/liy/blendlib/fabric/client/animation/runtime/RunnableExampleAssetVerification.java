@@ -50,6 +50,7 @@ public final class RunnableExampleAssetVerification {
         require(frame.playheads().get(ExampleAnimationScene.BASE).state().equals(BlendAnimationKey.parse(NS + "walk")),
                 "upper action must not replace base walking");
         verifyInspection(frame);
+        verifyDynamicWeights(layers, cue);
         verifyItemInspection();
         var pose = layers.localPose(frame.pose());
         var baseOnly = new ModelAnimationLayers(actor, List.of(ExampleAnimationScene.layers().getFirst()));
@@ -95,6 +96,26 @@ public final class RunnableExampleAssetVerification {
         require(capture(commands, entity, 1, 29, 43, 2).getFirst().requestedPlayheadSeconds() == 0.7,
                 "disconnect must clear captured commands");
         System.out.println("Verified packaged actor/wand/marker with strict loader, layers, procedural pose, final socket, duplicate/retrigger and reload cues");
+    }
+
+    private static void verifyDynamicWeights(ModelAnimationLayers layers, AnimationV2Command cue) {
+        var runtime = new AnimationV2InstanceRuntime(layers.plan());
+        var key = new com.liy.blendlib.core.animation.v2.AnimationV2LayerWeights.Key(
+                ExampleAnimationScene.UPPER, ExampleAnimationScene.UPPER);
+        var silent = runtime.advanceWeightedAtFrame(0, List.of(cue), ExampleAnimationScene.clipLayerWeights(0));
+        var halfway = runtime.advanceWeightedAtFrame(0.1, List.of(cue), ExampleAnimationScene.clipLayerWeights(20));
+        var visible = runtime.advanceWeightedAtFrame(0.1, List.of(cue), ExampleAnimationScene.clipLayerWeights(40));
+        require(silent.effectiveLayerWeights().get(key) == 0F, "zero clip-layer weight must be captured");
+        require(Math.abs(halfway.effectiveLayerWeights().get(key) - 0.5F) < 1e-6, "half fade");
+        require(visible.effectiveLayerWeights().get(key) == 1F, "full fade");
+        require(Math.abs(visible.playheads().get(ExampleAnimationScene.UPPER).timeSeconds()
+                - cue.requestedPlayheadSeconds() - 0.2) < 1e-6, "weight changes must not restart cue clock");
+        require(visible.playheads().get(ExampleAnimationScene.UPPER).acceptedSequence() == cue.sequence(),
+                "weight changes must preserve accepted cue sequence");
+        require(ExampleLayerInspection.format(ExampleAnimationScene.layers(), halfway).stream()
+                .anyMatch(line -> line.contains("effectiveWeight=0.500")), "inspection reports captured effective weight");
+        require(ExampleLayerInspection.format(ExampleAnimationScene.layers(), silent).stream()
+                .anyMatch(line -> line.contains("effectiveWeight=0.000")), "old captured weight stays immutable");
     }
 
     private static void verifyItemInspection() {

@@ -23,6 +23,7 @@ public final class BlendEntityRendererBuilder<E extends Entity> {
     private BlendResourceId skinnedSocketMarkerKey;
     private java.util.List<com.liy.blendlib.core.animation.v2.ModelAnimationLayers.Layer> animationLayers;
     private BlendEntityLayerCommands<? super E> layerCommands;
+    private BlendEntityLayerWeights<? super E> layerWeights;
     private com.liy.blendlib.fabric.client.animation.runtime.ClientAnimationPoseModifier poseComponents;
     private BlendEntitySocketHandler<? super E> socketHandler;
     private BlendEntityAttachmentProvider<? super E> attachmentProvider;
@@ -195,6 +196,17 @@ public final class BlendEntityRendererBuilder<E extends Entity> {
         return animationLayers(layers, BlendEntityLayerCommands.fromCues(cues));
     }
 
+    /**
+     * Captures entity-aware clip-layer multipliers once per extraction. Configure layers/cues first.
+     * Missing entries mean one; zero weight keeps advancing playback. This does not change cue sequences.
+     */
+    public BlendEntityRendererBuilder<E> animationLayerWeights(BlendEntityLayerWeights<? super E> weights) {
+        requireAnimated();
+        if (animationLayers == null) throw new IllegalStateException("Configure animation layers or cues first");
+        this.layerWeights = Objects.requireNonNull(weights, "weights");
+        return this;
+    }
+
     /** Runs reusable pose components after layered animation, before sockets and palettes. */
     public BlendEntityRendererBuilder<E> poseComponents(
             com.liy.blendlib.fabric.client.animation.runtime.ClientAnimationPoseModifier components) {
@@ -237,7 +249,7 @@ public final class BlendEntityRendererBuilder<E extends Entity> {
                     skinnedAnimationVisualEventHandler,
                     poseModifier,
                     rootRotationSelector,
-                    skinnedSocketMarkerKey, animationLayers, layerCommands, poseComponents, socketHandler, attachmentProvider);
+                    skinnedSocketMarkerKey, animationLayers, layerCommands, poseComponents, socketHandler, attachmentProvider, layerWeights);
         }
         if (snapshotFactory == null) {
             throw new IllegalStateException("A BlendEntityRenderer requires an extraction-only snapshotFactory");

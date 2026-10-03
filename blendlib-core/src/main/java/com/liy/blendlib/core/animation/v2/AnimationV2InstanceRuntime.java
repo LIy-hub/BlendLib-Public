@@ -131,6 +131,27 @@ public final class AnimationV2InstanceRuntime {
             double deltaSeconds,
             List<AnimationV2Command> frameCommands,
             List<AnimationV2SequenceRejection> frameRejections) {
+        return advanceWeightedAtFrame(deltaSeconds, frameCommands, frameRejections, AnimationV2LayerWeights.empty());
+    }
+
+    /**
+     * Evaluates this frame with immutable runtime multipliers. Omitted targets revert to their configured weights;
+     * zero weight suppresses composition only, while time, commands, transitions and observer traversal advance.
+     */
+    public AnimationV2EvaluationSnapshot advanceWeightedAtFrame(
+            double deltaSeconds,
+            List<AnimationV2Command> frameCommands,
+            AnimationV2LayerWeights weights) {
+        return advanceWeightedAtFrame(deltaSeconds, frameCommands, List.of(), weights);
+    }
+
+    /** Weighted frame evaluation with explicit fail-closed sequence revocations. */
+    public AnimationV2EvaluationSnapshot advanceWeightedAtFrame(
+            double deltaSeconds,
+            List<AnimationV2Command> frameCommands,
+            List<AnimationV2SequenceRejection> frameRejections,
+            AnimationV2LayerWeights weights) {
+        validateLayerWeights(weights);
         claimOwner();
         if (!Double.isFinite(deltaSeconds) || deltaSeconds < 0.0D) {
             throw new IllegalArgumentException("advance delta must be finite and non-negative");
@@ -173,13 +194,33 @@ public final class AnimationV2InstanceRuntime {
                 diagnostics.add(diagnostic.code(), diagnostic.controllerId(), diagnostic.layerId(), diagnostic.boneIndex(), diagnostic.detail());
             }
             AnimationV2EvaluationSnapshot snapshot = evaluate(
-                    stage.controllersInEvaluationOrder, diagnostics, nextRevision);
+                    stage.controllersInEvaluationOrder, diagnostics, nextRevision, weights);
             prepareCommit(stage);
             commitFrame(stage, capturedIngressCount, nextRevision, snapshot, overflow);
             return snapshot;
         } finally {
             Arrays.fill(ingressPreflightSnapshot, 0, capturedIngressCount, null);
             stage.clearRetainedReferences();
+        }
+    }
+
+    /** Validates immutable targets without claiming ownership or changing any runtime/queue state. */
+    public void validateLayerWeights(AnimationV2LayerWeights weights) {
+        Objects.requireNonNull(weights, "weights");
+        for (AnimationV2LayerWeights.Key key : weights.multipliers().keySet()) {
+            AnimationV2ControllerDefinition controller = plan.findController(key.controllerId());
+            boolean declared = false;
+            if (controller != null) {
+                for (AnimationV2LayerDefinition layer : controller.layers()) {
+                    if (layer.id().equals(key.layerId())) {
+                        declared = true;
+                        break;
+                    }
+                }
+            }
+            if (!declared) {
+                throw new IllegalArgumentException("undeclared v2 layer target: " + key);
+            }
         }
     }
 
@@ -417,7 +458,22 @@ public final class AnimationV2InstanceRuntime {
     private AnimationV2EvaluationSnapshot evaluate(
             ControllerRuntime[] controllers,
             AnimationV2Diagnostics diagnostics,
-            long nextRevision) {
+            long nextRevision,
+            AnimationV2LayerWeights weights) {
+        // Resolve once per layer, never allocate keys or consult input maps inside the bone loops.
+        float[][] effectiveWeights = new float[controllers.length][];
+        LinkedHashMap<AnimationV2LayerWeights.Key, Float> publishedWeights = new LinkedHashMap<>();
+        for (int controllerIndex = 0; controllerIndex < controllers.length; controllerIndex++) {
+            AnimationV2ControllerDefinition definition = controllers[controllerIndex].definition;
+            effectiveWeights[controllerIndex] = new float[definition.layerCount()];
+            for (int layerIndex = 0; layerIndex < definition.layerCount(); layerIndex++) {
+                AnimationV2LayerDefinition layer = definition.layers().get(layerIndex);
+                AnimationV2LayerWeights.Key key = new AnimationV2LayerWeights.Key(definition.id(), layer.id());
+                float effective = layer.weight() * weights.multiplier(key);
+                effectiveWeights[controllerIndex][layerIndex] = effective;
+                publishedWeights.put(key, effective);
+            }
+        }
         LinkedHashMap<BlendResourceId, AnimationV2ControllerPlayhead> playheads = new LinkedHashMap<>();
         for (ControllerRuntime controller : controllers) {
             playheads.put(controller.definition.id(), controller.playhead());
@@ -459,7 +515,7 @@ public final class AnimationV2InstanceRuntime {
                     if (layer.mode() != AnimationV2LayerMode.OVERRIDE) {
                         continue;
                     }
-                    double weight = (double) layer.weight() * (double) layer.mask().weightAt(bone);
+                    double weight = (double) effectiveWeights[controllerIndex][layerIndex] * (double) layer.mask().weightAt(bone);
                     if (weight <= 0.0D) {
                         continue;
                     }
@@ -491,7 +547,7 @@ public final class AnimationV2InstanceRuntime {
                     if (layer.mode() != AnimationV2LayerMode.OVERRIDE) {
                         continue;
                     }
-                    double weight = (double) layer.weight() * (double) layer.mask().weightAt(bone);
+                    double weight = (double) effectiveWeights[controllerIndex][layerIndex] * (double) layer.mask().weightAt(bone);
                     if (weight <= 0.0D) {
                         continue;
                     }
@@ -588,7 +644,7 @@ public final class AnimationV2InstanceRuntime {
                     if (layer.mode() != AnimationV2LayerMode.ADDITIVE) {
                         continue;
                     }
-                    double weight = (double) layer.weight() * (double) layer.mask().weightAt(bone);
+                    double weight = (double) effectiveWeights[controllerIndex][layerIndex] * (double) layer.mask().weightAt(bone);
                     if (weight <= 0.0D) {
                         continue;
                     }
@@ -618,7 +674,7 @@ public final class AnimationV2InstanceRuntime {
         }
         return new AnimationV2EvaluationSnapshot(
                 nextRevision, AnimationV2Pose.takeOwnership(composed), playheads, diagnostics.freeze(),
-                AnimationV2ObserverTraversal.freeze(traversals));
+                AnimationV2ObserverTraversal.freeze(traversals), publishedWeights);
     }
 
     /**

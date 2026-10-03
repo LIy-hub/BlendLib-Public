@@ -18,6 +18,7 @@ import com.liy.blendlib.core.animation.runtime.AnimationControllerDefinition;
 import com.liy.blendlib.core.animation.runtime.LocalPose;
 import com.liy.blendlib.core.animation.v2.AnimationV2Command;
 import com.liy.blendlib.core.animation.v2.AnimationV2LayerMode;
+import com.liy.blendlib.core.animation.v2.AnimationV2LayerWeights;
 import com.liy.blendlib.core.animation.v2.BoneMask;
 import com.liy.blendlib.core.animation.v2.ModelAnimationLayers;
 import com.liy.blendlib.core.model.Quaternion;
@@ -66,6 +67,135 @@ class SkinnedAnimationRuntimeTest {
     private static final BlendResourceId SOCKET = BlendResourceId.parse("runtime_test:bone_socket");
     private static final BlendResourceId BASE = BlendResourceId.parse("runtime_test:base");
     private static final BlendResourceId OVERLAY = BlendResourceId.parse("runtime_test:overlay");
+
+    @Test
+    void dynamicWeightsMultiplyConfiguredWeightAndBoneMaskAndPublishImmutableFrame() {
+        var fixture = skinnedFixture(140L);
+        var harness = harness();
+        harness.runtime().onPlayInit();
+        publish(harness.models(), fixture.loaded());
+        var key = harness.runtime().entityKey(140);
+        var layers = List.of(
+                layer(BASE, 0, AnimationV2LayerMode.OVERRIDE, 1F, WALK, List.of()),
+                layer(OVERLAY, 1, AnimationV2LayerMode.ADDITIVE, 0.5F, ATTACK,
+                        List.of(new BoneMask.NamedWeight("Bone", 0.5F))));
+        var commands = List.of(new AnimationV2Command(BASE, WALK, 1, 0.5D, 1),
+                new AnimationV2Command(OVERLAY, ATTACK, 1, 0.5D, 1));
+        var weights = new AnimationV2LayerWeights(Map.of(weightKey(OVERLAY), 0.4F));
+        var first = harness.runtime().extractLayered(input(MODEL, key, 10, 0F, IDLE, Optional.empty(),
+                AnimationUpdateBucket.VISIBLE_NEAR, fixture.handle()), layers, commands, weights,
+                (context, pose) -> {
+                    assertEquals(0.6F, pose.transform(1).translation().x(), 1e-6F);
+                    return pose;
+                }).orElseThrow();
+        assertSocketX(first, 0.6F); // 0.5 base + (1.0 attack * 0.5 configured * 0.4 dynamic * 0.5 mask)
+        var retained = harness.runtime().layeredSnapshot(key).orElseThrow();
+        assertEquals(Map.of(weightKey(BASE), 1F, weightKey(OVERLAY), 0.2F), retained.effectiveLayerWeights());
+        assertThrows(UnsupportedOperationException.class,
+                () -> retained.effectiveLayerWeights().put(weightKey(OVERLAY), 1F));
+        var omitted = harness.runtime().extractLayered(input(MODEL, key, 10, 0F, IDLE, Optional.empty(),
+                AnimationUpdateBucket.VISIBLE_NEAR, fixture.handle()), layers, commands, null).orElseThrow();
+        assertSocketX(omitted, 0.75F);
+        assertEquals(0.5F, harness.runtime().layeredSnapshot(key).orElseThrow()
+                .effectiveLayerWeights().get(weightKey(OVERLAY)), 1e-6F);
+        assertEquals(0.2F, retained.effectiveLayerWeights().get(weightKey(OVERLAY)), 1e-6F);
+        assertSocketX(first, 0.6F);
+    }
+
+    @Test
+    void zeroWeightAdvancesCueAndFadeAtSameAndLaterTickNeverRestartsOrLeaksAcrossInstances() {
+        var fixture = skinnedFixture(141L);
+        var harness = harness();
+        harness.runtime().onPlayInit();
+        publish(harness.models(), fixture.loaded());
+        var key = harness.runtime().entityKey(141);
+        var otherKey = harness.runtime().entityKey(142);
+        var layers = List.of(layer(BASE, 0, AnimationV2LayerMode.OVERRIDE, 1F, WALK, List.of()));
+        var commands = List.of(new AnimationV2Command(BASE, WALK, 7, 0.2D, 1));
+        var zero = new AnimationV2LayerWeights(Map.of(weightKey(BASE), 0F));
+        assertSocketX(harness.runtime().extractLayered(input(MODEL, key, 10, 0F, IDLE, Optional.empty(),
+                AnimationUpdateBucket.VISIBLE_NEAR, fixture.handle()), layers, commands, zero, null).orElseThrow(), 0F);
+        assertSocketX(harness.runtime().extractLayered(input(MODEL, key, 12, 0F, IDLE, Optional.empty(),
+                AnimationUpdateBucket.VISIBLE_NEAR, fixture.handle()), layers, commands, zero, null).orElseThrow(), 0F);
+        var silent = harness.runtime().layeredSnapshot(key).orElseThrow();
+        assertEquals(0.3D, silent.playheads().get(BASE).timeSeconds(), 1e-9D);
+        assertEquals(7L, silent.playheads().get(BASE).acceptedSequence());
+        var half = new AnimationV2LayerWeights(Map.of(weightKey(BASE), 0.5F));
+        assertSocketX(harness.runtime().extractLayered(input(MODEL, key, 12, 0F, IDLE, Optional.empty(),
+                AnimationUpdateBucket.VISIBLE_NEAR, fixture.handle()), layers, commands, half, null).orElseThrow(), 0.15F);
+        assertSocketX(harness.runtime().extractLayered(input(MODEL, otherKey, 12, 0F, IDLE, Optional.empty(),
+                AnimationUpdateBucket.VISIBLE_NEAR, fixture.handle()), layers, commands, null).orElseThrow(), 0.2F);
+        assertSocketX(harness.runtime().extractLayered(input(MODEL, key, 14, 0F, IDLE, Optional.empty(),
+                AnimationUpdateBucket.VISIBLE_NEAR, fixture.handle()), layers, commands, half, null).orElseThrow(), 0.2F);
+        var faded = harness.runtime().layeredSnapshot(key).orElseThrow();
+        assertEquals(0.4D, faded.playheads().get(BASE).timeSeconds(), 1e-9D);
+        assertEquals(7L, faded.playheads().get(BASE).acceptedSequence());
+        assertEquals(0F, silent.effectiveLayerWeights().get(weightKey(BASE)));
+    }
+
+    @Test
+    void dynamicWeightsClearOnUnloadAndReloadAndOmittedFramesUseConfiguredWeight() {
+        var fixture = skinnedFixture(142L);
+        var harness = harness();
+        harness.runtime().onPlayInit();
+        publish(harness.models(), fixture.loaded());
+        var key = harness.runtime().entityKey(143);
+        var layers = List.of(layer(BASE, 0, AnimationV2LayerMode.OVERRIDE, 0.5F, WALK, List.of()));
+        var zero = new AnimationV2LayerWeights(Map.of(weightKey(BASE), 0F));
+        var command = List.of(new AnimationV2Command(BASE, WALK, 9, 0.6D, 1));
+        harness.runtime().extractLayered(input(MODEL, key, 10, 0F, IDLE, Optional.empty(),
+                AnimationUpdateBucket.VISIBLE_NEAR, fixture.handle()), layers, command, zero, null).orElseThrow();
+        harness.runtime().onEntityUnload(143);
+        assertTrue(harness.runtime().layeredSnapshot(key).isEmpty());
+        var freshCommand = List.of(new AnimationV2Command(BASE, WALK, 1, 0.4D, 1));
+        assertSocketX(harness.runtime().extractLayered(input(MODEL, key, 100, 0F, IDLE, Optional.empty(),
+                AnimationUpdateBucket.VISIBLE_NEAR, fixture.handle()), layers, freshCommand,
+                AnimationV2LayerWeights.empty(), null).orElseThrow(), 0.2F);
+        harness.runtime().extractLayered(input(MODEL, key, 100, 0F, IDLE, Optional.empty(),
+                AnimationUpdateBucket.VISIBLE_NEAR, fixture.handle()), layers, freshCommand, zero, null).orElseThrow();
+        var replacement = skinnedFixture(143L);
+        publish(harness.models(), replacement.loaded());
+        assertTrue(harness.runtime().layeredSnapshot(key).isEmpty());
+        assertSocketX(harness.runtime().extractLayered(input(MODEL, key, 200, 0F, IDLE, Optional.empty(),
+                AnimationUpdateBucket.VISIBLE_NEAR, replacement.handle()), layers, freshCommand, null).orElseThrow(), 0.2F);
+        assertEquals(0.5F, harness.runtime().layeredSnapshot(key).orElseThrow()
+                .effectiveLayerWeights().get(weightKey(BASE)), 1e-6F);
+    }
+
+    @Test
+    void invalidWeightTargetDoesNotBindAnInstanceOrAdvanceExistingClocksOrCommands() {
+        var fixture = skinnedFixture(144L);
+        var harness = harness();
+        harness.runtime().onPlayInit();
+        publish(harness.models(), fixture.loaded());
+        var key = harness.runtime().entityKey(144);
+        var layers = List.of(layer(BASE, 0, AnimationV2LayerMode.OVERRIDE, 1F, WALK, List.of()));
+        var invalid = new AnimationV2LayerWeights(Map.of(new AnimationV2LayerWeights.Key(BASE, OVERLAY), 0.5F));
+        var command = List.of(new AnimationV2Command(BASE, WALK, 1, 0.2D, 1));
+        assertThrows(IllegalArgumentException.class, () -> harness.runtime().extractLayered(
+                input(MODEL, key, 100, 0F, IDLE, Optional.empty(), AnimationUpdateBucket.VISIBLE_NEAR,
+                        fixture.handle()), layers, command, invalid, null));
+        assertEquals(0, harness.runtime().trackedClockCount());
+        assertEquals(0, harness.lifecycle().registry().size());
+        assertTrue(harness.runtime().layeredSnapshot(key).isEmpty());
+        harness.runtime().extractLayered(input(MODEL, key, 10, 0F, IDLE, Optional.empty(),
+                AnimationUpdateBucket.VISIBLE_NEAR, fixture.handle()), layers, command, null).orElseThrow();
+        var before = harness.runtime().layeredSnapshot(key).orElseThrow();
+        assertThrows(IllegalArgumentException.class, () -> harness.runtime().extractLayered(
+                input(MODEL, key, 100, 0F, IDLE, Optional.empty(), AnimationUpdateBucket.VISIBLE_NEAR,
+                        fixture.handle()), layers, List.of(new AnimationV2Command(BASE, WALK, 2, 0.8D, 1)),
+                invalid, null));
+        assertSame(before, harness.runtime().layeredSnapshot(key).orElseThrow());
+        var next = harness.runtime().extractLayered(input(MODEL, key, 12, 0F, IDLE, Optional.empty(),
+                AnimationUpdateBucket.VISIBLE_NEAR, fixture.handle()), layers, command, null).orElseThrow();
+        assertSocketX(next, 0.3F);
+        assertEquals(0.1D, next.advance().timeSeconds(), 1e-9D);
+        assertEquals(1L, harness.runtime().layeredSnapshot(key).orElseThrow().playheads().get(BASE).acceptedSequence());
+    }
+
+    private static AnimationV2LayerWeights.Key weightKey(BlendResourceId id) {
+        return new AnimationV2LayerWeights.Key(id, id);
+    }
 
     @Test
     void layeredInspectionIsReadOnlyAndRejectsReloadBeforeExtractionCleanup() {

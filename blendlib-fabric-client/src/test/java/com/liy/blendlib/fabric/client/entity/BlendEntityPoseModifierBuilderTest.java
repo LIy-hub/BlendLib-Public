@@ -6,6 +6,11 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import com.liy.blendlib.api.BlendAnimationKey;
 import com.liy.blendlib.api.BlendModelKey;
+import com.liy.blendlib.api.BlendResourceId;
+import com.liy.blendlib.core.animation.v2.AnimationV2LayerWeights;
+import com.liy.blendlib.core.animation.v2.AnimationV2LayerMode;
+import com.liy.blendlib.core.animation.v2.ModelAnimationLayers;
+import java.util.List;
 import com.liy.blendlib.fabric.client.api.BlendRenderer;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
@@ -66,6 +71,35 @@ class BlendEntityPoseModifierBuilderTest {
         BlendEntityRendererBuilder<Entity> nullSelector = builder()
                 .skinnedAnimation((entity, request) -> IDLE);
         assertThrows(NullPointerException.class, () -> nullSelector.rootRotation(null));
+    }
+
+    @Test
+    void layerWeightsRequireAnimatedLayersOrCuesAndRejectNull() {
+        BlendEntityLayerWeights<Entity> weights = (entity, request) -> AnimationV2LayerWeights.empty();
+        assertThrows(IllegalStateException.class, () -> builder().animationLayerWeights(weights));
+        assertThrows(IllegalStateException.class, () -> builder().staticRestPose().animationLayerWeights(weights));
+        assertThrows(IllegalStateException.class,
+                () -> builder().snapshotFactory((entity, request) -> null).animationLayerWeights(weights));
+        assertThrows(IllegalStateException.class,
+                () -> builder().skinnedAnimation((entity, request) -> IDLE).animationLayerWeights(weights));
+        var layers = List.of(new ModelAnimationLayers.Layer(BlendResourceId.parse("builder_test:base"),
+                0, AnimationV2LayerMode.OVERRIDE, 1F, List.of(), IDLE));
+        var animated = builder().skinnedAnimation((entity, request) -> IDLE)
+                .animationLayers(layers, (entity, request) -> List.of());
+        assertThrows(NullPointerException.class, () -> animated.animationLayerWeights(null));
+        assertSame(animated, animated.animationLayerWeights(weights));
+        var cues = builder().synchronizedSkinnedAnimation((entity, request) -> IDLE)
+                .animationLayerCues(layers, (entity, request) -> List.of());
+        assertSame(cues, cues.animationLayerWeights(weights));
+    }
+
+    @Test
+    void layerWeightCallbackPinsEntityAndSnapshotRequestAbi() throws ReflectiveOperationException {
+        Method method = BlendEntityLayerWeights.class.getDeclaredMethod(
+                "weights", Entity.class, BlendEntitySnapshotRequest.class);
+        assertSame(AnimationV2LayerWeights.class, method.getReturnType());
+        org.junit.jupiter.api.Assertions.assertEquals(1, BlendEntityLayerWeights.class.getDeclaredMethods().length);
+        org.junit.jupiter.api.Assertions.assertTrue(BlendEntityLayerWeights.class.isAnnotationPresent(FunctionalInterface.class));
     }
 
     private static BlendEntityRendererBuilder<Entity> builder() {

@@ -40,6 +40,7 @@ final class SkinnedAnimationEntitySnapshotFactory<E extends Entity> implements B
     private final BlendResourceId presentationSocketMarkerKey;
     private final java.util.List<com.liy.blendlib.core.animation.v2.ModelAnimationLayers.Layer> animationLayers;
     private final BlendEntityLayerCommands<? super E> layerCommands;
+    private final BlendEntityLayerWeights<? super E> layerWeights;
     private final com.liy.blendlib.fabric.client.animation.runtime.ClientAnimationPoseModifier poseComponents;
     private final BlendEntitySocketHandler<? super E> socketHandler;
     private final BlendEntityAttachmentProvider<? super E> attachmentProvider;
@@ -69,6 +70,25 @@ final class SkinnedAnimationEntitySnapshotFactory<E extends Entity> implements B
             com.liy.blendlib.fabric.client.animation.runtime.ClientAnimationPoseModifier poseComponents,
             BlendEntitySocketHandler<? super E> socketHandler,
             BlendEntityAttachmentProvider<? super E> attachmentProvider) {
+        this(modelKey, stateSelector, syncedStateSelector, visualEventHandler, poseModifier, rootRotationSelector,
+                presentationSocketMarkerKey, animationLayers, layerCommands, poseComponents, socketHandler,
+                attachmentProvider, null);
+    }
+
+    SkinnedAnimationEntitySnapshotFactory(BlendModelKey modelKey,
+            SkinnedAnimationStateSelector<? super E> stateSelector,
+            SyncedSkinnedAnimationStateSelector<? super E> syncedStateSelector,
+            SkinnedAnimationVisualEventHandler<? super E> visualEventHandler,
+            BlendEntityPoseModifier<? super E> poseModifier,
+            BlendEntityRootRotationSelector<? super E> rootRotationSelector,
+            BlendResourceId presentationSocketMarkerKey,
+            java.util.List<com.liy.blendlib.core.animation.v2.ModelAnimationLayers.Layer> animationLayers,
+            BlendEntityLayerCommands<? super E> layerCommands,
+            com.liy.blendlib.fabric.client.animation.runtime.ClientAnimationPoseModifier poseComponents,
+            BlendEntitySocketHandler<? super E> socketHandler,
+            BlendEntityAttachmentProvider<? super E> attachmentProvider,
+            BlendEntityLayerWeights<? super E> layerWeights) {
+        this.layerWeights = layerWeights;
         this.animationLayers = animationLayers;
         this.layerCommands = layerCommands;
         this.poseComponents = poseComponents;
@@ -139,10 +159,12 @@ final class SkinnedAnimationEntitySnapshotFactory<E extends Entity> implements B
                     }
                     return poseComponents == null ? current : poseComponents.modify(animationContext, current);
                 };
-        var extraction = animationLayers == null
+        var layerFrame = animationLayers == null ? null
+                : captureLayerFrame(animationLayers, layerWeights, layerCommands, checkedEntity, checkedRequest);
+        var extraction = layerFrame == null
                 ? animationRuntime.extract(runtimeInput, combinedModifier)
                 : animationRuntime.extractLayered(runtimeInput, animationLayers,
-                        layerCommands.commands(checkedEntity, checkedRequest), combinedModifier);
+                        layerFrame.commands(), layerFrame.weights(), combinedModifier);
         ModelRenderSnapshot extracted = extraction
                 .map(result -> {
                     visualEvents.dispatch(
@@ -168,6 +190,30 @@ final class SkinnedAnimationEntitySnapshotFactory<E extends Entity> implements B
                 .orElseGet(() -> missingSnapshot(model, checkedRequest, rootTransform));
         return extracted;
     }
+
+    /** Preflight weights before command/cue sources can commit their first-capture state. */
+    static <E extends Entity> CapturedLayerFrame captureLayerFrame(
+            java.util.List<com.liy.blendlib.core.animation.v2.ModelAnimationLayers.Layer> layers,
+            BlendEntityLayerWeights<? super E> weightSource, BlendEntityLayerCommands<? super E> commands,
+            E entity, BlendEntitySnapshotRequest request) {
+        var weights = weightSource == null
+                ? com.liy.blendlib.core.animation.v2.AnimationV2LayerWeights.empty()
+                : Objects.requireNonNull(weightSource.weights(entity, request), "captured layer weights");
+        for (var key : weights.multipliers().keySet()) {
+            boolean declared = false;
+            for (var layer : layers) {
+                if (layer.id().equals(key.controllerId()) && layer.id().equals(key.layerId())) {
+                    declared = true;
+                    break;
+                }
+            }
+            if (!declared) throw new IllegalArgumentException("undeclared entity layer target: " + key);
+        }
+        return new CapturedLayerFrame(java.util.List.copyOf(commands.commands(entity, request)), weights);
+    }
+
+    record CapturedLayerFrame(java.util.List<com.liy.blendlib.core.animation.v2.AnimationV2Command> commands,
+            com.liy.blendlib.core.animation.v2.AnimationV2LayerWeights weights) { }
 
     /**
      * Conservatively measures camera distance from a model's visible envelope instead of only its

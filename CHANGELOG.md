@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased: frame-local clip-layer weights
+
+- Add immutable dynamic animation-v2 multipliers and entity extraction callbacks without restarting playback
+- Capture effective layer weights alongside immutable pose/playhead observations
+- Exercise per-actor fades in the opt-in 26.3 cue example; retain existing APIs and network behavior
+
 ## Unreleased - weighted procedural poses
 
 - Add dynamic weighted and named-node-masked composition for procedural components and pipelines, retaining zero-weight spring progression and rotation-only validation

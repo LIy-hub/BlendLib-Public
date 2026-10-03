@@ -197,7 +197,7 @@ public final class SkinnedAnimationRuntime {
      * controller error rather than a fallback to a different model profile.</p>
      */
     public Optional<SkinnedAnimationRuntimeResult> extract(SkinnedAnimationRuntimeInput input) {
-        return extractInternal(input, null, null, null, List.of());
+        return extractInternal(input, null, null, null, List.of(), AnimationV2LayerWeights.empty());
     }
 
     /**
@@ -206,7 +206,7 @@ public final class SkinnedAnimationRuntime {
      */
     public Optional<SkinnedAnimationRuntimeResult> extract(
             SkinnedAnimationRuntimeInput input, ClientAnimationPoseModifier poseModifier) {
-        return extractInternal(input, Objects.requireNonNull(poseModifier, "poseModifier"), null, null, List.of());
+        return extractInternal(input, Objects.requireNonNull(poseModifier, "poseModifier"), null, null, List.of(), AnimationV2LayerWeights.empty());
     }
 
     /** Extracts an explicitly controlled clip-local time, bypassing descriptor looping and next-state logic. */
@@ -215,7 +215,7 @@ public final class SkinnedAnimationRuntime {
         if (!Double.isFinite(clipSeconds) || clipSeconds < 0.0D) {
             throw new IllegalArgumentException("clipSeconds must be finite and non-negative");
         }
-        return extractInternal(input, modifier, clipSeconds, null, List.of());
+        return extractInternal(input, modifier, clipSeconds, null, List.of(), AnimationV2LayerWeights.empty());
     }
 
     /** Returns raw clip duration without creating an instance; empty for an unavailable model or undeclared state. */
@@ -242,12 +242,26 @@ public final class SkinnedAnimationRuntime {
     public Optional<SkinnedAnimationRuntimeResult> extractLayered(SkinnedAnimationRuntimeInput input,
             List<ModelAnimationLayers.Layer> layers, List<AnimationV2Command> commands,
             ClientAnimationPoseModifier modifier) {
-        return extractInternal(input, modifier, null, List.copyOf(layers), List.copyOf(commands));
+        return extractLayered(input, layers, commands, AnimationV2LayerWeights.empty(), modifier);
+    }
+
+    /**
+     * Captures frame-local clip-layer multipliers without rebuilding plans or restarting playback.
+     * Missing entries retain configured weight; zero contribution still advances the controller.
+     * Values are not retained for the next extraction. Unknown controller/layer pairs are rejected
+     * before instance clocks or cue commands are advanced.
+     */
+    public Optional<SkinnedAnimationRuntimeResult> extractLayered(SkinnedAnimationRuntimeInput input,
+            List<ModelAnimationLayers.Layer> layers, List<AnimationV2Command> commands,
+            AnimationV2LayerWeights weights, ClientAnimationPoseModifier modifier) {
+        return extractInternal(input, modifier, null, List.copyOf(layers), List.copyOf(commands),
+                Objects.requireNonNull(weights, "weights"));
     }
 
     private Optional<SkinnedAnimationRuntimeResult> extractInternal(
             SkinnedAnimationRuntimeInput input, ClientAnimationPoseModifier poseModifier, Double clipSeconds,
-            List<ModelAnimationLayers.Layer> layers, List<AnimationV2Command> commands) {
+            List<ModelAnimationLayers.Layer> layers, List<AnimationV2Command> commands,
+            AnimationV2LayerWeights weights) {
         long preparationStartedNanos = ClientRenderMeasurementCollector.startAnimationPreparation();
         try {
             SkinnedAnimationRuntimeInput checkedInput = Objects.requireNonNull(input, "input");
@@ -270,6 +284,16 @@ public final class SkinnedAnimationRuntime {
 
             PreparedAnimationAsset prepared = preparedAsset(loaded);
             BlendInstanceKey instanceKey = checkedInput.instanceKey();
+            // Validate a complete captured frame before binding/advancing live instance state.
+            LayeredClock selectedLayered = null;
+            if (layers != null) {
+                InstanceClock prior = clocks.get(instanceKey);
+                selectedLayered = prior != null && prior.matches(checkedInput.modelKey(), generation)
+                        && prior.layered != null && prior.layered.layers.equals(layers)
+                        ? prior.layered
+                        : new LayeredClock(preparedLayers(loaded, layers), layers, checkedInput.clientGameTimeInTicks());
+                selectedLayered.runtime.validateLayerWeights(weights);
+            }
             ClientAnimationInstanceRegistry instances = lifecycle.registry();
             ClientAnimationInstance instance = instances.bind(instanceKey, checkedInput.modelKey(), generation, prepared.definition());
             InstanceClock clock = clockFor(
@@ -290,14 +314,12 @@ public final class SkinnedAnimationRuntime {
                     clock.sampleRevision);
             ClientAnimationPoseSnapshot basePose = instances.preparePoseSnapshot(poseKey, prepared.sampler());
             if (layers != null) {
-                if (clock.layered == null || !clock.layered.layers.equals(layers)) {
-                    clock.layered = new LayeredClock(preparedLayers(loaded, layers), layers, checkedInput.clientGameTimeInTicks());
-                }
-                LayeredClock layered = clock.layered;
+                LayeredClock layered = selectedLayered;
                 double tick = checkedInput.clientGameTimeInTicks();
                 double delta = Math.max(0.0D, tick - layered.lastTick) / TICKS_PER_SECOND;
-                var evaluation = layered.runtime.advanceAtFrame(delta, commands);
+                var evaluation = layered.runtime.advanceWeightedAtFrame(delta, commands, weights);
                 layered.lastTick = Math.max(layered.lastTick, tick);
+                clock.layered = layered;
                 basePose = instances.captureEvaluatedPose(basePose, layered.model.localPose(evaluation.pose()));
             } else {
                 clock.layered = null;

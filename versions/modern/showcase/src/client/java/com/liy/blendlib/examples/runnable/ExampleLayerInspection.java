@@ -39,6 +39,10 @@ public final class ExampleLayerInspection {
                     .collect(Collectors.joining(", "));
             lines.add("Configured " + layer.id() + " priority=" + layer.priority() + " mode=" + layer.mode()
                     + " weight=" + number(layer.weight()) + " mask=[" + mask + "]");
+            var effective = snapshot.effectiveLayerWeights().get(
+                    new com.liy.blendlib.core.animation.v2.AnimationV2LayerWeights.Key(layer.id(), layer.id()));
+            lines.add("  Sampled effectiveWeight=" + (effective == null ? "unavailable" : number(effective))
+                    + " (before bone mask and priority resolution)");
             var playhead = snapshot.playheads().get(layer.id());
             if (playhead == null) {
                 lines.add("  No sampled playhead for this configured layer");

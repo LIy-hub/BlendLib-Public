@@ -41,7 +41,8 @@ Watch for at least ten seconds:
 
 1. The full-body `walk` layer continuously bobs the fixture
 2. The independently masked upper controller plays `attack` every five seconds, then `idle`,
-   while the base layer keeps running
+   while the base layer keeps running; its clip-layer contribution fades on a four-second
+   per-entity cycle without restarting either controller
 3. A procedural look-at and rotation-limit pipeline bends the tip after the clip layers
 4. A small gold-tinted cube follows an offset from the **final** tip socket, including the
    procedural bend. This is a real separately captured model attachment, not just a debug line
@@ -188,3 +189,13 @@ static/missing-model fallback, requested animation and attempt generation. Reloa
 samples remain labeled historical. If a resource pack removes the selected animation, controls
 remain intact; restoring it resumes with the requested LOOP/ONCE/HOLD behavior. Playing time
 includes the outage; paused time does not. No fallback is represented as a successful animation.
+
+## Dynamic clip-layer weights
+
+`animationLayerWeights` captures `ExampleAnimationScene.clipLayerWeights` once per extraction.
+The upper-layer multiplier cycles 0 → 1 → 0 independently for each actor; the base is omitted
+and therefore keeps its configured weight. This is separate from procedural look-at weighting.
+The inspection command displays configured weight and sampled effective weight (before mask and
+priority resolution). Zero weight still advances the upper cue. A positive higher-priority override
+keeps owning masked bones and blends against rest; this is not a crossfade back to lower-priority
+walking. At exactly zero the lower-priority contribution becomes eligible again.

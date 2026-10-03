@@ -33,6 +33,8 @@ public final class ExampleClient implements ClientModInitializer {
                 context -> BlendEntityRenderer.<LayeredActor>builder(context, ExampleContent.ACTOR_MODEL)
                         .skinnedAnimation((entity, request) -> ExampleContent.WALK)
                         .animationLayerCues(ExampleAnimationScene.layers(), ExampleClient::cues)
+                        .animationLayerWeights((entity, request) -> ExampleAnimationScene.clipLayerWeights(
+                                request.clientGameTick() + (double) request.partialTick() + entity.getId() % 8 * 10.0))
                         .poseComponents(ExampleAnimationScene.procedural())
                         .attachments(ExampleClient::attachments)
                         .shadowRadius(0.45F)

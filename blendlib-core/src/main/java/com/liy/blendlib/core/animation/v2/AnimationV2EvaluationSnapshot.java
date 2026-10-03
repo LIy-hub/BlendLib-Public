@@ -14,6 +14,7 @@ public final class AnimationV2EvaluationSnapshot {
     private final Map<BlendResourceId, AnimationV2ControllerPlayhead> playheads;
     private final List<AnimationV2Diagnostic> diagnostics;
     private final AnimationV2ObserverTraversal observerTraversal;
+    private final Map<AnimationV2LayerWeights.Key, Float> effectiveLayerWeights;
 
     public AnimationV2EvaluationSnapshot(
             long revision,
@@ -33,6 +34,16 @@ public final class AnimationV2EvaluationSnapshot {
             Map<BlendResourceId, AnimationV2ControllerPlayhead> playheads,
             List<AnimationV2Diagnostic> diagnostics,
             AnimationV2ObserverTraversal observerTraversal) {
+        this(revision, pose, playheads, diagnostics, observerTraversal, Map.of());
+    }
+
+    AnimationV2EvaluationSnapshot(
+            long revision,
+            AnimationV2Pose pose,
+            Map<BlendResourceId, AnimationV2ControllerPlayhead> playheads,
+            List<AnimationV2Diagnostic> diagnostics,
+            AnimationV2ObserverTraversal observerTraversal,
+            Map<AnimationV2LayerWeights.Key, Float> effectiveLayerWeights) {
         if (revision < 0L) {
             throw new IllegalArgumentException("revision must be non-negative");
         }
@@ -48,6 +59,15 @@ public final class AnimationV2EvaluationSnapshot {
         this.playheads = Collections.unmodifiableMap(copied);
         this.diagnostics = List.copyOf(Objects.requireNonNull(diagnostics, "diagnostics"));
         this.observerTraversal = Objects.requireNonNull(observerTraversal, "observerTraversal");
+        this.effectiveLayerWeights = Collections.unmodifiableMap(new LinkedHashMap<>(effectiveLayerWeights));
+    }
+
+    /**
+     * Configured weight times the frame multiplier, before per-bone masks, for every declared layer.
+     * Compatibility-constructed and initial (revision zero) snapshots have an empty map.
+     */
+    public Map<AnimationV2LayerWeights.Key, Float> effectiveLayerWeights() {
+        return effectiveLayerWeights;
     }
 
     public long revision() {

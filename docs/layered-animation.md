@@ -109,3 +109,43 @@ report for the checks actually run.
 `BlendLibClientServices.skinnedAnimationRuntime().layeredSnapshot(instanceKey)` exposes the latest
 immutable v2 publication and its bounded-work/sequence diagnostics. Native descriptor plans are
 shared in a bounded generation-scoped cache; mutable controller evaluators remain per instance.
+
+
+## Frame-local dynamic clip-layer weights
+
+Keep layer declarations fixed and add `animationLayerWeights` after `animationLayers` or
+`animationLayerCues` to vary visual influence per entity:
+
+```java
+builder.animationLayerCues(layers, cues)
+    .animationLayerWeights((entity, request) -> new AnimationV2LayerWeights(Map.of(
+        new AnimationV2LayerWeights.Key(upper, upper), 0.5F)));
+```
+
+`AnimationV2LayerWeights` copies the map and rejects non-finite/out-of-range values. Each
+value is a multiplier in [0,1]; missing pairs mean one. For descriptor-backed entities the
+controller and layer IDs are both the declared `Layer.id()`. Lower-level v2 plans use the
+actual controller/layer pair, so equal layer IDs in different controllers stay independent.
+Unknown pairs are errors. These are complete per-frame values, not persistent setters.
+
+The callback receives the entity and extraction request once per extraction. It runs before
+render publication; later submission consumes only the immutable final pose. The same captured
+value can be passed directly to the additive runtime overload:
+`extractLayered(input, layers, commands, weights, modifier)`.
+Core-only consumers use `advanceWeightedAtFrame(delta, commands, weights)`; a further overload
+accepts explicit sequence rejections before the weights argument. Original overloads retain
+configured weights.
+
+Effective composition weight is configured layer weight × frame multiplier × bone-mask weight.
+Zero-weight controllers still advance time, transitions, automatic next states and cue sequences.
+Weight changes do not rebuild cached plans or restart clips. Existing override semantics remain:
+a positive higher-priority contribution suppresses lower priorities on that bone and blends with
+rest; it does not blend through to lower-priority animation. At zero it no longer owns that bone.
+Same-priority normalization and additive order are unchanged.
+
+`AnimationV2EvaluationSnapshot.effectiveLayerWeights()` captures configured × frame multiplier
+for every declared pair, before bone masks and priority resolution. It is not final bone influence.
+Compatibility-created and initial revision-zero snapshots have no sampled weights. Retained
+snapshots remain immutable; reload, unload and fresh instances cannot inherit frame-local values.
+The runnable example shows per-actor fades and separates configured and effective weights in its
+inspection command. This feature changes no network payload and adds no graphics acceptance claim.
