@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased: explicit assembly culling envelope
+
+- Add an immutable, opt-in entity-local envelope to the ordinary entity renderer builder
+- Union conservative rotation-invariant assembly bounds with vanilla and current root bounds before extraction
+- Preserve default behavior and old ABI; reject malformed configuration without animation or attachment callbacks during culling
+- Exercise real beyond-root children in an optional runnable mode, with transformed-geometry, reload and hidden-subtree checks
+
 ## Unreleased: bounded nested entity attachments
 
 - Compose prepared character, weapon and ornament snapshots during extraction; submit consumes a flat immutable list

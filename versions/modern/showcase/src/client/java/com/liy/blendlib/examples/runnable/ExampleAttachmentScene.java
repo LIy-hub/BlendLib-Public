@@ -17,6 +17,7 @@ import com.liy.blendlib.fabric.client.entity.*;
 import com.liy.blendlib.fabric.client.render.*;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 
 /** Actual extraction callback's Minecraft-free assembly; no resources or clocks reach submit. */
@@ -35,10 +36,40 @@ public final class ExampleAttachmentScene {
     public static final BlendEntitySocketPose ORNAMENT_OFFSET = new BlendEntitySocketPose(
             0, 0, 0, BlendEntityRotation.IDENTITY, 1.5F);
 
+    public static final String EXTENDED_PROPERTY = "blendlib.examples.extendedAttachments";
+    public static final BlendEntitySocketPose EXTENDED_WEAPON_OFFSET = new BlendEntitySocketPose(
+            3, .20, 0, BlendEntityRotation.IDENTITY, .25F);
+    // Includes the real descendants at every authored pose, before the actor's root rotation.
+    // This is entity-local blocks, not marker/wand authored units or server collision dimensions.
+    public static final BlendEntityCullingEnvelope EXTENDED_ENVELOPE =
+            new BlendEntityCullingEnvelope(-4.1, -4.1, -4.1, 4.1, 4.1, 4.1);
+
+    public enum Mode {
+        DEFAULT(WEAPON_OFFSET), EXTENDED(EXTENDED_WEAPON_OFFSET);
+        private final BlendEntitySocketPose weaponOffset;
+        Mode(BlendEntitySocketPose weaponOffset) { this.weaponOffset = weaponOffset; }
+        public BlendEntitySocketPose weaponOffset() { return weaponOffset; }
+        public Optional<BlendEntityCullingEnvelope> cullingEnvelope() {
+            return this == EXTENDED ? Optional.of(EXTENDED_ENVELOPE) : Optional.empty();
+        }
+    }
+
     private ExampleAttachmentScene() { }
+
+    /** Read once when the example client is initialized, never by culling or submit. */
+    public static Mode configuredMode() {
+        return Boolean.getBoolean(EXTENDED_PROPERTY) ? Mode.EXTENDED : Mode.DEFAULT;
+    }
 
     public static List<BlendEntityAttachment> capture(ClientModelLookup models, SkinnedAnimationRuntime runtime,
             BlendInstanceKey.Ephemeral ornamentKey, BlendEntitySnapshotRequest request, BlendEntitySockets sockets, int packedOverlay) {
+        return capture(models, runtime, ornamentKey, request, sockets, packedOverlay, Mode.DEFAULT);
+    }
+
+    public static List<BlendEntityAttachment> capture(ClientModelLookup models, SkinnedAnimationRuntime runtime,
+            BlendInstanceKey.Ephemeral ornamentKey, BlendEntitySnapshotRequest request, BlendEntitySockets sockets,
+            int packedOverlay, Mode mode) {
+        Objects.requireNonNull(mode, "mode");
         var tip = sockets.socket(TIP);
         var weaponModel = models.resolve(WEAPON_MODEL);
         if (tip.isEmpty() || weaponModel.missing() || weaponModel.generationId() != sockets.generation()) {
@@ -71,6 +102,6 @@ public final class ExampleAttachmentScene {
                         weaponSockets.socket(MOUNT).orElseThrow(), ORNAMENT_OFFSET, ornament)));
             } else runtime.retire(ornamentKey);
         } else runtime.retire(ornamentKey);
-        return List.of(BlendEntityAttachment.at(tip.orElseThrow(), WEAPON_OFFSET, weapon));
+        return List.of(BlendEntityAttachment.at(tip.orElseThrow(), mode.weaponOffset(), weapon));
     }
 }

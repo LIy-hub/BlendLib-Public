@@ -276,7 +276,8 @@ The weapon's authored mount is `(0, 0.5, 0)` in its static model coordinates; it
 with the weapon snapshot's actual root and units. The callback returns a nested graph; the
 standard renderer captures and submits its flattened immutable form exactly once.
 The ornament has its own walking clock, appearance, light and overlay. Its clock cannot
-replace or reset the actor's layered animation. No extra model assets or library API were added.
+replace or reset the actor's layered animation. Both modes reuse the same model assets.
+The optional extended mode below uses the ordinary renderer's explicit assembly-envelope API.
 
 Missing actor tip or unavailable/stale weapon omits both children. An unavailable/stale ornament
 or absent walk state omits only that ornament and retires its clock, leaving the weapon visible.
@@ -287,8 +288,9 @@ actor. Spawn two actors, remove one, reload resources (F3+T), and reconnect to e
 when performing the later native visual check.
 
 **There is no automatic aggregate attachment culling.** Vanilla culls the root before the
-attachment callback runs. These exact authored assets and transforms intentionally fit inside
-the existing root envelope; changing child `CullingMetadata` cannot enlarge that root envelope.
+attachment callback runs. The **default mode** keeps these exact authored assets and transforms
+inside the existing root envelope and does not configure an extra envelope. Changing child
+`CullingMetadata` cannot enlarge the root's pre-extraction culling envelope.
 The root prepared bounds are the cube with half-extent `1.320986986160` blocks. The authored
 root sway is at most `0.070000000298`, and the tip translation is `0.600000023842`. All scales
 in the clips are one; procedural components change rotation only.
@@ -308,3 +310,81 @@ translations, a different mount, or resource-pack geometry/animations. Such chan
 new conservative root/host envelope and re-verification. Server collision dimensions remain
 unchanged. Asset verification checks the fixed source assumptions; native frustum-edge and
 visual acceptance are deliberately deferred, with no native visual PASS claimed.
+
+
+### Optional extended assembly
+
+Launch the same example with this **client JVM system property**:
+
+```text
+-Dblendlib.examples.extendedAttachments=true
+```
+
+For the Gradle development client on a POSIX shell:
+
+```sh
+JAVA_TOOL_OPTIONS="-Dblendlib.examples.extendedAttachments=true" ./gradlew -p versions/modern -Pminecraft_version=26.3 -Prunnable_examples=true runRunnableExamplesClient
+```
+
+For a packaged installation, add the `-D` argument to the launcher's Java/JVM arguments.
+It is not a Minecraft chat command or a Gradle `-P` project property. Restart the client to
+switch modes. The example reads it once at client initialization, uses that same immutable
+selection for attachment extraction and renderer configuration, and never reads a property
+during culling or submit. Omit it (or use `false`) for the unchanged compact showcase.
+
+Extended mode changes the real gold weapon offset from `(0, .20, 0)` to `(3, .20, 0)` in
+final-tip local block coordinates, retaining its `.25` scale and the independently animated
+cyan ornament. This visibly separates the weapon/ornament from the body, outside the old
+root-only bounds. No dummy mesh, asset-bound padding, render-distance override or collision
+change is used. `ExampleClient` opts in through:
+
+```java
+builder.cullingEnvelope(ExampleAttachmentScene.EXTENDED_ENVELOPE);
+```
+
+The constant is `new BlendEntityCullingEnvelope(-4.1, -4.1, -4.1, 4.1, 4.1, 4.1)`.
+These are **entity-local blocks before root rotation**, after descriptor-unit conversions,
+all child offsets and scales, and every possible authored/procedural pose. The real wand's
+`units_per_block = 2.5` is included; its inherited `.25` weapon scale and `1.5` own offset scale
+are not omitted. The all-pose influence-radius proof gives the following conservative radii:
+
+- Weapon: root/tip translation radius plus the largest actual translated/scaled marker vertex
+- Ornament: `.670000024140 + sqrt(3² + .20²) + .25 * (.5 + 1.5 / 2.5 * 1.307808796846)`
+
+Both remain below `4.1` blocks even after a 1% plus `.0001` allowance. Verification computes
+these values from the packaged geometry, animation extrema, skin weights and inverse binds;
+it fails if those source assumptions or the configured offsets change.
+
+The library rotates the explicit box conservatively using an origin-centered radius, so this
+symmetric example produces an approximately `7.1014`-block half-extent cube, unioned with the
+current root model and vanilla entity bounds. It deliberately admits false positives near the
+frustum edge; it does not disable frustum, distance or hidden-frame decisions. The configured
+box is immutable for the renderer lifetime and survives F3+T; a resource pack with larger
+geometry/translation/scale needs a newly sufficient configured envelope and re-verification.
+Child snapshot culling metadata alone cannot supply it. See the
+[entity assembly contract](../../../docs/nested-entity-attachments.md) for consumer responsibilities.
+
+`verifyRunnableExamples` runs both modes regardless of the launch property. It feeds actual
+prepared rigid triangles and captured CPU-skinned vertices through the same root/unit/node
+transform order and flattened attachment placements. The extended regression verifies that
+geometry really exceeds old root-only bounds, then checks the ordinary culling-entry helper's
+union across identity/yaw/arbitrary quaternion root rotations, two independent actor/world
+positions and resource generations. It also retains an old snapshot through reload, verifies
+separate ornament owners, rejects distant regions, and checks hidden root/weapon subtree
+suppression. These are headless geometry/lifecycle checks, not a GPU rendering claim.
+
+Native frustum-edge acceptance remains **unverified**. With extended mode enabled:
+
+1. Summon two actors at separate positions and yaw angles, for example:
+   `/summon blendlib_runnable_examples:layered_actor ~ ~ ~5 {Rotation:[0f,0f]}` and
+   `/summon blendlib_runnable_examples:layered_actor ~5 ~ ~5 {Rotation:[90f,0f]}`
+2. Walk around them and rotate the camera until the body is offscreen but its remote weapon or
+   cyan ornament remains onscreen. Check that the visible descendant does not disappear
+3. Repeat after F3+T, tracking unload/re-entry and disconnect/rejoin. Both actors should retain
+   independent animation, and the optional children should recover with the current generation
+4. Use F3+B to confirm gameplay dimensions stay unchanged. Move the complete conservative box
+   out of view; the larger box may keep extraction alive longer, but never unconditionally
+5. Restart without the property and confirm the original compact assembly still renders
+
+Record both JAR hashes, game version, property, commands and screenshots/logs before reporting
+native visual acceptance. The automated build does not establish these results.

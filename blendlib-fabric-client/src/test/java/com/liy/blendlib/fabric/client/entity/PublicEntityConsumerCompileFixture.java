@@ -18,6 +18,13 @@ final class PublicEntityConsumerCompileFixture {
         return BlendEntityRenderer.<E>builder(context, modelKey).staticRestPose();
     }
 
+    static <E extends Entity> BlendEntityRendererBuilder<E> configureAssemblyCulling(
+            EntityRendererProvider.Context context, BlendModelKey modelKey) {
+        return BlendEntityRenderer.<E>builder(context, modelKey)
+                .staticRestPose()
+                .cullingEnvelope(new BlendEntityCullingEnvelope(-8, -3, -5, 8, 12, 5));
+    }
+
     static <E extends Entity> BlendEntityRendererBuilder<E> configureSynchronized(
             EntityRendererProvider.Context context, BlendModelKey modelKey) {
         return BlendEntityRenderer.<E>builder(context, modelKey)

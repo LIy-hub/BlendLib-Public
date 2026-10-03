@@ -11,9 +11,11 @@ for you.
   resource generation. Finish pose modifiers before capturing sockets.
 - Retain the character's final hand socket and the weapon's own final ornament-mount socket.
   A weapon socket must come from the exact final pose/root used for the weapon snapshot.
-- **Provide a conservative root-model culling envelope covering the entire assembly.** Entity
-  culling happens before extraction. Nested capture neither aggregates child bounds nor enlarges
-  that envelope. Include all allowed offsets, animation poses, scales, and rotations.
+- **Configure a conservative whole-assembly envelope when children exceed the root bounds.**
+  Use the ordinary builder’s explicit `cullingEnvelope(new BlendEntityCullingEnvelope(...))`
+  option; see [units and lifecycle](entity-culling-envelope.md). Culling happens before extraction,
+  so nested capture cannot discover an omitted child in time. Include every allowed offset,
+  pose and scale; the configured envelope covers arbitrary root rotation conservatively.
 
 The concrete public-client helper is
 [`ExampleNestedEntityAttachments.java`](../examples/nested-entity-attachments/src/main/java/com/liy/blendlib/examples/attachments/ExampleNestedEntityAttachments.java).

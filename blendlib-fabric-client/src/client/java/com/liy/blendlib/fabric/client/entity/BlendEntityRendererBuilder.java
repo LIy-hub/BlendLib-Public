@@ -29,6 +29,7 @@ public final class BlendEntityRendererBuilder<E extends Entity> {
     private BlendEntitySocketHandler<? super E> socketHandler;
     private BlendEntityAttachmentProvider<? super E> attachmentProvider;
     private BlendEntityMaterialAppearance<? super E> materialAppearance;
+    private BlendEntityCullingEnvelope cullingEnvelope;
     private float shadowRadius = 0.5F;
     private float shadowStrength = 1.0F;
 
@@ -247,6 +248,18 @@ public final class BlendEntityRendererBuilder<E extends Entity> {
         return this;
     }
 
+    /**
+     * Adds a fixed whole-assembly culling envelope on any snapshot path. Captured at build time;
+     * no attachment, animation, entity or rotation selector is invoked during culling. The
+     * envelope is unioned with vanilla and current-generation root bounds, never substituted.
+     * Omit this option to retain existing behavior. See {@link BlendEntityCullingEnvelope} for
+     * units, transforms, reload and consumer sizing responsibilities.
+     */
+    public BlendEntityRendererBuilder<E> cullingEnvelope(BlendEntityCullingEnvelope envelope) {
+        this.cullingEnvelope = Objects.requireNonNull(envelope, "envelope");
+        return this;
+    }
+
     private void requireAnimated() {
         if (skinnedAnimationStateSelector == null) throw new IllegalStateException("Configure skinnedAnimation first");
     }
@@ -283,6 +296,7 @@ public final class BlendEntityRendererBuilder<E extends Entity> {
                 renderer,
                 capturedFactory,
                 rootRotationSelector != null,
+                cullingEnvelope,
                 shadowRadius,
                 shadowStrength);
     }

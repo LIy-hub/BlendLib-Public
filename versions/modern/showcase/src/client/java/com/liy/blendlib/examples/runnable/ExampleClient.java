@@ -15,6 +15,7 @@ import net.fabricmc.api.ClientModInitializer;
 
 /** A real client consumer of the shipped version-specific public animation adapters. */
 public final class ExampleClient implements ClientModInitializer {
+    private static final ExampleAttachmentScene.Mode ATTACHMENT_MODE = ExampleAttachmentScene.configuredMode();
     private static final ExampleAttachmentOwners ATTACHMENT_OWNERS = new ExampleAttachmentOwners();
     private static final BlendAnimationKey ATTACK = BlendAnimationKey.parse(ExampleContent.MOD_ID + ":attack");
 
@@ -24,7 +25,8 @@ public final class ExampleClient implements ClientModInitializer {
                 ExampleContent.WAND_ID, ExampleContent.WAND_MODEL, ExampleContent.id("item/animated_wand")),
                 ExampleContent.IDLE);
         BlendEntityRenderers.register(ExampleContent.ACTOR,
-                context -> BlendEntityRenderer.<LayeredActor>builder(context, ExampleContent.APPEARANCE_ACTOR_MODEL)
+                context -> {
+                    var builder = BlendEntityRenderer.<LayeredActor>builder(context, ExampleContent.APPEARANCE_ACTOR_MODEL)
                         .materialAppearance((entity, request) -> ExampleMaterialAppearance.forName(
                                 entity.getCustomName() == null ? null : entity.getCustomName().getString()))
                         .skinnedAnimation((entity, request) -> ExampleContent.WALK)
@@ -34,8 +36,10 @@ public final class ExampleClient implements ClientModInitializer {
                                 request.clientGameTick() + (double) request.partialTick() + entity.getId() % 8 * 10.0))
                         .poseComponents(ExampleAnimationScene.procedural())
                         .attachments(ExampleClient::attachments)
-                        .shadowRadius(0.45F)
-                        .build());
+                        .shadowRadius(0.45F);
+                    ATTACHMENT_MODE.cullingEnvelope().ifPresent(builder::cullingEnvelope);
+                    return builder.build();
+                });
         net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientEntityEvents.ENTITY_UNLOAD.register(
                 (entity, level) -> ATTACHMENT_OWNERS.remove(entity,
                         BlendLibClientServices.skinnedAnimationRuntime()::retire));
@@ -61,6 +65,6 @@ public final class ExampleClient implements ClientModInitializer {
         }
         var owner = ATTACHMENT_OWNERS.key(entity, active.orElseThrow().connectionSession(), runtime::retire);
         return ExampleAttachmentScene.capture(BlendLibClientServices.models(), runtime, owner, request, sockets,
-                net.minecraft.client.renderer.texture.OverlayTexture.NO_OVERLAY);
+                net.minecraft.client.renderer.texture.OverlayTexture.NO_OVERLAY, ATTACHMENT_MODE);
     }
 }

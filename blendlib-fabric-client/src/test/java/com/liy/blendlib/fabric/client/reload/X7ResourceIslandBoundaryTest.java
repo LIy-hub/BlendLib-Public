@@ -286,6 +286,10 @@ class X7ResourceIslandBoundaryTest {
             assertTrue(actualManifest.contains(addition), addition);
             actualManifest = actualManifest.replace(addition, "");
         }
+        // Whole-assembly culling is additive; retain the original reviewed descriptor resource untouched.
+        String envelopeAddition = "  public com.liy.blendlib.fabric.client.entity.BlendEntityRendererBuilder<E> cullingEnvelope(com.liy.blendlib.fabric.client.entity.BlendEntityCullingEnvelope);\n    descriptor: (Lcom/liy/blendlib/fabric/client/entity/BlendEntityCullingEnvelope;)Lcom/liy/blendlib/fabric/client/entity/BlendEntityRendererBuilder;\n\n";
+        assertTrue(actualManifest.contains(envelopeAddition));
+        actualManifest = actualManifest.replace(envelopeAddition, "");
         // Nested capture diagnostics add one exact method; all retained descriptors remain pinned.
         String compositionAddition = "  public com.liy.blendlib.fabric.client.entity.BlendEntityAttachmentComposition attachmentComposition();\n    descriptor: ()Lcom/liy/blendlib/fabric/client/entity/BlendEntityAttachmentComposition;\n";
         assertTrue(actualManifest.contains(compositionAddition));
@@ -298,6 +302,28 @@ class X7ResourceIslandBoundaryTest {
                 "descriptor: (Lcom/liy/blendlib/fabric/client/reload/ClientModelRegistry;)V")) {
             assertTrue(expectedManifest.contains(requiredPin), requiredPin);
         }
+    }
+
+    @Test
+    void wholeAssemblyEnvelopePublicRecordPinsExactAdditiveDescriptors() {
+        Class<?> type = com.liy.blendlib.fabric.client.entity.BlendEntityCullingEnvelope.class;
+        assertTrue(type.isRecord());
+        assertTrue(java.lang.reflect.Modifier.isPublic(type.getModifiers()));
+        assertTrue(java.lang.reflect.Modifier.isFinal(type.getModifiers()));
+        assertEquals(List.of("minX", "minY", "minZ", "maxX", "maxY", "maxZ"),
+                java.util.Arrays.stream(type.getRecordComponents()).map(java.lang.reflect.RecordComponent::getName).toList());
+        assertTrue(java.util.Arrays.stream(type.getRecordComponents()).allMatch(component -> component.getType() == double.class));
+        assertEquals(Set.of("(DDDDDD)V"), java.util.Arrays.stream(type.getConstructors())
+                .map(constructor -> java.lang.invoke.MethodType.methodType(void.class, constructor.getParameterTypes()).descriptorString())
+                .collect(java.util.stream.Collectors.toSet()));
+        assertEquals(Set.of("minX()D", "minY()D", "minZ()D", "maxX()D", "maxY()D", "maxZ()D",
+                        "equals(Ljava/lang/Object;)Z", "hashCode()I", "toString()Ljava/lang/String;"),
+                java.util.Arrays.stream(type.getDeclaredMethods())
+                        .filter(method -> java.lang.reflect.Modifier.isPublic(method.getModifiers())
+                                || java.lang.reflect.Modifier.isProtected(method.getModifiers()))
+                        .map(method -> method.getName() + java.lang.invoke.MethodType.methodType(
+                                method.getReturnType(), method.getParameterTypes()).descriptorString())
+                        .collect(java.util.stream.Collectors.toSet()));
     }
 
     @Test

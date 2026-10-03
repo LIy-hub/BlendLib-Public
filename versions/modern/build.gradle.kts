@@ -259,6 +259,8 @@ if (minecraftVersion == "26.3") {
             "**/ClientAnimationRigViewTestAccess.java",
             "**/animation/runtime/procedural/*.java",
             "**/entity/BlendEntitySocketsTest.java",
+            "**/entity/BlendEntityCullingEnvelopeTest.java",
+            "**/entity/PublicEntityConsumerCompileFixture.java",
             "**/entity/BlendEntityAttachmentCompositionTest.java",
             "**/entity/ExampleNestedEntityAttachmentsTest.java",
             "**/NestedAttachmentPreparedGeometryTest.java",

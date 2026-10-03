@@ -26,6 +26,7 @@ final class RunnableAttachmentVerification {
 
     static void verify() {
         verifyBounds();
+        verifyExtendedAssembly();
         var h = new Harness();
         h.publish(1, true, true);
         h.runtime.onPlayInit();
@@ -124,15 +125,21 @@ final class RunnableAttachmentVerification {
             runtime.onActiveGeneration(generation);
         }
         ModelRenderSnapshot capture(BlendInstanceKey root, BlendInstanceKey.Ephemeral child, long tick) {
+            return capture(root, child, tick, ExampleAttachmentScene.Mode.DEFAULT, BlendEntityRotation.IDENTITY, 0, 0, 0);
+        }
+        ModelRenderSnapshot capture(BlendInstanceKey root, BlendInstanceKey.Ephemeral child, long tick,
+                ExampleAttachmentScene.Mode mode, BlendEntityRotation rotation, double x, double y, double z) {
+            var request = new BlendEntitySnapshotRequest(ACTOR, 0, LIGHT, tick, x, y, z, tick, true, 1);
+            var transform = new Transform(Vec3.ZERO, new Quaternion(rotation.x(), rotation.y(), rotation.z(), rotation.w()), Vec3.ONE);
             var handle = lookup.resolve(ACTOR).renderHandle();
             var input = new SkinnedAnimationRuntimeInput(ACTOR, root, tick, 0, WALK, Optional.empty(),
-                    AnimationUpdateBucket.VISIBLE_NEAR, new SkinnedExtractionRequest(Transform.IDENTITY, LIGHT, OVERLAY,
+                    AnimationUpdateBucket.VISIBLE_NEAR, new SkinnedExtractionRequest(transform, LIGHT, OVERLAY,
                     -1, RenderVisibility.VISIBLE, new CullingMetadata(handle.bounds(), true)));
             var frame = runtime.extractLayered(input, ExampleAnimationScene.layers(), List.of(),
                     ExampleAnimationScene.clipLayerWeights(tick), ExampleAnimationScene.procedural())
                     .orElseThrow().frame();
-            lastSockets = BlendEntitySockets.capture(request(tick), frame);
-            var children = ExampleAttachmentScene.capture(lookup, runtime, child, request(tick), lastSockets, OVERLAY);
+            lastSockets = BlendEntitySockets.capture(request, frame);
+            var children = ExampleAttachmentScene.capture(lookup, runtime, child, request, lastSockets, OVERLAY, mode);
             var rootSnapshot = frame.renderSnapshot().withMaterialAppearance(ExampleMaterialAppearance.forName("Orange"))
                     .withAttachments(children);
             if (lookup.resolve(MARKER).missing()) return rootSnapshot;
@@ -211,9 +218,129 @@ final class RunnableAttachmentVerification {
             double half = Math.min(Math.min(actor.bounds().max().x(), actor.bounds().max().y()), actor.bounds().max().z());
             half = Math.min(half, Math.min(Math.min(-actor.bounds().min().x(), -actor.bounds().min().y()), -actor.bounds().min().z()));
             require(half > weaponEnvelope && half > ornamentEnvelope,
-                    "existing " + name + " culling bounds enclose every weapon/ornament pose, with float margin");
+                    "existing " + name + " culling bounds enclose every default weapon/ornament pose, with float margin");
+            var extended = ExampleAttachmentScene.Mode.EXTENDED.weaponOffset();
+            double extendedWeaponRadius = 0;
+            for (int i = 0; i < p.length; i += 3)
+                extendedWeaponRadius = Math.max(extendedWeaponRadius,
+                        Math.sqrt(Math.pow(extended.x() + extended.scale()*p[i], 2)
+                                + Math.pow(extended.y() + extended.scale()*p[i+1], 2)
+                                + Math.pow(extended.z() + extended.scale()*p[i+2], 2)));
+            double offsetRadius = Math.sqrt(extended.x()*extended.x() + extended.y()*extended.y() + extended.z()*extended.z());
+            double extendedOrnamentRadius = tipRadius + offsetRadius
+                    + extended.scale()*(.5 + ExampleAttachmentScene.ORNAMENT_OFFSET.scale()/wand.unitsPerBlock()*wandRadius);
+            var envelope = ExampleAttachmentScene.Mode.EXTENDED.cullingEnvelope().orElseThrow();
+            double envelopeHalf = Math.min(Math.min(Math.min(-envelope.minX(), -envelope.minY()), -envelope.minZ()),
+                    Math.min(Math.min(envelope.maxX(), envelope.maxY()), envelope.maxZ()));
+            require((tipRadius + extendedWeaponRadius)*1.01 + .0001 < envelopeHalf
+                    && extendedOrnamentRadius*1.01 + .0001 < envelopeHalf,
+                    "configured extended assembly envelope covers all authored translation extrema and arbitrary socket rotations");
+            require(extended.x() == 3 && extended.y() == .20 && extended.z() == 0 && extended.scale() == .25F
+                    && extended.rotation().equals(BlendEntityRotation.IDENTITY), "extended proof matches the actual fixed offset");
         }
     }
+    private static void verifyExtendedAssembly() {
+        String property = ExampleAttachmentScene.EXTENDED_PROPERTY;
+        String previous = System.getProperty(property);
+        try {
+            System.clearProperty(property);
+            require(ExampleAttachmentScene.configuredMode() == ExampleAttachmentScene.Mode.DEFAULT, "extended mode is opt-in");
+            System.setProperty(property, "true");
+            require(ExampleAttachmentScene.configuredMode() == ExampleAttachmentScene.Mode.EXTENDED, "client JVM property selects extended mode");
+            System.setProperty(property, "false");
+            require(ExampleAttachmentScene.configuredMode() == ExampleAttachmentScene.Mode.DEFAULT, "false preserves default mode");
+        } finally {
+            if (previous == null) System.clearProperty(property); else System.setProperty(property, previous);
+        }
+        require(ExampleAttachmentScene.Mode.DEFAULT.cullingEnvelope().isEmpty(), "default showcase keeps original culling behavior");
+        var envelope = ExampleAttachmentScene.Mode.EXTENDED.cullingEnvelope().orElseThrow();
+        var h = new Harness();
+        h.publish(1, true, true);
+        h.runtime.onPlayInit();
+        var owners = new ExampleAttachmentOwners();
+        var actors = List.of(new EqualActor(21), new EqualActor(22));
+        var children = actors.stream().map(a -> owners.key(a, "extended", h.runtime::retire)).toList();
+        var roots = actors.stream().map(a -> h.runtime.entityKey(a.id())).toList();
+        var rotations = List.of(BlendEntityRotation.IDENTITY,
+                BlendEntityRotation.normalized(0, 1, 0, 1),
+                BlendEntityRotation.normalized(0, 1, 0, .01F),
+                BlendEntityRotation.normalized(.2F, -.3F, .4F, .5F));
+        double[][] origins = {{11.125, 67.5, -23.25}, {-34.875, 101.25, 29.75}};
+        ModelRenderSnapshot retained = null;
+        List<RunnableAttachmentRenderVerification.Position> retainedVertices = List.of();
+        boolean exceededOldBounds = false;
+        int checkedVertices = 0;
+        for (int generation = 1; generation <= 2; generation++) {
+            if (generation == 2) h.publish(2, true, true);
+            for (int actor = 0; actor < actors.size(); actor++) {
+                var o = origins[actor];
+                long tick = 200L * generation;
+                for (var rotation : rotations) for (int sample = 0; sample < 5; sample++) {
+                    tick += 9;
+                    var frame = h.capture(roots.get(actor), children.get(actor), tick,
+                            ExampleAttachmentScene.Mode.EXTENDED, rotation, o[0], o[1], o[2]);
+                    require(frame.generation() == generation && ornament(frame).generation() == generation,
+                            "extended assembly captures the current generation for every actor");
+                    boolean arbitraryRootRotation = rotation.x() != 0 || rotation.z() != 0;
+                    var expanded = RunnableAssemblyCullingVerification.bounds(h.lookup, ACTOR, o[0], o[1], o[2], arbitraryRootRotation, envelope);
+                    var prior = RunnableAssemblyCullingVerification.bounds(h.lookup, ACTOR, o[0], o[1], o[2], arbitraryRootRotation, null);
+                    var positions = RunnableAttachmentRenderVerification.entityPositions(frame);
+                    require(!positions.isEmpty(), "extended scene has actual transformed triangle vertices");
+                    var undoRootRotation = new Quaternion(-rotation.x(), -rotation.y(), -rotation.z(), rotation.w());
+                    for (var p : positions) {
+                        var unrotated = undoRootRotation.rotate(new Vec3((float)p.x(), (float)p.y(), (float)p.z()));
+                        require(unrotated.x() >= envelope.minX() && unrotated.x() <= envelope.maxX()
+                                && unrotated.y() >= envelope.minY() && unrotated.y() <= envelope.maxY()
+                                && unrotated.z() >= envelope.minZ() && unrotated.z() <= envelope.maxZ(),
+                                "actual prepared vertices fit the configured pre-root-rotation box itself");
+                        double x = o[0]+p.x(), y = o[1]+p.y(), z = o[2]+p.z();
+                        require(contains(expanded, x, y, z), "real rotated, translated attachment vertex lies in the culling-entry envelope");
+                        exceededOldBounds |= !contains(prior, x, y, z);
+                        checkedVertices++;
+                    }
+                    // A bounded result still rejects distant regions; this is not a global always-render box.
+                    require(!expanded.intersects(new net.minecraft.world.phys.AABB(o[0]+100, o[1]+100, o[2]+100,
+                            o[0]+101, o[1]+101, o[2]+101)), "explicit envelope remains spatially bounded");
+                    if (retained == null) {
+                        retained = frame;
+                        retainedVertices = positions;
+                        var regular = h.capture(roots.get(actor), children.get(actor), tick,
+                                ExampleAttachmentScene.Mode.DEFAULT, rotation, o[0], o[1], o[2]);
+                        require(!positions.equals(RunnableAttachmentRenderVerification.entityPositions(regular)),
+                                "extended selection actually moves real geometry, not just culling metadata");
+                        require(RunnableAttachmentRenderVerification.entityPositions(
+                                RunnableAttachmentRenderVerification.hidden(frame)).isEmpty(),
+                                "expanded culling never overrides whole-root visibility");
+                        var weapon = frame.attachments().getFirst();
+                        var hiddenWeapon = new BlendEntityAttachment(weapon.placement(), weapon.offset(),
+                                RunnableAttachmentRenderVerification.hidden(weapon.snapshot()));
+                        var hiddenBranch = frame.withAttachments(List.of(hiddenWeapon));
+                        require(RunnableAttachmentRenderVerification.entityPositions(hiddenBranch).equals(
+                                RunnableAttachmentRenderVerification.entityPositions(frame.withAttachments(List.of()))),
+                                "hidden weapon still suppresses itself and its skinned ornament");
+                    }
+                }
+            }
+        }
+        require(exceededOldBounds, "extended prepared triangles must really escape the old root-only culling envelope");
+        require(retained.generation() == 1 && ornament(retained).generation() == 1
+                && retainedVertices.equals(RunnableAttachmentRenderVerification.entityPositions(retained)),
+                "old-generation extended geometry and placements stay immutable after reload");
+        require(!children.get(0).equals(children.get(1)) && h.lifecycle.registry().size() == 4,
+                "two independently translated actors retain separate root and ornament runtime owners");
+        owners.clear(h.runtime::retire);
+        h.runtime.onWorldDisconnect();
+        require(h.lifecycle.registry().size() == 0, "extended assembly leaves no state after disconnect");
+        System.out.println("Verified extended assembly: " + checkedVertices
+                + " actual prepared vertices, yaw/arbitrary rotation, two world positions, reload, bounded culling union and hidden subtree suppression");
+    }
+
+    private static boolean contains(net.minecraft.world.phys.AABB bounds, double x, double y, double z) {
+        double epsilon = 1e-5;
+        return x >= bounds.minX-epsilon && x <= bounds.maxX+epsilon && y >= bounds.minY-epsilon
+                && y <= bounds.maxY+epsilon && z >= bounds.minZ-epsilon && z <= bounds.maxZ+epsilon;
+    }
+
     /** Independent influence-radius proof from actual keys, hierarchy, skin weights and inverse binds. */
     private static double skinRadius(ModelAsset asset) {
         var local = new HashMap<Integer, Double>();

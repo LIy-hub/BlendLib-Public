@@ -24,14 +24,23 @@ public final class BlendEntityRenderer<E extends Entity> extends EntityRenderer<
     private final BlendRenderer renderer;
     private final BlendEntitySnapshotFactory<? super E> snapshotFactory;
     private final boolean rotationInvariantCulling;
+    private final BlendEntityCullingEnvelope cullingEnvelope;
     BlendEntityRenderer(EntityRendererProvider.Context context, BlendModelKey modelKey, BlendRenderer renderer,
             BlendEntitySnapshotFactory<? super E> snapshotFactory, boolean rotationInvariantCulling,
+            float shadowRadius, float shadowStrength) {
+        this(context, modelKey, renderer, snapshotFactory, rotationInvariantCulling, null, shadowRadius, shadowStrength);
+    }
+
+    BlendEntityRenderer(EntityRendererProvider.Context context, BlendModelKey modelKey, BlendRenderer renderer,
+            BlendEntitySnapshotFactory<? super E> snapshotFactory, boolean rotationInvariantCulling,
+            BlendEntityCullingEnvelope cullingEnvelope,
             float shadowRadius, float shadowStrength) {
         super(Objects.requireNonNull(context, "context"));
         this.modelKey = Objects.requireNonNull(modelKey, "modelKey");
         this.renderer = Objects.requireNonNull(renderer, "renderer");
         this.snapshotFactory = Objects.requireNonNull(snapshotFactory, "snapshotFactory");
         this.rotationInvariantCulling = rotationInvariantCulling;
+        this.cullingEnvelope = cullingEnvelope;
         this.shadowRadius = shadowRadius;
         this.shadowStrength = shadowStrength;
     }
@@ -50,7 +59,7 @@ public final class BlendEntityRenderer<E extends Entity> extends EntityRenderer<
         if (!entity.shouldRender(cameraX, cameraY, cameraZ)) return false;
         if (entity.noCulling) return true;
         AABB bounds = EntityCullingBounds.unionWithCurrentModelBounds(BlendLibClientServices.models(), modelKey,
-                entity.getBoundingBoxForCulling(), entity.getX(), entity.getY(), entity.getZ(), rotationInvariantCulling);
+                entity.getBoundingBoxForCulling(), entity.getX(), entity.getY(), entity.getZ(), rotationInvariantCulling, cullingEnvelope);
         if (bounds.hasNaN() || bounds.getSize() == 0.0) {
             bounds = new AABB(entity.getX() - 2.0, entity.getY() - 2.0, entity.getZ() - 2.0,
                     entity.getX() + 2.0, entity.getY() + 2.0, entity.getZ() + 2.0);

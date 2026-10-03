@@ -27,6 +27,7 @@ public final class BlendEntityRenderer<E extends Entity> extends EntityRenderer<
     private final BlendRenderer renderer;
     private final BlendEntitySnapshotFactory<? super E> snapshotFactory;
     private final boolean rotationInvariantCulling;
+    private final BlendEntityCullingEnvelope cullingEnvelope;
 
     BlendEntityRenderer(
             EntityRendererProvider.Context context,
@@ -36,11 +37,24 @@ public final class BlendEntityRenderer<E extends Entity> extends EntityRenderer<
             boolean rotationInvariantCulling,
             float shadowRadius,
             float shadowStrength) {
+        this(context, modelKey, renderer, snapshotFactory, rotationInvariantCulling, null, shadowRadius, shadowStrength);
+    }
+
+    BlendEntityRenderer(
+            EntityRendererProvider.Context context,
+            BlendModelKey modelKey,
+            BlendRenderer renderer,
+            BlendEntitySnapshotFactory<? super E> snapshotFactory,
+            boolean rotationInvariantCulling,
+            BlendEntityCullingEnvelope cullingEnvelope,
+            float shadowRadius,
+            float shadowStrength) {
         super(Objects.requireNonNull(context, "context"));
         this.modelKey = Objects.requireNonNull(modelKey, "modelKey");
         this.renderer = Objects.requireNonNull(renderer, "renderer");
         this.snapshotFactory = Objects.requireNonNull(snapshotFactory, "snapshotFactory");
         this.rotationInvariantCulling = rotationInvariantCulling;
+        this.cullingEnvelope = cullingEnvelope;
         this.shadowRadius = shadowRadius;
         this.shadowStrength = shadowStrength;
     }
@@ -72,8 +86,9 @@ public final class BlendEntityRenderer<E extends Entity> extends EntityRenderer<
 
     /**
      * Supplies vanilla's frustum path with the union of ordinary entity bounds and the current
-     * generation's precomputed static/rigid model bounds. This lookup occurs before extraction and
-     * submit; the submit method still consumes only its bound immutable snapshot.
+     * generation's precomputed model bounds, plus an explicitly configured assembly envelope.
+     * This lookup occurs before extraction and submit; no animation, rotation or attachment
+     * callback runs here. Submit still consumes only its bound immutable snapshot.
      */
     @Override
     protected AABB getBoundingBoxForCulling(E entity) {
@@ -85,7 +100,7 @@ public final class BlendEntityRenderer<E extends Entity> extends EntityRenderer<
                 checkedEntity.getX(),
                 checkedEntity.getY(),
                 checkedEntity.getZ(),
-                rotationInvariantCulling);
+                rotationInvariantCulling, cullingEnvelope);
     }
 
     @Override

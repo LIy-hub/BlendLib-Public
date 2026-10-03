@@ -35,15 +35,36 @@ final class EntityCullingBounds {
             double entityY,
             double entityZ,
             boolean rotationInvariant) {
+        return unionWithCurrentModelBounds(models, modelKey, entityBounds, entityX, entityY,
+                entityZ, rotationInvariant, null);
+    }
+
+    static AABB unionWithCurrentModelBounds(
+            ClientModelLookup models, BlendModelKey modelKey, AABB entityBounds,
+            double entityX, double entityY, double entityZ, boolean rotationInvariant,
+            BlendEntityCullingEnvelope envelope) {
         ClientModelView model = Objects.requireNonNull(models, "models")
                 .resolve(Objects.requireNonNull(modelKey, "modelKey"));
-        return unionWithPreparedBounds(
+        AABB rootBounds = unionWithPreparedBounds(
                 entityBounds,
                 entityX,
                 entityY,
                 entityZ,
                 model.renderHandle().bounds(),
                 rotationInvariant);
+        return unionWithEnvelope(rootBounds, entityX, entityY, entityZ, envelope);
+    }
+
+    static AABB unionWithEnvelope(AABB rootBounds, double x, double y, double z,
+            BlendEntityCullingEnvelope envelope) {
+        if (envelope == null) return rootBounds;
+        double radius = envelope.radius();
+        double minX = x - radius, minY = y - radius, minZ = z - radius;
+        double maxX = x + radius, maxY = y + radius, maxZ = z + radius;
+        // Invalid world coordinates or overflow must never poison the ordinary finite box.
+        if (!allFinite(minX, minY, minZ, maxX, maxY, maxZ)) return finiteOrOrigin(rootBounds);
+        AABB assembly = new AABB(minX, minY, minZ, maxX, maxY, maxZ);
+        return isFinite(rootBounds) ? rootBounds.minmax(assembly) : assembly;
     }
 
     /**
