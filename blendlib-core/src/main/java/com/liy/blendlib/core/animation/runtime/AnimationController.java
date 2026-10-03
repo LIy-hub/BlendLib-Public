@@ -124,6 +124,24 @@ public final class AnimationController {
         return new AnimationAdvance(current.key(), currentTimeSeconds, List.of());
     }
 
+    /**
+     * Captures an explicitly controlled raw clip time without loop/next traversal or visual events.
+     * This is for client-owned playback such as item previews; it does not accept server sequences.
+     */
+    public AnimationAdvance synchronizeClip(BlendAnimationKey key, double localSeconds) {
+        if (!Double.isFinite(localSeconds) || localSeconds < 0.0D) {
+            throw new IllegalArgumentException("Clip time must be finite and non-negative");
+        }
+        current = definition.state(Objects.requireNonNull(key, "key"));
+        currentTimeSeconds = Math.min(localSeconds, current.clip().durationSeconds());
+        previous = null;
+        previousTimeSeconds = 0.0D;
+        blendElapsedSeconds = 0.0D;
+        blendDurationSeconds = 0.0D;
+        pendingVisualEvents.clear();
+        return new AnimationAdvance(current.key(), currentTimeSeconds, List.of());
+    }
+
     private AnimationCorrectionResult applyResolvedCorrection(
             AnimationCorrection correction, AnimationState target, double targetTime) {
         lastSequence = correction.sequence();
@@ -545,8 +563,26 @@ public final class AnimationController {
         }
     }
 
-    private static IllegalStateException advanceLimit(String detail) {
-        return new IllegalStateException("Animation advance limit exceeded: " + detail);
+    /** Presentation-only catch-up may discard a whole interval when its fixed work budget is exceeded. */
+    List<AnimationVisualEvent> advanceVisualEventsWithinBudget(double deltaSeconds) {
+        try {
+            return advance(deltaSeconds).visualEvents();
+        } catch (AdvanceLimitException ignored) {
+            // advance() preflights before mutation; never expose a partially emitted interval.
+            return List.of();
+        }
+    }
+
+    private static AdvanceLimitException advanceLimit(String detail) {
+        return new AdvanceLimitException("Animation advance limit exceeded: " + detail);
+    }
+
+    private static final class AdvanceLimitException extends IllegalStateException {
+        private static final long serialVersionUID = 1L;
+
+        private AdvanceLimitException(String message) {
+            super(message);
+        }
     }
 
     private static double advanceStateTime(AnimationState state, double currentTime, double realSeconds) {
