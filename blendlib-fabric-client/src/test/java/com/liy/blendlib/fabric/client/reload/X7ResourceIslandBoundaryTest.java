@@ -269,6 +269,13 @@ class X7ResourceIslandBoundaryTest {
             assertTrue(actualManifest.contains(addition), addition);
             actualManifest = actualManifest.replace(addition, "");
         }
+        // Optional layer events add exact methods without changing retained descriptors.
+        for (String addition : List.of(
+                "  public java.util.Optional<com.liy.blendlib.fabric.client.animation.runtime.SkinnedAnimationRuntimeResult> extractLayered(com.liy.blendlib.fabric.client.animation.runtime.SkinnedAnimationRuntimeInput, java.util.List<com.liy.blendlib.core.animation.v2.ModelAnimationLayers$Layer>, java.util.List<com.liy.blendlib.core.animation.v2.AnimationV2Command>, com.liy.blendlib.core.animation.v2.AnimationV2LayerWeights, com.liy.blendlib.fabric.client.animation.runtime.ClientAnimationPoseModifier, java.util.function.Consumer<com.liy.blendlib.core.animation.v2.LayerAnimationVisualEvent>);\n    descriptor: (Lcom/liy/blendlib/fabric/client/animation/runtime/SkinnedAnimationRuntimeInput;Ljava/util/List;Ljava/util/List;Lcom/liy/blendlib/core/animation/v2/AnimationV2LayerWeights;Lcom/liy/blendlib/fabric/client/animation/runtime/ClientAnimationPoseModifier;Ljava/util/function/Consumer;)Ljava/util/Optional;\n\n",
+                "  public com.liy.blendlib.fabric.client.entity.BlendEntityRendererBuilder<E> onAnimationLayerVisualEvent(com.liy.blendlib.fabric.client.entity.BlendEntityLayerVisualEventHandler<? super E>);\n    descriptor: (Lcom/liy/blendlib/fabric/client/entity/BlendEntityLayerVisualEventHandler;)Lcom/liy/blendlib/fabric/client/entity/BlendEntityRendererBuilder;\n\n")) {
+            assertTrue(actualManifest.contains(addition), addition);
+            actualManifest = actualManifest.replace(addition, "");
+        }
         assertEquals(expectedManifest, actualManifest, "b3660bb javap -protected -s descriptor manifest");
         for (String requiredPin : List.of(
                 "public final class com.liy.blendlib.fabric.client.reload.ClientModelRegistry",

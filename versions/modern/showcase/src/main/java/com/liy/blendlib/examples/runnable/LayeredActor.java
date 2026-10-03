@@ -21,6 +21,9 @@ public final class LayeredActor extends Entity {
             SynchedEntityData.defineId(LayeredActor.class, EntityDataSerializers.INT);
     private static final EntityDataAccessor<Long> CUE_TICK =
             SynchedEntityData.defineId(LayeredActor.class, EntityDataSerializers.LONG);
+    // Client callback evidence belongs to this object, not a global numeric entity-ID map.
+    // It is deliberately neither saved nor synchronized; the server leaves it empty.
+    private final ExampleLayerVisualEvents visualEvents = new ExampleLayerVisualEvents();
 
     public LayeredActor(EntityType<? extends LayeredActor> type, Level level) {
         super(type, level);
@@ -40,6 +43,7 @@ public final class LayeredActor extends Entity {
 
     public int cueSequence() { return entityData.get(CUE_SEQUENCE); }
     public long cueTick() { return entityData.get(CUE_TICK); }
+    public ExampleLayerVisualEvents visualEvents() { return visualEvents; }
 
     @Override
     protected void defineSynchedData(SynchedEntityData.Builder builder) {

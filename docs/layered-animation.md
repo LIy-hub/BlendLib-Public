@@ -51,8 +51,9 @@ absolute time and sequence from your accepted server semantic state. This API do
 introduce a second network packet or imply automatic multi-controller server replication.
 
 The original selector/controller still supplies legacy event and diagnostic semantics.
-Keep it aligned with your full-body layer if using its visual-event callback. Layer-specific
-visual event tracks are not yet dispatched by this opt-in composition API.
+Keep it aligned with your full-body layer if using `onSkinnedVisualEvent`. That callback is
+unchanged and independent of the opt-in layer-event callback below. Registering both can
+intentionally deliver a base descriptor marker through both independent presentation paths.
 
 ## Tick-based cues without a consumer cache
 
@@ -91,6 +92,92 @@ runtime retirement paths release it, so consumers register no lifecycle hooks an
 entity maps. A still-current cue is recaptured with current elapsed time after reload or
 retracking; it is not restarted at zero. Extraction after disconnect returns no commands.
 Only extraction sees the cue source; rendering retains immutable snapshots as before.
+
+## Per-layer visual-event callbacks
+
+Register `onAnimationLayerVisualEvent` after `animationLayers` or `animationLayerCues`.
+The runnable actor uses the following real callback work:
+
+```java
+builder.skinnedAnimation((entity, request) -> ExampleContent.WALK)
+    .animationLayerCues(ExampleAnimationScene.layers(), ExampleClient::cues)
+    .onAnimationLayerVisualEvent((entity, event) -> entity.visualEvents().accept(event));
+```
+
+The consumer-owned `visualEvents()` counter is defined on
+[`LayeredActor`](../versions/modern/showcase/src/main/java/com/liy/blendlib/examples/runnable/LayeredActor.java);
+[`ExampleClient`](../versions/modern/showcase/src/client/java/com/liy/blendlib/examples/runnable/ExampleClient.java)
+contains the complete renderer registration. This callback is **client presentation only**.
+Sounds, particles, trails, and local measurements are suitable uses; damage, collision, hit
+detection, drops, and item consumption remain server-authoritative. No network payload changes.
+
+The callback receives `com.liy.blendlib.core.animation.v2.LayerAnimationVisualEvent`:
+
+- `controllerId()` and `layerId()` identify the independent source; both equal the declared
+  `ModelAnimationLayers.Layer.id()` in this descriptor adapter
+- `animation()` is the descriptor state whose marker was actually crossed, including states
+  entered by automatic `next`, rather than the legacy selector or only the final sampled state
+- `event()` is the immutable `AnimationVisualEvent`, including `eventKey()` and clip-local
+  `timeSeconds()` from the descriptor
+- `loopEpoch()` and `occurrence()` preserve the real v2 traversal identity for loops and state
+  occurrences; they are not server action-sequence numbers
+- `effectiveWeight()` is configured layer weight × this extraction's captured dynamic multiplier,
+  before bone masks and priority resolution
+
+Markers come from the evaluator's exact automatic traversal intervals **(start, end]**.
+Crossed endpoints count once, including loops and automatic `next` transitions. No marker at
+time zero is invented when a state starts, restarts, or wraps. First observation, absolute
+seek/new accepted sequence, reload, and retracking silently re-arm the affected timeline;
+they do not reconstruct or replay historical markers. Repeated extraction cannot replay a
+consumed batch. Skipping a snapshot publication silently re-arms the cursor, and a truncated
+v2 traversal drops events for that controller rather than guessing its missing path.
+
+Client skipped-time catch-up is bounded to the latest **one clip-local second per controller**,
+across its actual traversed loop/next segments. This is not one wall-clock second and does not
+reconstruct earlier history. The publication-wide event limit is
+`BlendAssetLimits.MAX_VISUAL_EVENTS_PER_ADVANCE`: overflow drops the **entire** event batch
+atomically, across all controllers/layers. The dropped publication stays consumed.
+
+Zero sampled effective weight suppresses that layer's callbacks while consuming the crossed
+markers; raising weight later does not backfill them. The weight is sampled for the current
+extraction, not reconstructed at each marker's historical time. A positive value does not
+prove that the layer visibly affected a bone: masks, higher-priority overrides, and later
+procedural work may remove or change its final influence.
+
+The renderer runtime consumes layer-event publications on every layered extraction, even if
+no callback is registered. Callbacks run during extraction after successful frame extraction,
+never during render submission. Exceptions propagate, matching the legacy callback contract;
+the batch has already been consumed, so a throwing callback and any undelivered suffix are
+not retried. Consumers should keep presentation work small and avoid throwing.
+
+For direct runtime consumers, the additive overload is
+`extractLayered(input, layers, commands, weights, modifier, listener)`. A null listener disables
+delivery without disabling consumption. Core-only descriptor consumers can create a cursor
+with `modelLayers.newVisualEventCursor(runtime)` and call `consume(snapshot)` once for every
+publication. The cursor must share the exact model-layer plan with that runtime and accepts
+only its exact latest snapshot object; stale, foreign, or fabricated snapshots are rejected.
+Discard the cursor with its runtime on lifecycle changes.
+
+### Measure the runnable consumer
+
+The packaged actor descriptor contains `walk_step` and `attack_whoosh` markers, each at
+0.25 clip-local seconds. After summoning an actor, use `/blendlib_example inspect` to find
+its numeric ID, then `/blendlib_example inspect <entity-id>` to see total and per-pair
+callback counts plus the last event, state, loop/occurrence identity, and sampled weight.
+These are actual callback measurements, separate from pose or socket visualization.
+
+Each actor owns its own bounded counter: at most eight controller/layer pairs and one last
+event per pair, with saturating totals and an explicit count for untracked pairs. There is no
+global entity map. Totals last for the current client actor object's lifetime, including a
+resource reload; a new actor object after unload/retracking starts at zero. Inspection does
+not consume events or force extraction. Counter history can remain visible while the latest
+layer sample is unavailable, and culled actors need not receive new callbacks.
+
+Headless packaged verification exercises real descriptor events through the same counter,
+independent layers, immutable read-only inspection, bounded retention, repeated consumption,
+sampled weights, and zero-weight suppression without backfill. In-client command behavior,
+rendering, sounds, particles, and GPU behavior still require graphical acceptance; these tests
+make no such claim.
 
 ## Order and lifetime
 

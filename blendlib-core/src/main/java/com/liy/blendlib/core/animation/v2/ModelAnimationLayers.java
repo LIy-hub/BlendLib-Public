@@ -3,6 +3,7 @@ package com.liy.blendlib.core.animation.v2;
 import com.liy.blendlib.api.BlendAnimationKey;
 import com.liy.blendlib.api.BlendResourceId;
 import com.liy.blendlib.core.animation.runtime.AnimationControllerDefinition;
+import com.liy.blendlib.core.animation.runtime.AnimationVisualEvent;
 import com.liy.blendlib.core.animation.runtime.LocalPose;
 import com.liy.blendlib.core.animation.runtime.PoseSampler;
 import com.liy.blendlib.core.model.ModelAsset;
@@ -12,6 +13,7 @@ import java.util.*;
 public final class ModelAnimationLayers {
     private final AnimationV2InstancePlan plan;
     private final List<Integer> nodeIndices;
+    private final Map<BlendAnimationKey, List<AnimationVisualEvent>> visualEvents;
 
     /** Each layer is independently controlled; empty bone weights mean the entire model. */
     public record Layer(BlendResourceId id, int priority, AnimationV2LayerMode mode,
@@ -30,6 +32,9 @@ public final class ModelAnimationLayers {
         BoneSchema schema = new BoneSchema(nodes.stream().map(n -> n.name()).toList(),
                 nodes.stream().map(n -> n.localTransform()).toList());
         var definition = AnimationControllerDefinition.fromModelAsset(asset);
+        Map<BlendAnimationKey, List<AnimationVisualEvent>> events = new LinkedHashMap<>();
+        definition.states().forEach((key, state) -> events.put(key, state.events()));
+        visualEvents = Collections.unmodifiableMap(events);
         var sampler = PoseSampler.fromModelAsset(asset);
         Map<BlendAnimationKey, AnimationV2Clip> clips = new LinkedHashMap<>();
         definition.states().forEach((key, state) -> clips.put(key, AnimationV2Clip.fromState(sampler, state, nodeIndices)));
@@ -48,6 +53,15 @@ public final class ModelAnimationLayers {
     }
 
     public AnimationV2InstancePlan plan() { return plan; }
+
+    /**
+     * Creates an instance-local descriptor event observer for this exact generation-scoped plan.
+     * The cursor must be consumed on every extraction, including frames without a callback handler.
+     */
+    public LayerAnimationVisualEventCursor newVisualEventCursor(AnimationV2InstanceRuntime runtime) {
+        return new LayerAnimationVisualEventCursor(runtime, plan, visualEvents);
+    }
+
     public LocalPose localPose(AnimationV2Pose pose) {
         if (pose.boneCount() != nodeIndices.size()) throw new IllegalArgumentException("Mismatched pose domain");
         Map<Integer, com.liy.blendlib.core.model.Transform> transforms = new LinkedHashMap<>();

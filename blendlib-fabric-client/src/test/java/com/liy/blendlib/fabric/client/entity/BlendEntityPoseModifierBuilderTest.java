@@ -74,6 +74,23 @@ class BlendEntityPoseModifierBuilderTest {
     }
 
     @Test
+    void layerEventsRequireLayersAndPreserveTheirCallbackDescriptor() throws ReflectiveOperationException {
+        BlendEntityLayerVisualEventHandler<Entity> handler = (entity, event) -> { };
+        assertThrows(IllegalStateException.class, () -> builder().onAnimationLayerVisualEvent(handler));
+        assertThrows(IllegalStateException.class,
+                () -> builder().skinnedAnimation((entity, request) -> IDLE).onAnimationLayerVisualEvent(handler));
+        var layers = List.of(new ModelAnimationLayers.Layer(BlendResourceId.parse("builder_test:base"),
+                0, AnimationV2LayerMode.OVERRIDE, 1F, List.of(), IDLE));
+        var animated = builder().skinnedAnimation((entity, request) -> IDLE)
+                .animationLayers(layers, (entity, request) -> List.of());
+        assertThrows(NullPointerException.class, () -> animated.onAnimationLayerVisualEvent(null));
+        assertSame(animated, animated.onAnimationLayerVisualEvent(handler));
+        var method = BlendEntityLayerVisualEventHandler.class.getDeclaredMethod("onVisualEvent", Entity.class,
+                com.liy.blendlib.core.animation.v2.LayerAnimationVisualEvent.class);
+        assertSame(void.class, method.getReturnType());
+    }
+
+    @Test
     void layerWeightsRequireAnimatedLayersOrCuesAndRejectNull() {
         BlendEntityLayerWeights<Entity> weights = (entity, request) -> AnimationV2LayerWeights.empty();
         assertThrows(IllegalStateException.class, () -> builder().animationLayerWeights(weights));

@@ -197,7 +197,7 @@ public final class SkinnedAnimationRuntime {
      * controller error rather than a fallback to a different model profile.</p>
      */
     public Optional<SkinnedAnimationRuntimeResult> extract(SkinnedAnimationRuntimeInput input) {
-        return extractInternal(input, null, null, null, List.of(), AnimationV2LayerWeights.empty());
+        return extractInternal(input, null, null, null, List.of(), AnimationV2LayerWeights.empty(), null);
     }
 
     /**
@@ -206,7 +206,7 @@ public final class SkinnedAnimationRuntime {
      */
     public Optional<SkinnedAnimationRuntimeResult> extract(
             SkinnedAnimationRuntimeInput input, ClientAnimationPoseModifier poseModifier) {
-        return extractInternal(input, Objects.requireNonNull(poseModifier, "poseModifier"), null, null, List.of(), AnimationV2LayerWeights.empty());
+        return extractInternal(input, Objects.requireNonNull(poseModifier, "poseModifier"), null, null, List.of(), AnimationV2LayerWeights.empty(), null);
     }
 
     /** Extracts an explicitly controlled clip-local time, bypassing descriptor looping and next-state logic. */
@@ -215,7 +215,7 @@ public final class SkinnedAnimationRuntime {
         if (!Double.isFinite(clipSeconds) || clipSeconds < 0.0D) {
             throw new IllegalArgumentException("clipSeconds must be finite and non-negative");
         }
-        return extractInternal(input, modifier, clipSeconds, null, List.of(), AnimationV2LayerWeights.empty());
+        return extractInternal(input, modifier, clipSeconds, null, List.of(), AnimationV2LayerWeights.empty(), null);
     }
 
     /** Returns raw clip duration without creating an instance; empty for an unavailable model or undeclared state. */
@@ -255,13 +255,27 @@ public final class SkinnedAnimationRuntime {
             List<ModelAnimationLayers.Layer> layers, List<AnimationV2Command> commands,
             AnimationV2LayerWeights weights, ClientAnimationPoseModifier modifier) {
         return extractInternal(input, modifier, null, List.copyOf(layers), List.copyOf(commands),
-                Objects.requireNonNull(weights, "weights"));
+                Objects.requireNonNull(weights, "weights"), null);
+    }
+
+    /**
+     * Extraction-only, presentation-only events from descriptor layers. The callback runs after
+     * successful frame extraction. Events are consumed before callbacks; a throwing consumer
+     * propagates to its caller and the batch is never replayed. Null disables delivery, not consumption.
+     */
+    public Optional<SkinnedAnimationRuntimeResult> extractLayered(SkinnedAnimationRuntimeInput input,
+            List<ModelAnimationLayers.Layer> layers, List<AnimationV2Command> commands,
+            AnimationV2LayerWeights weights, ClientAnimationPoseModifier modifier,
+            java.util.function.Consumer<com.liy.blendlib.core.animation.v2.LayerAnimationVisualEvent> listener) {
+        return extractInternal(input, modifier, null, List.copyOf(layers), List.copyOf(commands),
+                Objects.requireNonNull(weights, "weights"), listener);
     }
 
     private Optional<SkinnedAnimationRuntimeResult> extractInternal(
             SkinnedAnimationRuntimeInput input, ClientAnimationPoseModifier poseModifier, Double clipSeconds,
             List<ModelAnimationLayers.Layer> layers, List<AnimationV2Command> commands,
-            AnimationV2LayerWeights weights) {
+            AnimationV2LayerWeights weights,
+            java.util.function.Consumer<com.liy.blendlib.core.animation.v2.LayerAnimationVisualEvent> listener) {
         long preparationStartedNanos = ClientRenderMeasurementCollector.startAnimationPreparation();
         try {
             SkinnedAnimationRuntimeInput checkedInput = Objects.requireNonNull(input, "input");
@@ -313,6 +327,7 @@ public final class SkinnedAnimationRuntime {
                     instance.controller().currentState(),
                     clock.sampleRevision);
             ClientAnimationPoseSnapshot basePose = instances.preparePoseSnapshot(poseKey, prepared.sampler());
+            List<com.liy.blendlib.core.animation.v2.LayerAnimationVisualEvent> layerEvents = List.of();
             if (layers != null) {
                 LayeredClock layered = selectedLayered;
                 double tick = checkedInput.clientGameTimeInTicks();
@@ -320,6 +335,7 @@ public final class SkinnedAnimationRuntime {
                 var evaluation = layered.runtime.advanceWeightedAtFrame(delta, commands, weights);
                 layered.lastTick = Math.max(layered.lastTick, tick);
                 clock.layered = layered;
+                layerEvents = layered.events.consume(evaluation);
                 basePose = instances.captureEvaluatedPose(basePose, layered.model.localPose(evaluation.pose()));
             } else {
                 clock.layered = null;
@@ -338,6 +354,7 @@ public final class SkinnedAnimationRuntime {
             }
             ClientSkinnedExtractionFrame frame = ClientSkinnedExtractionBridge.extract(
                     instances, loaded, effectivePose, checkedInput.extractionRequest());
+            if (listener != null) layerEvents.forEach(listener);
             return Optional.of(new SkinnedAnimationRuntimeResult(instanceKey, frame, advance));
         } finally {
             ClientRenderMeasurementCollector.finishAnimationPreparation(preparationStartedNanos);
@@ -583,11 +600,13 @@ public final class SkinnedAnimationRuntime {
         private final List<ModelAnimationLayers.Layer> layers;
         private final ModelAnimationLayers model;
         private final AnimationV2InstanceRuntime runtime;
+        private final com.liy.blendlib.core.animation.v2.LayerAnimationVisualEventCursor events;
         private double lastTick;
         private LayeredClock(ModelAnimationLayers model, List<ModelAnimationLayers.Layer> layers, double tick) {
             this.layers = layers;
             this.model = model;
             this.runtime = new AnimationV2InstanceRuntime(model.plan());
+            this.events = model.newVisualEventCursor(runtime);
             this.lastTick = tick;
         }
     }

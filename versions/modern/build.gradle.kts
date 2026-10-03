@@ -250,6 +250,7 @@ if (minecraftVersion == "26.3") {
             "**/StaticDirectPipelinePortTest.java",
             "**/AnimationV2NativeClipTest.java",
             "**/SynchronizedVisualEventCursorTest.java",
+            "**/LayerAnimationVisualEventCursorTest.java",
             "**/AnimationControllerTest.java",
             "**/SkinnedAnimationRuntimeTest.java",
             "**/EntityLayerCueCacheTest.java",
@@ -423,7 +424,7 @@ if (providers.gradleProperty("runnable_examples").orNull == "true") {
                         it.startsWith("com/liy/blendlib/core/") || it.startsWith("com/liy/blendlib/api/") }) {
                     "Example JAR must not embed library implementation or API classes"
                 }
-                listOf("ExampleContent", "LayeredActor", "ExampleClient", "ExampleItemCommands", "ExampleAnimationScene", "ExampleInspectionCommands", "ExampleLayerInspection", "ExampleItemInspection").forEach {
+                listOf("ExampleContent", "LayeredActor", "ExampleClient", "ExampleItemCommands", "ExampleAnimationScene", "ExampleInspectionCommands", "ExampleLayerInspection", "ExampleItemInspection", "ExampleLayerVisualEvents").forEach {
                     check("com/liy/blendlib/examples/runnable/$it.class" in names) { "Missing example class: $it" }
                 }
                 val metadata = zip.getInputStream(zip.getEntry("fabric.mod.json")).reader().readText()
@@ -431,7 +432,7 @@ if (providers.gradleProperty("runnable_examples").orNull == "true") {
                 check(metadata.contains("\"minecraft\": \"26.3\""))
                 check(metadata.contains("\"blendlib\": \"${project.version}\""))
                 check(!metadata.contains("\"mixins\""))
-                listOf("ExampleContent", "LayeredActor").forEach {
+                listOf("ExampleContent", "LayeredActor", "ExampleLayerVisualEvents").forEach {
                     val bytes = zip.getInputStream(zip.getEntry("com/liy/blendlib/examples/runnable/$it.class")).readBytes()
                     check(!bytes.toString(Charsets.ISO_8859_1).contains("net/minecraft/client/")) {
                         "Common example entrypoint/entity must remain server-safe: $it"

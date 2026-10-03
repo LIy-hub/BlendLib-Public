@@ -41,6 +41,7 @@ final class SkinnedAnimationEntitySnapshotFactory<E extends Entity> implements B
     private final java.util.List<com.liy.blendlib.core.animation.v2.ModelAnimationLayers.Layer> animationLayers;
     private final BlendEntityLayerCommands<? super E> layerCommands;
     private final BlendEntityLayerWeights<? super E> layerWeights;
+    private final BlendEntityLayerVisualEventHandler<? super E> layerVisualEventHandler;
     private final com.liy.blendlib.fabric.client.animation.runtime.ClientAnimationPoseModifier poseComponents;
     private final BlendEntitySocketHandler<? super E> socketHandler;
     private final BlendEntityAttachmentProvider<? super E> attachmentProvider;
@@ -88,6 +89,26 @@ final class SkinnedAnimationEntitySnapshotFactory<E extends Entity> implements B
             BlendEntitySocketHandler<? super E> socketHandler,
             BlendEntityAttachmentProvider<? super E> attachmentProvider,
             BlendEntityLayerWeights<? super E> layerWeights) {
+        this(modelKey, stateSelector, syncedStateSelector, visualEventHandler, poseModifier, rootRotationSelector,
+                presentationSocketMarkerKey, animationLayers, layerCommands, poseComponents, socketHandler,
+                attachmentProvider, layerWeights, null);
+    }
+
+    SkinnedAnimationEntitySnapshotFactory(BlendModelKey modelKey,
+            SkinnedAnimationStateSelector<? super E> stateSelector,
+            SyncedSkinnedAnimationStateSelector<? super E> syncedStateSelector,
+            SkinnedAnimationVisualEventHandler<? super E> visualEventHandler,
+            BlendEntityPoseModifier<? super E> poseModifier,
+            BlendEntityRootRotationSelector<? super E> rootRotationSelector,
+            BlendResourceId presentationSocketMarkerKey,
+            java.util.List<com.liy.blendlib.core.animation.v2.ModelAnimationLayers.Layer> animationLayers,
+            BlendEntityLayerCommands<? super E> layerCommands,
+            com.liy.blendlib.fabric.client.animation.runtime.ClientAnimationPoseModifier poseComponents,
+            BlendEntitySocketHandler<? super E> socketHandler,
+            BlendEntityAttachmentProvider<? super E> attachmentProvider,
+            BlendEntityLayerWeights<? super E> layerWeights,
+            BlendEntityLayerVisualEventHandler<? super E> layerVisualEventHandler) {
+        this.layerVisualEventHandler = layerVisualEventHandler;
         this.layerWeights = layerWeights;
         this.animationLayers = animationLayers;
         this.layerCommands = layerCommands;
@@ -164,7 +185,9 @@ final class SkinnedAnimationEntitySnapshotFactory<E extends Entity> implements B
         var extraction = layerFrame == null
                 ? animationRuntime.extract(runtimeInput, combinedModifier)
                 : animationRuntime.extractLayered(runtimeInput, animationLayers,
-                        layerFrame.commands(), layerFrame.weights(), combinedModifier);
+                        layerFrame.commands(), layerFrame.weights(), combinedModifier,
+                        layerVisualEventHandler == null ? null
+                                : event -> layerVisualEventHandler.onVisualEvent(checkedEntity, event));
         ModelRenderSnapshot extracted = extraction
                 .map(result -> {
                     visualEvents.dispatch(

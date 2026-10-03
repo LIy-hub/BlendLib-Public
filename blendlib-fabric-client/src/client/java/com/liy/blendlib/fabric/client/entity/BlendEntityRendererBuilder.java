@@ -24,6 +24,7 @@ public final class BlendEntityRendererBuilder<E extends Entity> {
     private java.util.List<com.liy.blendlib.core.animation.v2.ModelAnimationLayers.Layer> animationLayers;
     private BlendEntityLayerCommands<? super E> layerCommands;
     private BlendEntityLayerWeights<? super E> layerWeights;
+    private BlendEntityLayerVisualEventHandler<? super E> layerVisualEventHandler;
     private com.liy.blendlib.fabric.client.animation.runtime.ClientAnimationPoseModifier poseComponents;
     private BlendEntitySocketHandler<? super E> socketHandler;
     private BlendEntityAttachmentProvider<? super E> attachmentProvider;
@@ -160,6 +161,16 @@ public final class BlendEntityRendererBuilder<E extends Entity> {
         return this;
     }
 
+    /** Registers extraction-only layer markers; configure animationLayers or animationLayerCues first. */
+    public BlendEntityRendererBuilder<E> onAnimationLayerVisualEvent(
+            BlendEntityLayerVisualEventHandler<? super E> handler) {
+        if (animationLayers == null) {
+            throw new IllegalStateException("Configure animationLayers before registering layer visual events");
+        }
+        this.layerVisualEventHandler = Objects.requireNonNull(handler, "handler");
+        return this;
+    }
+
     /**
      * Configures one P5 presentation-only marker for an extraction-captured skinned socket.
      *
@@ -249,7 +260,7 @@ public final class BlendEntityRendererBuilder<E extends Entity> {
                     skinnedAnimationVisualEventHandler,
                     poseModifier,
                     rootRotationSelector,
-                    skinnedSocketMarkerKey, animationLayers, layerCommands, poseComponents, socketHandler, attachmentProvider, layerWeights);
+                    skinnedSocketMarkerKey, animationLayers, layerCommands, poseComponents, socketHandler, attachmentProvider, layerWeights, layerVisualEventHandler);
         }
         if (snapshotFactory == null) {
             throw new IllegalStateException("A BlendEntityRenderer requires an extraction-only snapshotFactory");

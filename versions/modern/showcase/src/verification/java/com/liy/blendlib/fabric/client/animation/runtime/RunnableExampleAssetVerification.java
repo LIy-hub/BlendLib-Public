@@ -16,6 +16,7 @@ import com.liy.blendlib.core.model.ModelAsset;
 import com.liy.blendlib.core.model.Vec3;
 import com.liy.blendlib.examples.runnable.ExampleAnimationScene;
 import com.liy.blendlib.examples.runnable.ExampleLayerInspection;
+import com.liy.blendlib.examples.runnable.ExampleLayerVisualEvents;
 import com.liy.blendlib.fabric.client.entity.BlendEntityLayerCue;
 import java.io.IOException;
 import java.util.List;
@@ -33,6 +34,7 @@ public final class RunnableExampleAssetVerification {
         require(actor.skeleton() != null && wand.skeleton() != null, "actor and wand must be skinned");
         require(!marker.primitives().isEmpty(), "socket marker must have geometry");
         require(wand.unitsPerBlock() == 2.5, "wand must preserve its display scale");
+        verifyLayerVisualEvents(actor);
         var layers = new ModelAnimationLayers(actor, ExampleAnimationScene.layers());
         var runtime = new AnimationV2InstanceRuntime(layers.plan());
         var attack = BlendAnimationKey.parse(NS + "attack");
@@ -96,6 +98,87 @@ public final class RunnableExampleAssetVerification {
         require(capture(commands, entity, 1, 29, 43, 2).getFirst().requestedPlayheadSeconds() == 0.7,
                 "disconnect must clear captured commands");
         System.out.println("Verified packaged actor/wand/marker with strict loader, layers, procedural pose, final socket, duplicate/retrigger and reload cues");
+    }
+
+    private static void verifyLayerVisualEvents(ModelAsset actor) {
+        var layers = new ModelAnimationLayers(actor, ExampleAnimationScene.layers());
+        var runtime = new AnimationV2InstanceRuntime(layers.plan());
+        var cursor = layers.newVisualEventCursor(runtime);
+        var counters = new ExampleLayerVisualEvents();
+        var cue = new AnimationV2Command(ExampleAnimationScene.UPPER,
+                BlendAnimationKey.parse(NS + "attack"), 1, 0, 1);
+        require(cursor.consume(runtime.advanceAtFrame(0, List.of(cue))).isEmpty(),
+                "first real descriptor observation silently establishes the callback baseline");
+        var frame = runtime.advanceWeightedAtFrame(0.25, List.of(cue), ExampleAnimationScene.clipLayerWeights(20));
+        var events = cursor.consume(frame);
+        require(events.size() == 2, "real packaged walk and attack markers must both dispatch");
+        require(events.stream().allMatch(event -> event.controllerId().equals(event.layerId())
+                && event.event().timeSeconds() == 0.25), "descriptor callbacks carry declared IDs and exact marker time");
+        require(events.stream().anyMatch(event -> event.controllerId().equals(ExampleAnimationScene.BASE)
+                && event.event().eventKey().equals(BlendResourceId.parse(NS + "walk_step"))
+                && event.effectiveWeight() == 1F), "base marker identity and weight");
+        require(events.stream().anyMatch(event -> event.controllerId().equals(ExampleAnimationScene.UPPER)
+                && event.event().eventKey().equals(BlendResourceId.parse(NS + "attack_whoosh"))
+                && Math.abs(event.effectiveWeight() - 0.5F) < 1e-6), "upper marker identity and sampled weight");
+        // This is the same callback work as ExampleClient, driven by the real descriptor cursor.
+        events.forEach(counters::accept);
+        var retained = counters.snapshot();
+        require(retained.callbacks() == 2 && retained.pairs().size() == 2
+                && retained.pairs().stream().allMatch(count -> count.callbacks() == 1),
+                "consumer records one real callback per independent layer");
+        require(cursor.consume(frame).isEmpty(), "repeated extraction cannot replay consumed callbacks");
+        var oldLocale = java.util.Locale.getDefault();
+        List<String> lines;
+        try {
+            java.util.Locale.setDefault(java.util.Locale.GERMANY);
+            lines = ExampleLayerVisualEvents.format(retained);
+        } finally { java.util.Locale.setDefault(oldLocale); }
+        String text = String.join("\n", lines);
+        require(text.contains("Layer visual callbacks=2") && text.contains("walk_step")
+                && text.contains("attack_whoosh") && text.contains("effectiveWeight=0.500")
+                && text.contains("loopEpoch=") && text.contains("occurrence="), "callback inspection details and locale");
+        require(lines.equals(ExampleLayerVisualEvents.format(counters.snapshot()))
+                && counters.snapshot().equals(retained), "repeated inspection neither dispatches nor consumes callbacks");
+        try { retained.pairs().clear(); throw new AssertionError("mutable callback snapshot"); }
+        catch (UnsupportedOperationException expected) { }
+        try { lines.add("mutable"); throw new AssertionError("mutable callback inspection lines"); }
+        catch (UnsupportedOperationException expected) { }
+        double walkDuration = layers.plan().controllers().stream()
+                .filter(controller -> controller.id().equals(ExampleAnimationScene.BASE))
+                .findFirst().orElseThrow().initialStateDefinition().durationSeconds();
+        cursor.consume(runtime.advance(walkDuration)).forEach(counters::accept);
+        require(counters.snapshot().callbacks() > retained.callbacks() && retained.callbacks() == 2,
+                "later loop callbacks update the consumer without mutating a retained inspection snapshot");
+        require(new ExampleLayerVisualEvents().snapshot().callbacks() == 0,
+                "a distinct actor-owned consumer cannot inherit another actor's callback totals");
+
+        var mutedRuntime = new AnimationV2InstanceRuntime(layers.plan());
+        var mutedCursor = layers.newVisualEventCursor(mutedRuntime);
+        mutedCursor.consume(mutedRuntime.advanceAtFrame(0, List.of(cue)));
+        var muted = mutedCursor.consume(mutedRuntime.advanceWeightedAtFrame(
+                0.25, List.of(cue), ExampleAnimationScene.clipLayerWeights(0)));
+        require(muted.size() == 1 && muted.getFirst().controllerId().equals(ExampleAnimationScene.BASE),
+                "zero upper weight suppresses its actual callback while preserving the base callback");
+        require(mutedCursor.consume(mutedRuntime.advance(0.1)).isEmpty(),
+                "unmuting after a consumed upper marker does not backfill it");
+
+        var manyLayers = java.util.stream.IntStream.range(0, ExampleLayerVisualEvents.MAX_TRACKED_PAIRS + 2)
+                .mapToObj(index -> new ModelAnimationLayers.Layer(BlendResourceId.parse(NS + "counter_" + index),
+                        0, com.liy.blendlib.core.animation.v2.AnimationV2LayerMode.OVERRIDE, 1F, List.of(),
+                        BlendAnimationKey.parse(NS + "walk"))).toList();
+        var many = new ModelAnimationLayers(actor, manyLayers);
+        var manyRuntime = new AnimationV2InstanceRuntime(many.plan());
+        var manyCursor = many.newVisualEventCursor(manyRuntime);
+        manyCursor.consume(manyRuntime.advance(0));
+        var bounded = new ExampleLayerVisualEvents();
+        manyCursor.consume(manyRuntime.advance(0.25)).forEach(bounded::accept);
+        var boundedSnapshot = bounded.snapshot();
+        require(boundedSnapshot.callbacks() == manyLayers.size()
+                && boundedSnapshot.pairs().size() == ExampleLayerVisualEvents.MAX_TRACKED_PAIRS
+                && boundedSnapshot.untrackedPairCallbacks() == 2, "callback telemetry retains a bounded number of pairs");
+        require(ExampleLayerVisualEvents.format(boundedSnapshot).getLast().contains("Untracked pair callbacks=2"),
+                "bounded telemetry reports omitted pair details without losing the total callback count");
+        System.out.println("Verified real descriptor layer callbacks, actor-owned bounded counters, immutable inspection, weights and no replay/backfill");
     }
 
     private static void verifyDynamicWeights(ModelAnimationLayers layers, AnimationV2Command cue) {

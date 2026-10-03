@@ -39,6 +39,8 @@ final class ExampleInspectionCommands {
                     + "; use /blendlib_example inspect to list nearby actor IDs"));
             return 0;
         }
+        ExampleLayerVisualEvents.format(actor.visualEvents().snapshot())
+                .forEach(line -> source.sendFeedback(Component.literal(line)));
         if (!BlendLibClientServices.isInitialized()) {
             source.sendError(Component.literal("BlendLib client services are not initialized"));
             return 0;

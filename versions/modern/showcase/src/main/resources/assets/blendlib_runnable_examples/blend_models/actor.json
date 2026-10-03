@@ -24,6 +24,12 @@
       "blendlib_runnable_examples:walk": {
         "blend_seconds": 0.12,
         "clip": "walk",
+        "events": [
+          {
+            "event": "blendlib_runnable_examples:walk_step",
+            "time_seconds": 0.25
+          }
+        ],
         "loop": true,
         "speed": 1.0
       }

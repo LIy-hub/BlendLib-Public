@@ -21,6 +21,9 @@ public final class LayeredAnimationConsumerSample {
                 new ModelAnimationLayers.Layer(BlendResourceId.parse("example:upper"), 10,
                         AnimationV2LayerMode.OVERRIDE, 1F,
                         List.of(new BoneMask.NamedWeight("Arm", 1F)), idle)), commands)
-                .poseComponents(components).sockets(sockets);
+                .onAnimationLayerVisualEvent((entity, event) -> {
+                    // Connect this immutable per-layer marker to your client sound/effect dispatcher.
+                    java.util.Objects.requireNonNull(event.event().eventKey());
+                }).poseComponents(components).sockets(sockets);
     }
 }

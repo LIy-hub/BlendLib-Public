@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased: opt-in layer visual events
+
+- Dispatch descriptor markers from immutable v2 controller traversal with explicit layer provenance
+- Suppress stale, replayed, zero-weight and over-budget visual callbacks without changing server gameplay or legacy callbacks
+- Add bounded per-actor event counters to the runnable 26.3 example
+
 ## Unreleased: frame-local clip-layer weights
 
 - Add immutable dynamic animation-v2 multipliers and entity extraction callbacks without restarting playback

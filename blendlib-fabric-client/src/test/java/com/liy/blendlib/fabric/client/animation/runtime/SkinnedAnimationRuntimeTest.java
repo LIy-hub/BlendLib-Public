@@ -69,6 +69,114 @@ class SkinnedAnimationRuntimeTest {
     private static final BlendResourceId OVERLAY = BlendResourceId.parse("runtime_test:overlay");
 
     @Test
+    void layerEventsAreIndependentImmutableAndConsumedWithoutAListener() {
+        var fixture = layerEventFixture(150);
+        var harness = harness();
+        harness.runtime().onPlayInit();
+        publish(harness.models(), fixture.loaded());
+        var key = harness.runtime().entityKey(150);
+        var layers = List.of(layer(BASE, 0, AnimationV2LayerMode.OVERRIDE, 1F, WALK, List.of()),
+                layer(OVERLAY, 1, AnimationV2LayerMode.ADDITIVE, 0.5F, WALK, List.of()));
+        var events = new java.util.ArrayList<com.liy.blendlib.core.animation.v2.LayerAnimationVisualEvent>();
+        java.util.function.LongFunction<SkinnedAnimationRuntimeInput> frame = tick -> input(MODEL, key, tick, 0F,
+                IDLE, Optional.empty(), AnimationUpdateBucket.VISIBLE_NEAR, fixture.handle());
+        harness.runtime().extractLayered(frame.apply(0), layers, List.of(), AnimationV2LayerWeights.empty(), null,
+                events::add).orElseThrow();
+        assertTrue(events.isEmpty());
+        var legacy = harness.runtime().extractLayered(frame.apply(5), layers, List.of(), AnimationV2LayerWeights.empty(),
+                null, events::add).orElseThrow();
+        assertEquals(2, events.size());
+        assertEquals(List.of(BASE, OVERLAY), events.stream().map(e -> e.controllerId()).toList());
+        assertEquals(BASE, events.getFirst().layerId());
+        assertEquals(WALK, events.getFirst().animation());
+        assertEquals(0.5F, events.getLast().effectiveWeight());
+        assertTrue(legacy.advance().visualEvents().isEmpty()); // fallback remains idle
+        harness.runtime().extractLayered(frame.apply(5), layers, List.of(), AnimationV2LayerWeights.empty(), null,
+                events::add).orElseThrow();
+        assertEquals(2, events.size());
+        harness.runtime().extractLayered(frame.apply(25), layers, List.of(), null).orElseThrow();
+        harness.runtime().extractLayered(frame.apply(25), layers, List.of(), AnimationV2LayerWeights.empty(), null,
+                events::add).orElseThrow();
+        assertEquals(2, events.size()); // absent listener still consumed the loop crossing
+        harness.runtime().extractLayered(frame.apply(45), layers, List.of(), AnimationV2LayerWeights.empty(), null,
+                events::add).orElseThrow();
+        assertEquals(4, events.size());
+    }
+
+    @Test
+    void zeroLayerWeightAndThrowingCallbackNeverReplayConsumedBatch() {
+        var fixture = layerEventFixture(151);
+        var harness = harness();
+        harness.runtime().onPlayInit();
+        publish(harness.models(), fixture.loaded());
+        var key = harness.runtime().entityKey(151);
+        var layers = List.of(layer(BASE, 0, AnimationV2LayerMode.OVERRIDE, 1F, WALK, List.of()));
+        var events = new java.util.ArrayList<com.liy.blendlib.core.animation.v2.LayerAnimationVisualEvent>();
+        java.util.function.LongFunction<SkinnedAnimationRuntimeInput> frame = tick -> input(MODEL, key, tick, 0F,
+                IDLE, Optional.empty(), AnimationUpdateBucket.VISIBLE_NEAR, fixture.handle());
+        harness.runtime().extractLayered(frame.apply(0), layers, List.of(), null).orElseThrow();
+        harness.runtime().extractLayered(frame.apply(5), layers, List.of(),
+                new AnimationV2LayerWeights(Map.of(weightKey(BASE), 0F)), null, events::add).orElseThrow();
+        harness.runtime().extractLayered(frame.apply(5), layers, List.of(), AnimationV2LayerWeights.empty(), null,
+                events::add).orElseThrow();
+        assertTrue(events.isEmpty());
+        var failure = new IllegalStateException("consumer failure");
+        assertSame(failure, assertThrows(IllegalStateException.class,
+                () -> harness.runtime().extractLayered(frame.apply(25), layers, List.of(),
+                        AnimationV2LayerWeights.empty(), null, event -> { throw failure; })));
+        harness.runtime().extractLayered(frame.apply(25), layers, List.of(), AnimationV2LayerWeights.empty(), null,
+                events::add).orElseThrow();
+        assertTrue(events.isEmpty());
+        harness.runtime().extractLayered(frame.apply(45), layers, List.of(), AnimationV2LayerWeights.empty(), null,
+                events::add).orElseThrow();
+        assertEquals(1, events.size());
+    }
+
+    @Test
+    void layerEventCursorsRearmAfterLifecycleAndGenerationChanges() {
+        for (String reset : List.of("entity", "retire", "play_init", "disconnect", "generation")) {
+            var fixture = layerEventFixture(152);
+            var harness = harness();
+            harness.runtime().onPlayInit();
+            publish(harness.models(), fixture.loaded());
+            var key = harness.runtime().entityKey(152);
+            var layers = List.of(layer(BASE, 0, AnimationV2LayerMode.OVERRIDE, 1F, WALK, List.of()));
+            var events = new java.util.ArrayList<com.liy.blendlib.core.animation.v2.LayerAnimationVisualEvent>();
+            harness.runtime().extractLayered(input(MODEL, key, 0, 0, IDLE, Optional.empty(),
+                    AnimationUpdateBucket.VISIBLE_NEAR, fixture.handle()), layers, List.of(), null).orElseThrow();
+            harness.runtime().extractLayered(input(MODEL, key, 5, 0, IDLE, Optional.empty(),
+                    AnimationUpdateBucket.VISIBLE_NEAR, fixture.handle()), layers, List.of(),
+                    AnimationV2LayerWeights.empty(), null, events::add).orElseThrow();
+            assertEquals(1, events.size(), reset);
+            switch (reset) {
+                case "entity" -> harness.runtime().onEntityUnload(152);
+                case "retire" -> harness.runtime().retire(key);
+                case "play_init" -> harness.runtime().onPlayInit();
+                case "disconnect" -> { harness.runtime().onWorldDisconnect(); harness.runtime().onPlayInit(); }
+                case "generation" -> { fixture = layerEventFixture(153); publish(harness.models(), fixture.loaded()); }
+            }
+            key = harness.runtime().entityKey(152);
+            harness.runtime().extractLayered(input(MODEL, key, 50, 0, IDLE, Optional.empty(),
+                    AnimationUpdateBucket.VISIBLE_NEAR, fixture.handle()), layers,
+                    List.of(new AnimationV2Command(BASE, WALK, 1, 0.5, 1)),
+                    AnimationV2LayerWeights.empty(), null, events::add).orElseThrow();
+            assertEquals(1, events.size(), reset); // catch-up command silently baselines
+            harness.runtime().extractLayered(input(MODEL, key, 65, 0, IDLE, Optional.empty(),
+                    AnimationUpdateBucket.VISIBLE_NEAR, fixture.handle()), layers, List.of(),
+                    AnimationV2LayerWeights.empty(), null, events::add).orElseThrow();
+            assertEquals(2, events.size(), reset);
+        }
+    }
+
+    private static SkinnedFixture layerEventFixture(long generation) {
+        return skinnedFixture(MODEL, generation, new AnimationDefinition(IDLE.resourceId(), Map.of(
+                IDLE.resourceId(), state("idle", true, 1, null, IDLE_ENTRY),
+                WALK.resourceId(), new AnimationStateDefinition("walk", true, 1, 0, null,
+                        List.of(new AnimationEventDefinition(0.25, WALK_ENTRY))),
+                ATTACK.resourceId(), state("attack", false, 1, IDLE.resourceId(), ATTACK_ENTRY))));
+    }
+
+    @Test
     void dynamicWeightsMultiplyConfiguredWeightAndBoneMaskAndPublishImmutableFrame() {
         var fixture = skinnedFixture(140L);
         var harness = harness();
@@ -1228,6 +1336,11 @@ class SkinnedAnimationRuntimeTest {
 
     private static SkinnedFixture skinnedFixture(
             BlendModelKey model, long generation, double idleSpeed, double walkSpeed, double attackSpeed) {
+        return skinnedFixture(model, generation, animationDefinition(idleSpeed, walkSpeed, attackSpeed));
+    }
+
+    private static SkinnedFixture skinnedFixture(BlendModelKey model, long generation,
+            AnimationDefinition animationDefinition) {
         MeshPrimitive geometry = skinnedGeometry();
         ModelAsset asset = new ModelAsset(
                 model.resourceId(),
@@ -1236,7 +1349,7 @@ class SkinnedAnimationRuntimeTest {
                 ModelProfile.SKINNED_V1,
                 1.0d,
                 Map.of("SkinSurface", material("skin")),
-                animationDefinition(idleSpeed, walkSpeed, attackSpeed),
+                animationDefinition,
                 List.of(
                         new ModelNode(0, "Mesh", Transform.IDENTITY, List.of(1), 0, 0, false),
                         new ModelNode(1, "Bone", Transform.IDENTITY, List.of(), -1, -1, false)),

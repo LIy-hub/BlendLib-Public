@@ -61,6 +61,13 @@ recapture and unload/disconnect cleanup; this consumer needs no identity cache o
 This is deliberately consumer-owned synchronization; it does not introduce another BlendLib
 network protocol or claim to exercise every library resynchronization path.
 
+The descriptor also contains real `walk_step` and `attack_whoosh` visual markers at 0.25
+clip-local seconds. `onAnimationLayerVisualEvent` records callbacks in a bounded counter on
+each client actor. Use `/blendlib_example inspect` to find the actor's ID, then
+`/blendlib_example inspect <entity-id>` to measure callback totals for its independent base
+and upper controllers. This consumer counts callbacks; it does not play sounds or particles.
+Server gameplay and authoritative cues never depend on those counts.
+
 ## Demonstrate the animated handheld item
 
 ```mcfunction
@@ -92,6 +99,7 @@ independent playback. The adapter owns bounded instance retention and disconnect
 - `ExampleClient`: public entity renderer, layer descriptors, reusable procedural components,
   final socket and immutable child snapshot attachment; no resource reads on hot paths
 - `ExampleItemCommands`: public item playback API on the real current main-hand stack
+- `ExampleLayerVisualEvents`: actor-owned, bounded measurement of real layer-event callbacks
 - `blend_models/actor.json`, `wand.json`, `marker.json`: ordinary strict-v1 model descriptors
 - `prepareRunnableExampleAssets`: deterministic build-time copy of four tracked repository assets
 
@@ -109,6 +117,10 @@ that the example and library JARs are separate. Its `verifyRunnableExampleAssets
 packaged descriptors/GLBs through the real strict loader and evaluates the live scene
 configuration: masks, duplicate/retrigger/reload cues, procedural rotation, and final socket
 placement. The cue regression uses the same capture helper as live entity extraction.
+The layer-event regression consumes the real packaged descriptor's v2 traversal and invokes
+the same callback counter as the live renderer. It checks independent controller events,
+repeat consumption, immutable inspection, weight suppression without backfill, and bounded
+pair retention.
 It does **not** launch Minecraft or establish
 visual acceptance. The following still needs a real client session:
 
@@ -152,12 +164,31 @@ Output separates:
 - **Configured** layer priority, mode, weight and per-bone mask weights; these are not measured
   final bone influence or a claim about final blended/procedural transforms
 - Diagnostics from that sampled evaluation, with at most eight diagnostic lines in chat
+- Real layer visual-event callback totals for this client actor's lifetime, independently of
+  the latest pose sample; each retained controller/layer pair shows its count and last marker's
+  animation, clip-local time, loop epoch, occurrence and sampled effective weight
 
 A culled actor's publication can be old: inspection intentionally does not force extraction or
 advance its clock. After reload, inspection returns unavailable until a new-generation sample
 exists. An unloaded/disconnected actor is unavailable. Look at the actor and retry after it has
 rendered. Repeated inspection does not consume events, replay cues or clear diagnostics; only
 another extraction replaces the sampled publication.
+
+Callback totals survive F3+T for the same client actor object and are printed even if there
+is no current-generation layer sample. New objects after unload/retracking start at zero.
+The counter keeps at most eight pairs and one last immutable event per pair; numeric counts
+saturate rather than overflow. Events from additional pairs still increment a separate
+untracked-pair count and the total. The live scene has only two pairs. No global entity map,
+saved entity field or network field holds these measurements.
+
+Callbacks represent exact automatically crossed `(start, end]` descriptor markers. New cues,
+first observation, reload and retracking silently establish a baseline; repeated extraction
+does not replay markers, and time-zero events are not synthesized. Muted upper-layer markers
+are consumed without delivery and are not backfilled when the layer becomes nonzero. The
+reported effective weight is sampled configured × dynamic weight, before masks and priority
+resolution; it is not historical marker-time weight or final visible bone influence. See
+[`layered-animation.md`](../../../docs/layered-animation.md#per-layer-visual-event-callbacks)
+for catch-up, traversal-truncation, event-budget and callback-failure semantics.
 
 `ExampleLayerInspection.format(layers, snapshot)` is a small Minecraft-free formatter you can
 copy into your own development consumer. Obtain the immutable snapshot using the existing
@@ -172,6 +203,12 @@ explicit-ID targeting, wrong/missing target feedback, two actors with different 
 reads, F3+T then reinspection, tracking unload, and disconnect/rejoin. The packaged headless
 verification covers formatter output and immutable runtime lifecycle behavior, not command UI
 or visual rendering acceptance.
+
+For event acceptance, watch an actor across several `walk` loops and an upper cue, then
+inspect its per-pair counts and last keys. Compare two actors, repeatedly inspect without
+forcing extraction, reload, and leave/re-enter tracking range. Expect no burst of old upper
+events on a new cue/reload/retracking, and no event backlog after zero-weight samples. Record
+these checks in the client; headless callback evidence alone is not graphics acceptance.
 
 ### Inspect the held item without creating playback
 
