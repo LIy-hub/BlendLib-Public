@@ -350,8 +350,13 @@ class EntityAdapterContractsTest {
         assertTrue(source.contains("onVisualEvent"));
         assertTrue(source.contains("poseModifier.modify("));
         assertTrue(source.contains("new BlendEntityPoseContext(checkedRequest, animationContext)"));
-        assertTrue(source.contains("BlendEntityRotationPoseAdapter.capture(basePose)"));
-        assertTrue(source.contains("BlendEntityRotationPoseAdapter.apply(basePose, capturedBase, modifiedPose)"));
+        assertTrue(source.contains("BlendEntityRotationPoseAdapter.capture(current)"));
+        assertTrue(source.contains("BlendEntityRotationPoseAdapter.apply(current, capturedBase, modified)"));
+        assertTrue(source.contains("poseComponents.modify(animationContext, current)"));
+        assertTrue(source.contains("animationRuntime.extract(runtimeInput, combinedModifier)"));
+        assertTrue(source.contains("animationRuntime.extractLayered(runtimeInput, animationLayers,"));
+        assertTrue(source.indexOf("BlendEntitySockets.capture(checkedRequest, result.frame())")
+                > source.indexOf("animationRuntime.extractLayered("));
         assertTrue(source.contains("RenderVisibility.CULLED"));
         assertTrue(source.contains("OverlayTexture.NO_OVERLAY"));
     }
