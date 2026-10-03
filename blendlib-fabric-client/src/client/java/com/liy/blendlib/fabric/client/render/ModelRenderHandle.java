@@ -44,6 +44,11 @@ public interface ModelRenderHandle {
         return false;
     }
 
+    /** Exact authored slot names in prepared primitive order; empty for legacy custom handles. */
+    default List<String> materialSlots() {
+        return List.of();
+    }
+
     Transform nodeTransform(int nodeIndex);
 
     boolean missingModel();

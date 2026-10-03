@@ -236,3 +236,28 @@ The inspection command displays configured weight and sampled effective weight (
 priority resolution). Zero weight still advances the upper cue. A positive higher-priority override
 keeps owning masked bones and blends against rest; this is not a crossfade back to lower-priority
 walking. At exactly zero the lower-priority contribution becomes eligible again.
+
+## Independently colored actors and a hideable material slot
+
+The actor renderer now uses a separate `appearance_actor` derivative with the original body
+and a real skinned side-badge primitive. Its exact authored slots are
+`ShowcaseAnimationSurface` and `ExampleAccessory`. The original actor asset, the wand and the
+socket marker remain unchanged.
+
+```mcfunction
+/summon blendlib_runnable_examples:layered_actor ~-1 ~ ~3 {CustomName:{text:"Orange"}}
+/summon blendlib_runnable_examples:layered_actor ~1 ~ ~3 {CustomName:{text:"Blue bare"}}
+```
+
+Orange has an orange RGB body multiplier and visible badge; Blue bare has a blue multiplier
+and hidden badge. `Orange bare` and `Blue` demonstrate the other combinations. An unnamed
+actor retains authored colors and visibility. Custom names are synchronized by vanilla entity
+data; each extraction captures its own immutable selection against a shared prepared model.
+The gold socket cube is a separate attachment, so hiding the badge does not hide that cube.
+
+The same `ExampleMaterialAppearance.forName` helper is called by the live renderer and the
+executable asset verification. The verifier checks actual packaged slot geometry and bounds,
+selector independence, CPU capture and unknown-name diagnostics. See
+[`docs/material-appearance.md`](../../../docs/material-appearance.md) for the API, atomic
+unknown-slot fallback and the manual visual check. Headless verification does not claim
+native-window/GPU visual acceptance.

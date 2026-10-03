@@ -254,9 +254,12 @@ if (minecraftVersion == "26.3") {
             "**/AnimationControllerTest.java",
             "**/SkinnedAnimationRuntimeTest.java",
             "**/EntityLayerCueCacheTest.java",
+            "**/MaterialAppearanceSubmissionTest.java",
+            "**/MaterialAppearanceCaptureTest.java",
             "**/ClientAnimationRigViewTestAccess.java",
             "**/animation/runtime/procedural/*.java",
             "**/entity/BlendEntitySocketsTest.java",
+            "**/entity/BlendEntityMaterialAppearanceTest.java",
             "**/entity/consumer/LayeredAnimationConsumerSample.java",
             "**/item/ItemAnimation*Test.java",
             "**/item/BlendLibItemAdapterContractsTest.java",
@@ -424,7 +427,7 @@ if (providers.gradleProperty("runnable_examples").orNull == "true") {
                         it.startsWith("com/liy/blendlib/core/") || it.startsWith("com/liy/blendlib/api/") }) {
                     "Example JAR must not embed library implementation or API classes"
                 }
-                listOf("ExampleContent", "LayeredActor", "ExampleClient", "ExampleItemCommands", "ExampleAnimationScene", "ExampleInspectionCommands", "ExampleLayerInspection", "ExampleItemInspection", "ExampleLayerVisualEvents").forEach {
+                listOf("ExampleContent", "LayeredActor", "ExampleClient", "ExampleItemCommands", "ExampleAnimationScene", "ExampleInspectionCommands", "ExampleLayerInspection", "ExampleItemInspection", "ExampleLayerVisualEvents", "ExampleMaterialAppearance").forEach {
                     check("com/liy/blendlib/examples/runnable/$it.class" in names) { "Missing example class: $it" }
                 }
                 val metadata = zip.getInputStream(zip.getEntry("fabric.mod.json")).reader().readText()
@@ -446,7 +449,7 @@ if (providers.gradleProperty("runnable_examples").orNull == "true") {
                     }
                 }
                 val slurper = groovy.json.JsonSlurper()
-                listOf("actor", "wand", "marker").forEach { model ->
+                listOf("actor", "appearance_actor", "wand", "marker").forEach { model ->
                     val path = namespace + "blend_models/$model.json"
                     val descriptor = slurper.parseText(zip.getInputStream(zip.getEntry(path)).reader().readText()) as Map<*, *>
                     val mesh = descriptor["mesh"] as String

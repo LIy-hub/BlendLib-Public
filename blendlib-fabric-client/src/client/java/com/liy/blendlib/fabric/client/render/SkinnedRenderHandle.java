@@ -29,6 +29,7 @@ public final class SkinnedRenderHandle implements ModelRenderHandle {
     private final List<Transform> nodeWorldTransforms;
     private final List<PreparedSkinnedRenderPrimitive> skinnedPrimitives;
     private final int[][] skinJointNodeIndexes;
+    private final List<String> materialSlots;
     private final Bounds bounds;
     private final float unitsToBlocksScale;
 
@@ -38,6 +39,7 @@ public final class SkinnedRenderHandle implements ModelRenderHandle {
             List<Transform> nodeWorldTransforms,
             List<PreparedSkinnedRenderPrimitive> skinnedPrimitives,
             int[][] skinJointNodeIndexes,
+            List<String> materialSlots,
             Bounds bounds,
             float unitsToBlocksScale) {
         this.modelKey = Objects.requireNonNull(modelKey, "modelKey");
@@ -51,6 +53,7 @@ public final class SkinnedRenderHandle implements ModelRenderHandle {
         if (this.skinnedPrimitives.isEmpty()) {
             throw new IllegalArgumentException("A skinned render handle needs at least one primitive");
         }
+        this.materialSlots = List.copyOf(materialSlots);
         this.bounds = Objects.requireNonNull(bounds, "bounds");
         this.unitsToBlocksScale = unitsToBlocksScale;
     }
@@ -108,7 +111,7 @@ public final class SkinnedRenderHandle implements ModelRenderHandle {
                     ((MaterialMapping.Supported) mapping).material()));
         }
         return new SkinnedRenderHandle(
-                modelKey, asset.generation(), transforms, prepared, skinJointNodeIndexes, bounds, unitsToBlocksScale);
+                modelKey, asset.generation(), transforms, prepared, skinJointNodeIndexes, asset.primitives().stream().map(p -> p.geometry().materialSlot()).toList(), bounds, unitsToBlocksScale);
     }
 
     @Override
@@ -120,6 +123,9 @@ public final class SkinnedRenderHandle implements ModelRenderHandle {
     public long generation() {
         return generation;
     }
+
+    @Override
+    public List<String> materialSlots() { return materialSlots; }
 
     @Override
     public Bounds bounds() {

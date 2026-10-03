@@ -276,6 +276,16 @@ class X7ResourceIslandBoundaryTest {
             assertTrue(actualManifest.contains(addition), addition);
             actualManifest = actualManifest.replace(addition, "");
         }
+        // Ordinary appearance is additive; preserve every retained descriptor byte-for-byte.
+        for (String addition : List.of(
+                "  public default java.util.List<java.lang.String> materialSlots();\n    descriptor: ()Ljava/util/List;\n\n",
+                "  public java.util.List<java.lang.String> materialSlots();\n    descriptor: ()Ljava/util/List;\n\n",
+                "  public com.liy.blendlib.fabric.client.render.ModelRenderSnapshot withMaterialAppearance(java.util.Map<java.lang.String, com.liy.blendlib.fabric.client.render.MaterialSlotAppearance>);\n    descriptor: (Ljava/util/Map;)Lcom/liy/blendlib/fabric/client/render/ModelRenderSnapshot;\n\n",
+                "  public java.util.List<java.lang.String> unknownMaterialSlots();\n    descriptor: ()Ljava/util/List;\n\n",
+                "  public com.liy.blendlib.fabric.client.entity.BlendEntityRendererBuilder<E> materialAppearance(com.liy.blendlib.fabric.client.entity.BlendEntityMaterialAppearance<? super E>);\n    descriptor: (Lcom/liy/blendlib/fabric/client/entity/BlendEntityMaterialAppearance;)Lcom/liy/blendlib/fabric/client/entity/BlendEntityRendererBuilder;\n\n")) {
+            assertTrue(actualManifest.contains(addition), addition);
+            actualManifest = actualManifest.replace(addition, "");
+        }
         assertEquals(expectedManifest, actualManifest, "b3660bb javap -protected -s descriptor manifest");
         for (String requiredPin : List.of(
                 "public final class com.liy.blendlib.fabric.client.reload.ClientModelRegistry",

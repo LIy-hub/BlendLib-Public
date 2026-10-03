@@ -4,6 +4,7 @@ import com.liy.blendlib.core.model.Quaternion;
 import com.liy.blendlib.core.model.Transform;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
+import java.util.List;
 import java.util.Objects;
 import net.minecraft.client.renderer.SubmitNodeCollector;
 import net.minecraft.client.renderer.rendertype.RenderType;
@@ -43,13 +44,20 @@ public final class Minecraft2612StaticRigidRenderBackend implements ModelRenderB
             applyTransform(poseStack, snapshot.rootTransform());
             float unitsToBlocksScale = snapshot.handle().unitsToBlocksScale();
             poseStack.scale(unitsToBlocksScale, unitsToBlocksScale, unitsToBlocksScale);
-            for (PreparedRenderPrimitive primitive : snapshot.handle().primitives()) {
+            List<PreparedRenderPrimitive> primitives = snapshot.handle().primitives();
+            for (int primitiveIndex = 0; primitiveIndex < primitives.size(); primitiveIndex++) {
+                MaterialSlotAppearance appearance = snapshot.materialAppearance(primitiveIndex);
+                if (!appearance.visible()) {
+                    continue;
+                }
+                PreparedRenderPrimitive primitive = primitives.get(primitiveIndex);
                 poseStack.pushPose();
                 try {
                     applyTransform(poseStack, nodeTransformFor(snapshot, primitive.nodeIndex()));
                     RenderMaterial material = primitive.material();
                     RenderType renderType = renderTypeFor(material);
-                    int color = multiplyArgb(snapshot.tintArgb(), material.argbTint());
+                    int color = multiplyArgb(
+                            multiplyArgb(snapshot.tintArgb(), material.argbTint()), 0xFF000000 | appearance.rgbTint());
                     int packedLight = packedLightFor(material, snapshot.packedLight());
                     collector.submitCustomGeometry(poseStack, renderType,
                             (pose, consumer) -> emit(primitive.geometry(), pose, consumer, color, packedLight, snapshot.packedOverlay()));
@@ -78,10 +86,17 @@ public final class Minecraft2612StaticRigidRenderBackend implements ModelRenderB
             applyTransform(poseStack, snapshot.rootTransform());
             float unitsToBlocksScale = snapshot.handle().unitsToBlocksScale();
             poseStack.scale(unitsToBlocksScale, unitsToBlocksScale, unitsToBlocksScale);
-            for (SkinnedMeshSnapshot mesh : skinned.meshes()) {
+            List<SkinnedMeshSnapshot> meshes = skinned.meshes();
+            for (int primitiveIndex = 0; primitiveIndex < meshes.size(); primitiveIndex++) {
+                MaterialSlotAppearance appearance = snapshot.materialAppearance(primitiveIndex);
+                if (!appearance.visible()) {
+                    continue;
+                }
+                SkinnedMeshSnapshot mesh = meshes.get(primitiveIndex);
                 RenderMaterial material = mesh.material();
                 RenderType renderType = renderTypeFor(material);
-                int color = multiplyArgb(snapshot.tintArgb(), material.argbTint());
+                int color = multiplyArgb(
+                        multiplyArgb(snapshot.tintArgb(), material.argbTint()), 0xFF000000 | appearance.rgbTint());
                 int packedLight = packedLightFor(material, snapshot.packedLight());
                 collector.submitCustomGeometry(
                         poseStack,

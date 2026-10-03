@@ -12,6 +12,7 @@ import java.util.Objects;
  */
 public final class ModelRenderSnapshot {
     private final java.util.List<com.liy.blendlib.fabric.client.entity.BlendEntityAttachment> attachments;
+    private final MaterialAppearanceSnapshot materialAppearance;
     private final ModelRenderHandle handle;
     private final Transform rootTransform;
     private final int packedLight;
@@ -108,6 +109,19 @@ public final class ModelRenderSnapshot {
             SkinnedRenderSnapshot skinnedRenderSnapshot,
             Transform presentationSocketTransform,
             java.util.List<com.liy.blendlib.fabric.client.entity.BlendEntityAttachment> attachments) {
+        this(handle, rootTransform, packedLight, packedOverlay, tintArgb, visibility, culling,
+                rigidNodePalette, skinnedRenderSnapshot, presentationSocketTransform, attachments, null);
+    }
+
+    private ModelRenderSnapshot(
+            ModelRenderHandle handle, Transform rootTransform, int packedLight, int packedOverlay,
+            int tintArgb, RenderVisibility visibility, CullingMetadata culling,
+            RigidNodePaletteSnapshot rigidNodePalette, SkinnedRenderSnapshot skinnedRenderSnapshot,
+            Transform presentationSocketTransform,
+            java.util.List<com.liy.blendlib.fabric.client.entity.BlendEntityAttachment> attachments,
+            MaterialAppearanceSnapshot materialAppearance) {
+        this.materialAppearance = materialAppearance;
+        if (materialAppearance != null) materialAppearance.requireCompatible(handle);
         this.attachments = java.util.List.copyOf(attachments);
         if (this.attachments.size() > 64) throw new IllegalArgumentException("At most 64 attachments per snapshot");
         this.handle = Objects.requireNonNull(handle, "handle");
@@ -173,7 +187,7 @@ public final class ModelRenderSnapshot {
     /** Copies captured geometry with vanilla submit-time lighting; performs no animation work. */
     public ModelRenderSnapshot withLighting(int light, int overlay) {
         return new ModelRenderSnapshot(handle, rootTransform, light, overlay, tintArgb, visibility,
-                culling, rigidNodePalette, skinnedRenderSnapshot, presentationSocketTransform, attachments);
+                culling, rigidNodePalette, skinnedRenderSnapshot, presentationSocketTransform, attachments, materialAppearance);
     }
 
     /**
@@ -197,7 +211,7 @@ public final class ModelRenderSnapshot {
                 culling,
                 rigidNodePalette,
                 skinnedRenderSnapshot,
-                Objects.requireNonNull(socketTransform, "socketTransform"), attachments);
+                Objects.requireNonNull(socketTransform, "socketTransform"), attachments, materialAppearance);
     }
 
     public java.util.List<com.liy.blendlib.fabric.client.entity.BlendEntityAttachment> attachments() {
@@ -208,7 +222,27 @@ public final class ModelRenderSnapshot {
     public ModelRenderSnapshot withAttachments(
             java.util.List<com.liy.blendlib.fabric.client.entity.BlendEntityAttachment> captured) {
         return new ModelRenderSnapshot(handle, rootTransform, packedLight, packedOverlay, tintArgb, visibility,
-                culling, rigidNodePalette, skinnedRenderSnapshot, presentationSocketTransform, captured);
+                culling, rigidNodePalette, skinnedRenderSnapshot, presentationSocketTransform, captured, materialAppearance);
+    }
+
+    /**
+     * Resolves exact slot names once against this frame's handle. Unknown names retain the entire
+     * authored appearance and are available through {@link #unknownMaterialSlots()}.
+     * Geometry, animation, bounds and attachments are shared unchanged.
+     */
+    public ModelRenderSnapshot withMaterialAppearance(Map<String, MaterialSlotAppearance> selection) {
+        return new ModelRenderSnapshot(handle, rootTransform, packedLight, packedOverlay, tintArgb, visibility,
+                culling, rigidNodePalette, skinnedRenderSnapshot, presentationSocketTransform, attachments,
+                MaterialAppearanceSnapshot.capture(handle, selection));
+    }
+
+    /** Immutable sorted unresolved exact slot names; empty for successful or diagnostic-model captures. */
+    public java.util.List<String> unknownMaterialSlots() {
+        return materialAppearance == null ? java.util.List.of() : materialAppearance.unknownSlots();
+    }
+
+    MaterialSlotAppearance materialAppearance(int primitiveIndex) {
+        return materialAppearance == null ? MaterialSlotAppearance.unchanged() : materialAppearance.primitive(primitiveIndex);
     }
 
     public ModelRenderHandle handle() {

@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased: ordinary entity material appearance
+
+- Add exact authored material-slot RGB tint and visibility selectors to ordinary static and animated entity rendering
+- Freeze immutable per-primitive appearance against the extraction frame's exact prepared handle; reuse geometry and animation snapshots
+- Preserve authored/missing-model diagnostics and conservative bounds; unknown slots expose a sorted diagnostic and atomically retain authored appearance
+- Demonstrate independently colored actors and accessory visibility in the runnable 26.3 example
+- Preserve retained API descriptors and add rigid/skinned submission, reload, isolation and snapshot-copy regression coverage
+
+
 ## Unreleased: opt-in layer visual events
 
 - Dispatch descriptor markers from immutable v2 controller traversal with explicit layer provenance

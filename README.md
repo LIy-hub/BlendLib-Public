@@ -171,3 +171,9 @@ Created by [LIy-hub](https://github.com/LIy-hub) · CurseForge: [Liy_Hub](https:
 Non-add-on code is licensed under [Apache-2.0](./LICENSE), with notices in [NOTICE](./NOTICE).
 The separate Blender add-on is [GPL-3.0-or-later](./blender-addon/LICENSE).
 The official faceted B icon and pixel wordmark are available in the [brand assets](./docs/assets/branding/README.md).
+
+### Entity material-slot appearance
+
+Ordinary entity builders can select per-instance RGB tint and visibility by exact authored slot.
+See [the API and runnable two-actor example](docs/material-appearance.md) and
+[verification scope](docs/release/material-appearance.md).

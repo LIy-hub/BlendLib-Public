@@ -28,6 +28,7 @@ public final class BlendEntityRendererBuilder<E extends Entity> {
     private com.liy.blendlib.fabric.client.animation.runtime.ClientAnimationPoseModifier poseComponents;
     private BlendEntitySocketHandler<? super E> socketHandler;
     private BlendEntityAttachmentProvider<? super E> attachmentProvider;
+    private BlendEntityMaterialAppearance<? super E> materialAppearance;
     private float shadowRadius = 0.5F;
     private float shadowStrength = 1.0F;
 
@@ -236,6 +237,16 @@ public final class BlendEntityRendererBuilder<E extends Entity> {
         requireAnimated(); this.attachmentProvider = Objects.requireNonNull(provider, "provider"); return this;
     }
 
+    /**
+     * Selects per-instance RGB multipliers and visibility during extraction on any snapshot path.
+     * Unknown exact names retain authored appearance for that selection; inspect the captured
+     * snapshot's unknownMaterialSlots diagnostic. Missing-model diagnostic colors are untouched.
+     */
+    public BlendEntityRendererBuilder<E> materialAppearance(BlendEntityMaterialAppearance<? super E> selector) {
+        this.materialAppearance = Objects.requireNonNull(selector, "selector");
+        return this;
+    }
+
     private void requireAnimated() {
         if (skinnedAnimationStateSelector == null) throw new IllegalStateException("Configure skinnedAnimation first");
     }
@@ -265,14 +276,26 @@ public final class BlendEntityRendererBuilder<E extends Entity> {
         if (snapshotFactory == null) {
             throw new IllegalStateException("A BlendEntityRenderer requires an extraction-only snapshotFactory");
         }
+        BlendEntitySnapshotFactory<E> capturedFactory = captureMaterialAppearance(snapshotFactory, materialAppearance);
         return new BlendEntityRenderer<>(
                 context,
                 modelKey,
                 renderer,
-                snapshotFactory,
+                capturedFactory,
                 rootRotationSelector != null,
                 shadowRadius,
                 shadowStrength);
+    }
+
+    /** Captures configuration once; the returned extraction factory retains no mutable builder. */
+    static <E extends Entity> BlendEntitySnapshotFactory<E> captureMaterialAppearance(
+            BlendEntitySnapshotFactory<? super E> factory,
+            BlendEntityMaterialAppearance<? super E> appearance) {
+        return (entity, request) -> {
+            var snapshot = factory.create(entity, request);
+            return snapshot == null || appearance == null || snapshot.handle().missingModel()
+                    ? snapshot : snapshot.withMaterialAppearance(appearance.select(entity, request));
+        };
     }
 
     private static float requireNonNegativeFinite(float value, String name) {

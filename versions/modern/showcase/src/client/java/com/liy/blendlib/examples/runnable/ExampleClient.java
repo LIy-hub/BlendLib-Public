@@ -30,7 +30,9 @@ public final class ExampleClient implements ClientModInitializer {
                 ExampleContent.WAND_ID, ExampleContent.WAND_MODEL, ExampleContent.id("item/animated_wand")),
                 ExampleContent.IDLE);
         BlendEntityRenderers.register(ExampleContent.ACTOR,
-                context -> BlendEntityRenderer.<LayeredActor>builder(context, ExampleContent.ACTOR_MODEL)
+                context -> BlendEntityRenderer.<LayeredActor>builder(context, ExampleContent.APPEARANCE_ACTOR_MODEL)
+                        .materialAppearance((entity, request) -> ExampleMaterialAppearance.forName(
+                                entity.getCustomName() == null ? null : entity.getCustomName().getString()))
                         .skinnedAnimation((entity, request) -> ExampleContent.WALK)
                         .animationLayerCues(ExampleAnimationScene.layers(), ExampleClient::cues)
                         .onAnimationLayerVisualEvent((entity, event) -> entity.visualEvents().accept(event))

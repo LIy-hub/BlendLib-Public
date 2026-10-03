@@ -28,6 +28,7 @@ public final class StaticRigidRenderHandle implements ModelRenderHandle {
     private final ModelAsset asset;
     private final List<Transform> nodeWorldTransforms;
     private final List<PreparedRenderPrimitive> primitives;
+    private final List<String> materialSlots;
     private final Bounds bounds;
     private final float unitsToBlocksScale;
 
@@ -36,12 +37,14 @@ public final class StaticRigidRenderHandle implements ModelRenderHandle {
             ModelAsset asset,
             List<Transform> nodeWorldTransforms,
             List<PreparedRenderPrimitive> primitives,
+            List<String> materialSlots,
             Bounds bounds,
             float unitsToBlocksScale) {
         this.modelKey = Objects.requireNonNull(modelKey, "modelKey");
         this.asset = Objects.requireNonNull(asset, "asset");
         this.nodeWorldTransforms = List.copyOf(nodeWorldTransforms);
         this.primitives = List.copyOf(primitives);
+        this.materialSlots = List.copyOf(materialSlots);
         this.bounds = Objects.requireNonNull(bounds, "bounds");
         this.unitsToBlocksScale = unitsToBlocksScale;
         if (this.primitives.isEmpty()) {
@@ -87,7 +90,7 @@ public final class StaticRigidRenderHandle implements ModelRenderHandle {
             RenderMaterial material = ((MaterialMapping.Supported) mapping).material();
             prepared.add(new PreparedRenderPrimitive(primitive.nodeIndex(), StaticGeometry.copyOf(primitive.geometry()), material));
         }
-        return new StaticRigidRenderHandle(modelKey, asset, transforms, prepared, bounds, unitsToBlocksScale);
+        return new StaticRigidRenderHandle(modelKey, asset, transforms, prepared, asset.primitives().stream().map(p -> p.geometry().materialSlot()).toList(), bounds, unitsToBlocksScale);
     }
 
     @Override
@@ -99,6 +102,9 @@ public final class StaticRigidRenderHandle implements ModelRenderHandle {
     public long generation() {
         return asset.generation();
     }
+
+    @Override
+    public List<String> materialSlots() { return materialSlots; }
 
     @Override
     public Bounds bounds() {
