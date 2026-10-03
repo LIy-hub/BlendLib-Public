@@ -372,20 +372,33 @@ public final class SkinnedAnimationRuntime {
             SkinnedAnimationRuntimeInput input,
             SyncedAnimationState state) {
         double sampleTick = input.clientGameTimeInTicks();
+        double controllerTimeSeconds = synchronizedControllerTimeSeconds(state, sampleTick);
         AnimationCorrectionResult correction = instance.controller().applyTimelineCorrection(new AnimationCorrection(
                 state.animationKey(),
-                synchronizedControllerTimeSeconds(state, sampleTick),
+                controllerTimeSeconds,
                 state.sequence(),
                 SYNCHRONIZED_SNAP_THRESHOLD_SECONDS));
         if (correction != AnimationCorrectionResult.STALE_DROPPED) {
             clock.acceptSynchronizedState(state);
             clock.visualEventCursor.accept(state.sequence(), state.animationKey(),
-                    synchronizedControllerTimeSeconds(state, sampleTick));
+                    controllerTimeSeconds);
             clock.resetAt(sampleTick, input.updateBucket());
             clock.incrementSampleRevision();
             return instance.advance(0.0d);
         }
         if (!clock.hasActiveSynchronizedState()) {
+            // Absence may temporarily select a fallback without revoking the last accepted
+            // command. Only that exact immutable command can resume at the same sequence;
+            // older or conflicting commands must not reactivate synchronization.
+            if (state.equals(clock.synchronizedState)) {
+                AnimationAdvance recovered = instance.controller().synchronizeTimeline(
+                        state.animationKey(), controllerTimeSeconds);
+                clock.visualEventCursor.resume(state.sequence(), controllerTimeSeconds);
+                clock.acceptSynchronizedState(state);
+                clock.resetAt(sampleTick, input.updateBucket());
+                clock.incrementSampleRevision();
+                return recovered;
+            }
             return advanceFallback(instance, clock, input);
         }
         // A repeated accepted sync state is an absolute client timeline, not an instruction to
@@ -399,7 +412,7 @@ public final class SkinnedAnimationRuntime {
             clock.recordAdvanceAt(sampleTick, input.updateBucket());
             clock.incrementSampleRevision();
             return new AnimationAdvance(synchronizedAdvance.state(), synchronizedAdvance.timeSeconds(),
-                    clock.visualEventCursor.advance(clock.synchronizedSequence,
+                    clock.visualEventCursor.advance(clock.synchronizedState.sequence(),
                             synchronizedControllerTimeSeconds(clock.synchronizedStartGameTick(),
                                     (float) clock.synchronizedSpeed(), sampleTick)));
         }
@@ -528,10 +541,7 @@ public final class SkinnedAnimationRuntime {
         private double lastAdvancedGameTick;
         private double lastCadenceTick = Double.NaN;
         private long sampleRevision;
-        private long synchronizedSequence = -1L;
-        private float synchronizedSpeed = 1.0F;
-        private BlendAnimationKey synchronizedAnimationKey;
-        private long synchronizedStartGameTick;
+        private SyncedAnimationState synchronizedState;
         private boolean synchronizedStateActive;
         private boolean initialized;
 
@@ -589,27 +599,24 @@ public final class SkinnedAnimationRuntime {
         }
 
         private void acceptSynchronizedState(SyncedAnimationState state) {
-            synchronizedSequence = state.sequence();
-            synchronizedSpeed = state.speed();
-            synchronizedAnimationKey = state.animationKey();
-            synchronizedStartGameTick = state.startGameTick();
+            synchronizedState = state;
             synchronizedStateActive = true;
         }
 
         private boolean hasActiveSynchronizedState() {
-            return synchronizedStateActive && synchronizedSequence >= 0L;
+            return synchronizedStateActive && synchronizedState != null;
         }
 
         private double synchronizedSpeed() {
-            return synchronizedSpeed;
+            return synchronizedState.speed();
         }
 
         private BlendAnimationKey synchronizedAnimationKey() {
-            return Objects.requireNonNull(synchronizedAnimationKey, "synchronizedAnimationKey");
+            return synchronizedState.animationKey();
         }
 
         private long synchronizedStartGameTick() {
-            return synchronizedStartGameTick;
+            return synchronizedState.startGameTick();
         }
 
         private void deactivateSynchronizedState() {

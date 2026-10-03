@@ -63,7 +63,23 @@ public final class SynchronizedVisualEventCursor {
         return events;
     }
 
-    /** Stops synchronized emission while retaining sequence rejection history. */
+    /**
+     * Resumes an inactive accepted sequence without replaying markers from its inactive interval.
+     * The owner must first verify that the full semantic command equals the one it accepted.
+     * A clock rewind never lowers the retained high-water mark, so previously emitted markers
+     * remain consumed. Active, older, and unaccepted sequences cannot change the baseline.
+     */
+    public boolean resume(long acceptedSequence, double controllerTimeSeconds) {
+        validate(acceptedSequence, controllerTimeSeconds);
+        if (active || acceptedSequence != sequence) {
+            return false;
+        }
+        highWaterSeconds = Math.max(highWaterSeconds, controllerTimeSeconds);
+        active = true;
+        return true;
+    }
+
+    /** Stops synchronized emission while retaining sequence rejection history and consumed markers. */
     public void deactivate() {
         active = false;
     }

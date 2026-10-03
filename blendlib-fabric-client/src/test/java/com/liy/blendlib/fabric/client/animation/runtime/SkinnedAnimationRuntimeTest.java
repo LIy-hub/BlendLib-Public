@@ -230,6 +230,195 @@ class SkinnedAnimationRuntimeTest {
         assertSocketX(crossing, 0);
     }
 
+    @Test
+    void identicalSynchronizedStateRecoversFromFallbackImmediatelyInEveryBucket() {
+        for (AnimationUpdateBucket bucket : AnimationUpdateBucket.values()) {
+            SkinnedFixture fixture = skinnedFixture(109L, 1, 0.5, 1);
+            RuntimeHarness harness = harness();
+            harness.runtime().onPlayInit();
+            publish(harness.models(), fixture.loaded());
+            BlendInstanceKey.Entity key = harness.runtime().entityKey(109);
+            SyncedAnimationState accepted = synced(WALK, 100, 9, 2);
+            harness.runtime().extract(input(MODEL, key, 110, 0, IDLE, Optional.of(accepted),
+                    bucket, fixture.handle())).orElseThrow();
+            var fallback = harness.runtime().extract(input(MODEL, key, 111, 0, IDLE, Optional.empty(),
+                    bucket, fixture.handle())).orElseThrow();
+            // A new record with the same semantics must recover even on the fallback sample's
+            // tick, including an off-cadence tick for every reduced-frequency bucket.
+            var recovered = harness.runtime().extract(input(MODEL, key, 111, 0, IDLE,
+                    Optional.of(synced(WALK, 100, 9, 2)), bucket, fixture.handle())).orElseThrow();
+            var repeated = harness.runtime().extract(input(MODEL, key, 111, 0, IDLE,
+                    Optional.of(accepted), bucket, fixture.handle())).orElseThrow();
+
+            assertEquals(IDLE, fallback.advance().state());
+            assertEquals(WALK, recovered.advance().state());
+            assertEquals(0.55D, recovered.advance().timeSeconds(), 1.0e-9D);
+            assertSocketX(recovered, 0.55F);
+            assertEquals(recovered.advance(), repeated.advance());
+            assertTrue(recovered.advance().visualEvents().isEmpty());
+        }
+    }
+
+    @Test
+    void synchronizedRecoveryDropsFallbackHistoryAndDoesNotDuplicateMarkersAfterRewind() {
+        SkinnedFixture fixture = skinnedFixture(110L);
+        RuntimeHarness harness = harness();
+        harness.runtime().onPlayInit();
+        publish(harness.models(), fixture.loaded());
+        BlendInstanceKey.Entity key = harness.runtime().entityKey(110);
+        SyncedAnimationState state = synced(WALK, 0, 4, 1);
+        extractSynchronized(harness, fixture, key, 19, state);
+        assertEquals(List.of(WALK_ENTRY), eventKeys(extractSynchronized(harness, fixture, key, 20, state)));
+        harness.runtime().extract(input(MODEL, key, 21, 0, IDLE, Optional.empty(),
+                AnimationUpdateBucket.VISIBLE_NEAR, fixture.handle())).orElseThrow();
+
+        var recovered = extractSynchronized(harness, fixture, key, 60, state);
+        assertEquals(WALK, recovered.advance().state());
+        assertEquals(0, recovered.advance().timeSeconds(), 1.0e-9D);
+        assertTrue(recovered.advance().visualEvents().isEmpty());
+        assertTrue(extractSynchronized(harness, fixture, key, 61, state).advance().visualEvents().isEmpty());
+        assertEquals(List.of(WALK_ENTRY), eventKeys(extractSynchronized(harness, fixture, key, 80, state)));
+        assertTrue(extractSynchronized(harness, fixture, key, 80, state).advance().visualEvents().isEmpty());
+        harness.runtime().extract(input(MODEL, key, 81, 0, IDLE, Optional.empty(),
+                AnimationUpdateBucket.VISIBLE_NEAR, fixture.handle())).orElseThrow();
+
+        var rewoundRecovery = extractSynchronized(harness, fixture, key, 39, state);
+        assertEquals(WALK, rewoundRecovery.advance().state());
+        assertEquals(0.95D, rewoundRecovery.advance().timeSeconds(), 1.0e-9D);
+        assertTrue(rewoundRecovery.advance().visualEvents().isEmpty());
+        for (long tick : new long[] {40, 60, 80}) {
+            assertTrue(extractSynchronized(harness, fixture, key, tick, state).advance().visualEvents().isEmpty());
+        }
+        assertEquals(List.of(WALK_ENTRY), eventKeys(extractSynchronized(harness, fixture, key, 100, state)));
+        assertTrue(extractSynchronized(harness, fixture, key, 100, state).advance().visualEvents().isEmpty());
+    }
+
+    @Test
+    void staleOrConflictingPayloadsCannotReplaceOrResumeAcceptedSemantics() {
+        SyncedAnimationState accepted = synced(WALK, 100, 9, 1);
+        for (SyncedAnimationState rejected : List.of(
+                synced(WALK, 100, 8, 1),
+                synced(ATTACK, 100, 9, 1),
+                synced(WALK, 101, 9, 1),
+                synced(WALK, 100, 9, 2),
+                new SyncedAnimationState(WALK, 100, 9, 1, 18, false),
+                accepted.asPersistent())) {
+            SkinnedFixture fixture = skinnedFixture(111L);
+            RuntimeHarness harness = harness();
+            harness.runtime().onPlayInit();
+            publish(harness.models(), fixture.loaded());
+            BlendInstanceKey.Entity key = harness.runtime().entityKey(111);
+            extractSynchronized(harness, fixture, key, 110, accepted);
+            var active = extractSynchronized(harness, fixture, key, 111, rejected);
+            assertEquals(WALK, active.advance().state());
+            assertEquals(0.55D, active.advance().timeSeconds(), 1.0e-9D);
+            harness.runtime().extract(input(MODEL, key, 112, 0, IDLE, Optional.empty(),
+                    AnimationUpdateBucket.VISIBLE_NEAR, fixture.handle())).orElseThrow();
+            var inactive = extractSynchronized(harness, fixture, key, 113, rejected);
+            assertEquals(IDLE, inactive.advance().state());
+            var recovered = extractSynchronized(harness, fixture, key, 114, accepted);
+            assertEquals(WALK, recovered.advance().state());
+            assertEquals(0.7D, recovered.advance().timeSeconds(), 1.0e-9D);
+            assertTrue(recovered.advance().visualEvents().isEmpty());
+        }
+    }
+
+    @Test
+    void newerSequenceDuringDropoutReplacesRecoveryIdentityAndMarkerBaseline() {
+        SkinnedFixture fixture = skinnedFixture(112L);
+        RuntimeHarness harness = harness();
+        harness.runtime().onPlayInit();
+        publish(harness.models(), fixture.loaded());
+        BlendInstanceKey.Entity key = harness.runtime().entityKey(112);
+        SyncedAnimationState oldState = synced(WALK, 0, 9, 1);
+        extractSynchronized(harness, fixture, key, 100, oldState);
+        harness.runtime().extract(input(MODEL, key, 101, 0, IDLE, Optional.empty(),
+                AnimationUpdateBucket.VISIBLE_NEAR, fixture.handle())).orElseThrow();
+        SyncedAnimationState newerState = synced(WALK, 100, 10, 1);
+        var newer = extractSynchronized(harness, fixture, key, 119, newerState);
+        assertEquals(0.95D, newer.advance().timeSeconds(), 1.0e-9D);
+        assertTrue(newer.advance().visualEvents().isEmpty());
+        assertEquals(List.of(WALK_ENTRY), eventKeys(extractSynchronized(harness, fixture, key, 120, newerState)));
+        harness.runtime().extract(input(MODEL, key, 121, 0, IDLE, Optional.empty(),
+                AnimationUpdateBucket.VISIBLE_NEAR, fixture.handle())).orElseThrow();
+        assertEquals(IDLE, extractSynchronized(harness, fixture, key, 122, oldState).advance().state());
+        var recovered = extractSynchronized(harness, fixture, key, 123, newerState);
+        assertEquals(WALK, recovered.advance().state());
+        assertEquals(0.15D, recovered.advance().timeSeconds(), 1.0e-9D);
+        assertTrue(recovered.advance().visualEvents().isEmpty());
+    }
+
+    @Test
+    void synchronizedRecoveryResolvesNextStatesInsteadOfRestartingOriginClip() {
+        SkinnedFixture fixture = skinnedFixture(113L, 0.5, 1, 2);
+        RuntimeHarness harness = harness();
+        harness.runtime().onPlayInit();
+        publish(harness.models(), fixture.loaded());
+        BlendInstanceKey.Entity key = harness.runtime().entityKey(113);
+        SyncedAnimationState accepted = synced(ATTACK, 100, 7, 2);
+        extractSynchronized(harness, fixture, key, 102, accepted);
+        harness.runtime().extract(input(MODEL, key, 103, 0, WALK, Optional.empty(),
+                AnimationUpdateBucket.VISIBLE_NEAR, fixture.handle())).orElseThrow();
+        var recovered = extractSynchronized(harness, fixture, key, 115, accepted);
+        assertEquals(IDLE, recovered.advance().state());
+        assertEquals(0.5D, recovered.advance().timeSeconds(), 1.0e-9D);
+        assertTrue(recovered.advance().visualEvents().isEmpty());
+    }
+
+    @Test
+    void lifecycleAndBindingChangesClearSynchronizedRecoveryIdentityAndConsumedMarkers() {
+        for (String reset : List.of("entity", "block_entity", "retire", "play_init", "disconnect", "generation", "model")) {
+            SkinnedFixture fixture = skinnedFixture(114L);
+            SkinnedFixture alternateModel = skinnedFixture(
+                    BlendModelKey.parse("runtime_test:skinned/replacement"), 114L, 1, 1, 1);
+            RuntimeHarness harness = harness();
+            harness.runtime().onPlayInit();
+            harness.models().publish(new ModelRegistryGeneration(114L,
+                    Map.of(MODEL, fixture.loaded(), alternateModel.loaded().key(), alternateModel.loaded()),
+                    Map.of(), List.of()));
+            BlendInstanceKey key = reset.equals("block_entity")
+                    ? BlendInstanceKey.blockEntity(BlendResourceId.parse("minecraft:overworld"), 114L)
+                    : harness.runtime().entityKey(114);
+            SyncedAnimationState accepted = synced(WALK, 0, 9, 1);
+            extractSynchronized(harness, fixture, key, 39, accepted);
+            assertEquals(List.of(WALK_ENTRY), eventKeys(extractSynchronized(harness, fixture, key, 40, accepted)));
+            harness.runtime().extract(input(MODEL, key, 41, 0, IDLE, Optional.empty(),
+                    AnimationUpdateBucket.VISIBLE_NEAR, fixture.handle())).orElseThrow();
+
+            switch (reset) {
+                case "entity" -> harness.runtime().onEntityUnload(114);
+                case "block_entity" -> harness.runtime().onBlockEntityUnload((BlendInstanceKey.BlockEntity) key);
+                case "retire" -> harness.runtime().retire(key);
+                case "play_init" -> harness.runtime().onPlayInit();
+                case "disconnect" -> {
+                    harness.runtime().onWorldDisconnect();
+                    harness.runtime().onPlayInit();
+                }
+                case "generation" -> fixture = skinnedFixture(115L);
+                case "model" -> fixture = alternateModel;
+                default -> throw new AssertionError(reset);
+            }
+            publish(harness.models(), fixture.loaded());
+            SyncedAnimationState fresh = synced(WALK, 0, 1, 1);
+            var baseline = extractSynchronized(harness, fixture, key, 19, fresh);
+            assertEquals(WALK, baseline.advance().state(), reset);
+            assertEquals(0.95D, baseline.advance().timeSeconds(), 1.0e-9D, reset);
+            assertTrue(baseline.advance().visualEvents().isEmpty(), reset);
+            assertEquals(List.of(WALK_ENTRY), eventKeys(extractSynchronized(harness, fixture, key, 20, fresh)), reset);
+            assertTrue(extractSynchronized(harness, fixture, key, 20, fresh).advance().visualEvents().isEmpty(), reset);
+        }
+    }
+
+    private static SkinnedAnimationRuntimeResult extractSynchronized(RuntimeHarness harness,
+            SkinnedFixture fixture, BlendInstanceKey key, long tick, SyncedAnimationState state) {
+        return harness.runtime().extract(input(fixture.loaded().key(), key, tick, 0, IDLE, Optional.of(state),
+                AnimationUpdateBucket.VISIBLE_NEAR, fixture.handle())).orElseThrow();
+    }
+
+    private static List<BlendResourceId> eventKeys(SkinnedAnimationRuntimeResult result) {
+        return result.advance().visualEvents().stream().map(event -> event.eventKey()).toList();
+    }
+
     private static ModelAnimationLayers.Layer layer(BlendResourceId id, int priority,
             AnimationV2LayerMode mode, float weight, BlendAnimationKey initial, List<BoneMask.NamedWeight> mask) {
         return new ModelAnimationLayers.Layer(id, priority, mode, weight, mask, initial);
@@ -801,10 +990,15 @@ class SkinnedAnimationRuntimeTest {
 
     private static SkinnedFixture skinnedFixture(
             long generation, double idleSpeed, double walkSpeed, double attackSpeed) {
+        return skinnedFixture(MODEL, generation, idleSpeed, walkSpeed, attackSpeed);
+    }
+
+    private static SkinnedFixture skinnedFixture(
+            BlendModelKey model, long generation, double idleSpeed, double walkSpeed, double attackSpeed) {
         MeshPrimitive geometry = skinnedGeometry();
         ModelAsset asset = new ModelAsset(
-                MODEL.resourceId(),
-                MODEL.descriptorResourceId(),
+                model.resourceId(),
+                model.descriptorResourceId(),
                 generation,
                 ModelProfile.SKINNED_V1,
                 1.0d,
@@ -820,8 +1014,8 @@ class SkinnedAnimationRuntimeTest {
                 new SocketTable(Map.of(SOCKET, new SocketTable.Socket(1, "Mesh/Bone"))),
                 Bounds.fromPositions(geometry.positions()),
                 List.of());
-        SkinnedRenderHandle handle = SkinnedRenderHandle.prepare(MODEL, asset);
-        return new SkinnedFixture(asset, handle, new LoadedModelHandle(MODEL, asset, handle));
+        SkinnedRenderHandle handle = SkinnedRenderHandle.prepare(model, asset);
+        return new SkinnedFixture(asset, handle, new LoadedModelHandle(model, asset, handle));
     }
 
     private static StaticFixture staticFixture(long generation) {

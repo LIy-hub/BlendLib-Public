@@ -81,6 +81,58 @@ class SynchronizedVisualEventCursorTest {
     }
 
     @Test
+    void resumeDropsInactiveHistoryAndKeepsTheRecoveryEndpointConsumed() {
+        AnimationVisualEvent marker = event(0.5, "step");
+        SynchronizedVisualEventCursor cursor = cursor(state(IDLE, 1, true, 1, null, List.of(marker)));
+        assertFalse(cursor.resume(0, 0));
+        cursor.accept(4, IDLE, 0);
+        assertEquals(List.of(marker), cursor.advance(4, 0.5));
+        cursor.deactivate();
+        assertEquals(List.of(), cursor.advance(4, 1.5));
+        assertFalse(cursor.resume(3, 2));
+        assertFalse(cursor.resume(5, 2));
+        assertTrue(cursor.resume(4, 100.5));
+        assertEquals(List.of(), cursor.advance(4, 100.5));
+        assertFalse(cursor.resume(4, 200));
+        assertEquals(List.of(marker), cursor.advance(4, 101.5));
+        assertEquals(List.of(), cursor.advance(4, 101.5));
+    }
+
+    @Test
+    void resumeAfterClockRewindPreservesPreviouslyConsumedMarkers() {
+        AnimationVisualEvent marker = event(0.5, "step");
+        SynchronizedVisualEventCursor cursor = cursor(state(IDLE, 1, true, 1, null, List.of(marker)));
+        cursor.accept(4, IDLE, 1);
+        assertEquals(List.of(marker), cursor.advance(4, 1.5));
+        cursor.deactivate();
+        assertThrows(IllegalArgumentException.class, () -> cursor.resume(4, Double.NaN));
+        assertThrows(IllegalArgumentException.class, () -> cursor.resume(-1, 0));
+        assertTrue(cursor.resume(4, 0));
+        assertEquals(List.of(), cursor.advance(4, 0.5));
+        assertEquals(List.of(), cursor.advance(4, 1.5));
+        assertEquals(List.of(marker), cursor.advance(4, 2.5));
+        cursor.deactivate();
+        assertTrue(cursor.resume(4, 0));
+        assertEquals(List.of(), cursor.advance(4, 2.5));
+        assertEquals(List.of(marker), cursor.advance(4, 3.5));
+    }
+
+    @Test
+    void newerSequenceAfterDeactivationReplacesOldRecoveryHistory() {
+        AnimationVisualEvent marker = event(0.5, "step");
+        SynchronizedVisualEventCursor cursor = cursor(state(IDLE, 1, true, 1, null, List.of(marker)));
+        cursor.accept(4, IDLE, 100);
+        cursor.deactivate();
+        assertTrue(cursor.accept(5, IDLE, 0));
+        assertEquals(List.of(marker), cursor.advance(5, 0.5));
+        cursor.deactivate();
+        assertFalse(cursor.resume(4, 101));
+        assertTrue(cursor.resume(5, 0));
+        assertEquals(List.of(), cursor.advance(5, 0.5));
+        assertEquals(List.of(marker), cursor.advance(5, 1.5));
+    }
+
+    @Test
     void boundsLongCullCatchUpToMostRecentSecond() {
         AnimationVisualEvent marker = event(0.5, "step");
         SynchronizedVisualEventCursor cursor = cursor(state(IDLE, 1, true, 1, null, List.of(marker)));
