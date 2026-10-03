@@ -177,3 +177,10 @@ The official faceted B icon and pixel wordmark are available in the [brand asset
 Ordinary entity builders can select per-instance RGB tint and visibility by exact authored slot.
 See [the API and runnable two-actor example](docs/material-appearance.md) and
 [verification scope](docs/release/material-appearance.md).
+
+### Nested entity attachments
+
+Prepared character → weapon → ornament snapshots now compose on the standard entity path.
+Extraction captures a bounded flat draw list with reload diagnostics; children keep their own
+lighting and appearance. See [composition, limits and culling obligations](docs/nested-entity-attachments.md)
+and the [compiled consumer fixture](examples/nested-entity-attachments/README.md).

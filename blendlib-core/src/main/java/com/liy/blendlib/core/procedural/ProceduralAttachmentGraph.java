@@ -11,7 +11,6 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.PriorityQueue;
 import java.util.Set;
 import java.util.function.Supplier;
 
@@ -101,7 +100,7 @@ public final class ProceduralAttachmentGraph implements AutoCloseable {
                 }
             }
         }
-        int maximumDepth = validateTopologyIteratively(graph);
+        int maximumDepth = AttachmentTopology.validate(graph, MODEL_ORDER);
         LinkedHashMap<BlendModelKey, List<BlendModelKey>> frozen = new LinkedHashMap<>();
         graph.forEach((owner, children) -> frozen.put(owner, children));
         return new ProceduralAttachmentGraph(generation, Collections.unmodifiableMap(frozen), maximumDepth, edgeCount);
@@ -281,50 +280,6 @@ public final class ProceduralAttachmentGraph implements AutoCloseable {
         if (lifecycle == Lifecycle.RETIRED) {
             throw new IllegalStateException("attachment graph is permanently retired");
         }
-    }
-
-    private static int validateTopologyIteratively(Map<BlendModelKey, List<BlendModelKey>> graph) {
-        LinkedHashMap<BlendModelKey, Integer> incoming = new LinkedHashMap<>();
-        LinkedHashMap<BlendModelKey, Integer> depths = new LinkedHashMap<>();
-        for (BlendModelKey owner : graph.keySet()) {
-            incoming.put(owner, 0);
-            depths.put(owner, 0);
-        }
-        for (List<BlendModelKey> children : graph.values()) {
-            for (BlendModelKey child : children) {
-                incoming.put(child, Math.addExact(incoming.get(child), 1));
-            }
-        }
-        PriorityQueue<BlendModelKey> ready = new PriorityQueue<>(MODEL_ORDER);
-        for (Map.Entry<BlendModelKey, Integer> entry : incoming.entrySet()) {
-            if (entry.getValue() == 0) {
-                ready.add(entry.getKey());
-            }
-        }
-        int processed = 0;
-        int maximumDepth = 0;
-        while (!ready.isEmpty()) {
-            BlendModelKey owner = ready.remove();
-            processed++;
-            int ownerDepth = depths.get(owner);
-            maximumDepth = Math.max(maximumDepth, ownerDepth);
-            for (BlendModelKey child : graph.get(owner)) {
-                int childDepth = Math.max(depths.get(child), Math.addExact(ownerDepth, 1));
-                if (childDepth > ProceduralLimits.MAX_ATTACHMENT_DEPTH) {
-                    throw new IllegalArgumentException("child-model attachment graph exceeds the X3 eight-edge depth limit");
-                }
-                depths.put(child, childDepth);
-                int remaining = incoming.get(child) - 1;
-                incoming.put(child, remaining);
-                if (remaining == 0) {
-                    ready.add(child);
-                }
-            }
-        }
-        if (processed != graph.size()) {
-            throw new IllegalArgumentException("child-model attachment graph contains a directed cycle");
-        }
-        return maximumDepth;
     }
 
     private enum Lifecycle {

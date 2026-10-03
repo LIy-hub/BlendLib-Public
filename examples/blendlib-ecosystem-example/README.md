@@ -30,3 +30,9 @@ standalone directory. The X8 implementation did not execute that command.
 
 Read docs/expansion/x8/developer-tutorial.md and
 docs/expansion/x8/third-party-provider-guide.md before adapting this example.
+
+## Nested standard-entity attachments (26.3)
+
+See the separate [nested-attachment consumer fixture](../nested-entity-attachments/README.md)
+for a character -> weapon -> ornament integration helper. It is isolated from this historical
+project so that this project retains its existing dependency defaults.

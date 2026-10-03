@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased: bounded nested entity attachments
+
+- Compose prepared character, weapon and ornament snapshots during extraction; submit consumes a flat immutable list
+- Bound aggregate occurrences to 64 and attachment depth to eight; preserve finite same-model children and shared snapshots
+- Skip stale-generation child subtrees with captured diagnostics while retaining valid siblings and missing-model placeholders
+- Preserve child-owned lighting, material appearance, final socket transforms and existing direct-child APIs
+- Reuse bounded topology validation without changing procedural graph publication or retirement; require a conservative pre-extraction culling envelope
+- Add real rigid/skinned post-modifier composition, submitted geometry, reload, bounds, ABI and executable consumer coverage
+
 ## Unreleased: ordinary entity material appearance
 
 - Add exact authored material-slot RGB tint and visibility selectors to ordinary static and animated entity rendering

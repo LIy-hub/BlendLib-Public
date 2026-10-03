@@ -286,6 +286,10 @@ class X7ResourceIslandBoundaryTest {
             assertTrue(actualManifest.contains(addition), addition);
             actualManifest = actualManifest.replace(addition, "");
         }
+        // Nested capture diagnostics add one exact method; all retained descriptors remain pinned.
+        String compositionAddition = "  public com.liy.blendlib.fabric.client.entity.BlendEntityAttachmentComposition attachmentComposition();\n    descriptor: ()Lcom/liy/blendlib/fabric/client/entity/BlendEntityAttachmentComposition;\n";
+        assertTrue(actualManifest.contains(compositionAddition));
+        actualManifest = actualManifest.replace("\n" + compositionAddition, "");
         assertEquals(expectedManifest, actualManifest, "b3660bb javap -protected -s descriptor manifest");
         for (String requiredPin : List.of(
                 "public final class com.liy.blendlib.fabric.client.reload.ClientModelRegistry",

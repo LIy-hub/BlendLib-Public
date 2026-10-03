@@ -4,6 +4,14 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.liy.blendlib.fabric.client.entity.*;
+import com.liy.blendlib.fabric.client.api.BlendRenderer;
+import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.blaze3d.vertex.VertexConsumer;
+import net.minecraft.client.renderer.SubmitNodeCollector;
+import net.minecraft.client.renderer.SubmitNodeStorage;
+import net.minecraft.client.renderer.rendertype.RenderType;
+import org.joml.Vector3f;
 import com.liy.blendlib.api.BlendAnimationKey;
 import com.liy.blendlib.api.BlendInstanceKey;
 import com.liy.blendlib.api.BlendModelKey;
@@ -121,6 +129,65 @@ class ClientAnimationPoseModifierPipelineTest {
     }
 
     @Test
+    void nestedCharacterWeaponOrnamentUsesRealFinalRigidAndSkinnedExtraction() {
+        var skin = skinnedFixture(14);
+        var rigid = rigidFixture(14);
+        var harness = harness(); harness.runtime().onPlayInit();
+        harness.models().publish(new ModelRegistryGeneration(14, Map.of(
+                SKINNED_MODEL, skin.loaded(), RIGID_MODEL, rigid.loaded()), Map.of(), List.of()));
+        var character = harness.runtime().extract(input(SKINNED_MODEL,
+                BlendInstanceKey.entity("nested", 1), 0, skin.handle()),
+                (context, pose) -> rotate(pose, 1)).orElseThrow().frame();
+        var weapon = harness.runtime().extract(input(RIGID_MODEL,
+                BlendInstanceKey.entity("nested", 2), 0, rigid.handle()),
+                (context, pose) -> rotate(pose, 0)).orElseThrow().frame();
+        var ornamentFrame = harness.runtime().extract(input(SKINNED_MODEL,
+                BlendInstanceKey.entity("nested", 3), 0, skin.handle())).orElseThrow().frame().renderSnapshot();
+        var ornament = ModelRenderSnapshot.skinned(skin.handle(),
+                new Transform(new Vec3(2, 0, 0), Quaternion.IDENTITY, new Vec3(2, 2, 2)),
+                0x00F000F0, 0, -1, RenderVisibility.VISIBLE, ornamentFrame.culling(), ornamentFrame.skinnedRenderSnapshot());
+        var characterRequest = new BlendEntitySnapshotRequest(SKINNED_MODEL, 0, 0, 0, 0, 0, 0, 0, true, 1);
+        var weaponRequest = new BlendEntitySnapshotRequest(RIGID_MODEL, 0, 0, 0, 0, 0, 0, 0, true, 1);
+        var hand = BlendEntitySockets.capture(characterRequest, character).socket(SOCKET).orElseThrow();
+        var mount = BlendEntitySockets.capture(weaponRequest, weapon).socket(SOCKET).orElseThrow();
+        var weaponWithOrnament = weapon.renderSnapshot().withAttachments(List.of(BlendEntityAttachment.at(mount,
+                new BlendEntitySocketPose(0, 1, 0, BlendEntityRotation.IDENTITY, 1), ornament)));
+        var assembled = character.renderSnapshot().withAttachments(List.of(BlendEntityAttachment.at(hand,
+                new BlendEntitySocketPose(1, 0, 0, BlendEntityRotation.IDENTITY, 1), weaponWithOrnament)));
+        var composition = BlendEntityAttachmentComposition.capture(assembled);
+        var collector = new NestedGeometryCollector();
+        BlendEntityAttachmentSubmitter.submit(composition.attachments(),
+                new BlendRenderer(new Minecraft2612StaticRigidRenderBackend()), new PoseStack(), collector);
+        assertEquals(2, collector.draws.size());
+        var actual = collector.draws.get(1).getFirst();
+        // Independent expected order: Rz90 * T(1,0) * Rz90 * T(0,1) * T(2,0) * S2 * vertex(1,0).
+        assertEquals(-4, actual.x(), 1e-4);
+        assertEquals(0, actual.y(), 1e-4);
+        assertEquals(0, actual.z(), 1e-4);
+    }
+
+    private static final class NestedGeometryCollector extends SubmitNodeStorage {
+        final List<List<Vec3>> draws = new ArrayList<>();
+        @Override public void submitCustomGeometry(PoseStack stack, RenderType type,
+                SubmitNodeCollector.CustomGeometryRenderer renderer) {
+            var vertices = new ArrayList<Vec3>();
+            renderer.render(stack.last(), new VertexConsumer() {
+                private float x, y, z;
+                public VertexConsumer addVertex(float x, float y, float z) { this.x=x; this.y=y; this.z=z; return this; }
+                public VertexConsumer setColor(int r, int g, int b, int a) { return this; }
+                public VertexConsumer setColor(int argb) { return this; }
+                public VertexConsumer setUv(float u, float v) { return this; }
+                public VertexConsumer setUv1(int u, int v) { return this; }
+                public VertexConsumer setUv2(int u, int v) { return this; }
+                public VertexConsumer setNormal(float nx, float ny, float nz) { vertices.add(new Vec3(x,y,z)); return this; }
+                public VertexConsumer setLineWidth(float width) { return this; }
+                public VertexConsumer setUv3(float u, float v) { return this; }
+            });
+            draws.add(List.copyOf(vertices));
+        }
+    }
+
+    @Test
     void runtimeSourceKeepsCacheModifierAndPaletteCaptureInTheAcceptedOrder() throws IOException {
         Path clientRoot = Path.of(System.getProperty("blendlib.projectDir"), "src", "client", "java");
         String runtime = Files.readString(clientRoot.resolve(Path.of(
@@ -226,7 +293,7 @@ class ClientAnimationPoseModifierPipelineTest {
                 List.of(new ModelPrimitive(0, 0, 0, geometry)),
                 null,
                 List.of(clip(0)),
-                new SocketTable(Map.of()),
+                new SocketTable(Map.of(SOCKET, new SocketTable.Socket(0, "RigidRoot"))),
                 Bounds.fromPositions(geometry.positions()),
                 List.of());
         StaticRigidRenderHandle handle = StaticRigidRenderHandle.prepare(RIGID_MODEL, asset);
