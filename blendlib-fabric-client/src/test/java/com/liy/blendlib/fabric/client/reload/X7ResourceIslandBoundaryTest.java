@@ -255,6 +255,13 @@ class X7ResourceIslandBoundaryTest {
             assertTrue(actualManifest.contains(approvedAnimationAddition), approvedAnimationAddition);
             actualManifest = actualManifest.replace(approvedAnimationAddition, "");
         }
+        // Additive tick-based cue adapter: pin only its exact additions; retain the old ABI verbatim.
+        for (String approvedCueAddition : List.of(
+                "  public java.util.List<com.liy.blendlib.core.animation.v2.AnimationV2Command> captureEntityLayerCues(java.lang.Object, java.lang.Object, int, com.liy.blendlib.api.BlendModelKey, long, double, java.util.List<com.liy.blendlib.fabric.client.entity.BlendEntityLayerCue>);\n    descriptor: (Ljava/lang/Object;Ljava/lang/Object;ILcom/liy/blendlib/api/BlendModelKey;JDLjava/util/List;)Ljava/util/List;\n\n",
+                "  public com.liy.blendlib.fabric.client.entity.BlendEntityRendererBuilder<E> animationLayerCues(java.util.List<com.liy.blendlib.core.animation.v2.ModelAnimationLayers$Layer>, com.liy.blendlib.fabric.client.entity.BlendEntityLayerCues<? super E>);\n    descriptor: (Ljava/util/List;Lcom/liy/blendlib/fabric/client/entity/BlendEntityLayerCues;)Lcom/liy/blendlib/fabric/client/entity/BlendEntityRendererBuilder;\n\n")) {
+            assertTrue(actualManifest.contains(approvedCueAddition), approvedCueAddition);
+            actualManifest = actualManifest.replace(approvedCueAddition, "");
+        }
         assertEquals(expectedManifest, actualManifest, "b3660bb javap -protected -s descriptor manifest");
         for (String requiredPin : List.of(
                 "public final class com.liy.blendlib.fabric.client.reload.ClientModelRegistry",
