@@ -2,7 +2,7 @@ name: Minecraft 26.3 verification
 
 on:
   push:
-    branches: ["mc/26.3"]
+    branches: ["mc/26.3", "feature/mc26.3-animation-capabilities"]
   workflow_dispatch:
 
 permissions:
