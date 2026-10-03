@@ -47,6 +47,25 @@ class BlendLibItemAdapterContractsTest {
     }
 
     @Test
+    void immutableAnimationHandoffChangesOnlyVanillaLighting() {
+        MissingModelRenderHandle handle = new MissingModelRenderHandle(MODEL_KEY, 9L);
+        var frozen = new com.liy.blendlib.fabric.client.render.ModelRenderSnapshot(
+                handle, com.liy.blendlib.core.model.Transform.IDENTITY, 1, 2, 0xFF123456,
+                com.liy.blendlib.fabric.client.render.RenderVisibility.VISIBLE,
+                new com.liy.blendlib.fabric.client.render.CullingMetadata(handle.bounds(), true));
+        var argument = new BlendLibItemRenderArgument(BINDING, handle, frozen);
+        var submitted = argument.snapshot(42, 43);
+        assertEquals(42, submitted.packedLight());
+        assertEquals(43, submitted.packedOverlay());
+        assertEquals(0xFF123456, submitted.tintArgb());
+        assertEquals(9L, submitted.generation());
+        assertEquals(frozen.rootTransform(), submitted.rootTransform());
+        assertEquals(1, frozen.packedLight());
+        assertThrows(IllegalArgumentException.class, () -> new BlendLibItemRenderArgument(
+                BINDING, new MissingModelRenderHandle(MODEL_KEY, 9L), frozen));
+    }
+
+    @Test
     void programmaticUnbakedRendererHasAUnitCodecWithoutRegisteringCustomJsonType() {
         BlendLibItemSpecialRenderer.Unbaked unbaked = new BlendLibItemSpecialRenderer.Unbaked(BINDING);
         assertNotNull(unbaked.type());
@@ -87,10 +106,17 @@ class BlendLibItemAdapterContractsTest {
                 renderer.indexOf("public void submit("), renderer.indexOf("public void getExtents("));
         for (String forbidden : List.of(
                 "models().resolve", "ResourceManager", "ModelAssetLoader", "GlbReader", "StrictJsonParser",
-                "java.nio.file", "Minecraft.getInstance", ".parse(", "hasFoil ?", "outlineColor ?")) {
+                "java.nio.file", "Minecraft.getInstance", ".parse(", "hasFoil ?", "outlineColor ?",
+                "BlendLibItemAnimations", "skinnedAnimationRuntime", "ItemStack", ".sample(", "System.nanoTime")) {
             assertFalse(submitBody.contains(forbidden), forbidden);
         }
         assertTrue(renderer.contains("extractArgument(ItemStack stack)"));
+        assertTrue(renderer.contains("BlendLibItemAnimations.extract(binding, stack, model.renderHandle())"));
+        String extraction = Files.readString(clientSource("item/BlendLibItemAnimations.java"));
+        assertTrue(extraction.contains("extractClipAt(input, seconds, null)"));
+        for (String forbidden : List.of("RenderSystem", "GpuBuffer", "ResourceManager", "GlbReader", "Minecraft.getInstance")) {
+            assertFalse(extraction.contains(forbidden), forbidden);
+        }
         assertTrue(renderer.contains("BlendLibClientServices.models().resolve(binding.modelKey())"));
     }
 

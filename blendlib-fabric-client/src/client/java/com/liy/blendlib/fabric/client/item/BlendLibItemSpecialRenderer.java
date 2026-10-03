@@ -30,7 +30,13 @@ final class BlendLibItemSpecialRenderer implements SpecialModelRenderer<BlendLib
     public BlendLibItemRenderArgument extractArgument(ItemStack stack) {
         Objects.requireNonNull(stack, "stack");
         ClientModelView model = BlendLibClientServices.models().resolve(binding.modelKey());
-        return new BlendLibItemRenderArgument(binding, model.renderHandle());
+        var snapshot = BlendLibItemAnimations.extract(binding, stack, model.renderHandle());
+        var handle = model.renderHandle();
+        if (snapshot.isEmpty() && handle.skinned()) {
+            handle = new com.liy.blendlib.fabric.client.render.MissingModelRenderHandle(
+                    binding.modelKey(), handle.generation());
+        }
+        return new BlendLibItemRenderArgument(binding, handle, snapshot.orElse(null));
     }
 
     @Override

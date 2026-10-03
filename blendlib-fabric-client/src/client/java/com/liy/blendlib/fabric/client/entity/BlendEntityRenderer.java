@@ -121,6 +121,9 @@ public final class BlendEntityRenderer<E extends Entity> extends EntityRenderer<
         if (snapshot != null) {
             renderer.submit(snapshot, poseStack, collector);
             SkinnedSocketMarkerSubmitter.submit(snapshot, poseStack, collector);
+            if (snapshot.visibility() == com.liy.blendlib.fabric.client.render.RenderVisibility.VISIBLE) {
+                BlendEntityAttachmentSubmitter.submit(snapshot.attachments(), renderer, poseStack, collector);
+            }
         }
     }
 }

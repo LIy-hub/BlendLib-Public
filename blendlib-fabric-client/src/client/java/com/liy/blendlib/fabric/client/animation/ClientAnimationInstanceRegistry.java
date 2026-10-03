@@ -222,6 +222,16 @@ public final class ClientAnimationInstanceRegistry {
                 current.key(), current.modelKey(), current.generation(), current.controller().currentState());
     }
 
+    /** Captures a complete externally evaluated pose for an already validated binding. */
+    public ClientAnimationPoseSnapshot captureEvaluatedPose(ClientAnimationPoseSnapshot base, LocalPose pose) {
+        requireCurrentPoseSnapshot(Objects.requireNonNull(base, "base"));
+        Objects.requireNonNull(pose, "pose");
+        if (!base.localPose().transforms().keySet().equals(pose.transforms().keySet())) {
+            throw new IllegalArgumentException("Evaluated pose must preserve the model node domain");
+        }
+        return ClientAnimationPoseSnapshot.from(base.poseCacheKey(), pose);
+    }
+
     public PoseCacheMetrics poseCacheMetrics() {
         return poseCache.metrics();
     }

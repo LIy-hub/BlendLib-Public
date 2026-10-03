@@ -11,6 +11,7 @@ import java.util.Objects;
  * reference. Submit may only consume this prepared state.</p>
  */
 public final class ModelRenderSnapshot {
+    private final java.util.List<com.liy.blendlib.fabric.client.entity.BlendEntityAttachment> attachments;
     private final ModelRenderHandle handle;
     private final Transform rootTransform;
     private final int packedLight;
@@ -91,6 +92,24 @@ public final class ModelRenderSnapshot {
             RigidNodePaletteSnapshot rigidNodePalette,
             SkinnedRenderSnapshot skinnedRenderSnapshot,
             Transform presentationSocketTransform) {
+        this(handle, rootTransform, packedLight, packedOverlay, tintArgb, visibility, culling,
+                rigidNodePalette, skinnedRenderSnapshot, presentationSocketTransform, java.util.List.of());
+    }
+
+    private ModelRenderSnapshot(
+            ModelRenderHandle handle,
+            Transform rootTransform,
+            int packedLight,
+            int packedOverlay,
+            int tintArgb,
+            RenderVisibility visibility,
+            CullingMetadata culling,
+            RigidNodePaletteSnapshot rigidNodePalette,
+            SkinnedRenderSnapshot skinnedRenderSnapshot,
+            Transform presentationSocketTransform,
+            java.util.List<com.liy.blendlib.fabric.client.entity.BlendEntityAttachment> attachments) {
+        this.attachments = java.util.List.copyOf(attachments);
+        if (this.attachments.size() > 64) throw new IllegalArgumentException("At most 64 attachments per snapshot");
         this.handle = Objects.requireNonNull(handle, "handle");
         this.rootTransform = Objects.requireNonNull(rootTransform, "rootTransform");
         this.packedLight = packedLight;
@@ -151,6 +170,12 @@ public final class ModelRenderSnapshot {
                 null);
     }
 
+    /** Copies captured geometry with vanilla submit-time lighting; performs no animation work. */
+    public ModelRenderSnapshot withLighting(int light, int overlay) {
+        return new ModelRenderSnapshot(handle, rootTransform, light, overlay, tintArgb, visibility,
+                culling, rigidNodePalette, skinnedRenderSnapshot, presentationSocketTransform, attachments);
+    }
+
     /**
      * Returns a copy carrying one extraction-captured socket transform for client presentation.
      *
@@ -172,7 +197,18 @@ public final class ModelRenderSnapshot {
                 culling,
                 rigidNodePalette,
                 skinnedRenderSnapshot,
-                Objects.requireNonNull(socketTransform, "socketTransform"));
+                Objects.requireNonNull(socketTransform, "socketTransform"), attachments);
+    }
+
+    public java.util.List<com.liy.blendlib.fabric.client.entity.BlendEntityAttachment> attachments() {
+        return attachments;
+    }
+
+    /** Copies this immutable frame with already captured child placements. */
+    public ModelRenderSnapshot withAttachments(
+            java.util.List<com.liy.blendlib.fabric.client.entity.BlendEntityAttachment> captured) {
+        return new ModelRenderSnapshot(handle, rootTransform, packedLight, packedOverlay, tintArgb, visibility,
+                culling, rigidNodePalette, skinnedRenderSnapshot, presentationSocketTransform, captured);
     }
 
     public ModelRenderHandle handle() {

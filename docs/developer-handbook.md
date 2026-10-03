@@ -60,9 +60,9 @@ BlendLib 负责受支持 GLB 模型的加载、动画与渲染。实体 AI、物
 | 实体节点动画 | `.skinnedAnimation` 名称保留，但其实现也接受有动画状态的 `rigid_v1` |
 | 实体骨骼动画 | 支持本地选择和同步选择 |
 | 方块实体同步动画 | 标准工厂要求 skinned 模型，不能照搬实体刚体动画结论 |
-| 普通物品 marker 绑定 | 当前是基础姿态快照路径，没有动画采样；不能据通用 `AnimationRequest.loop` 推断它会播放物品动画 |
+| 普通物品 marker 绑定 | 默认仍静态；26.3 可显式使用 `BlendLibItemAnimations` 注册每栈动画，见[物品动画](animated-items.md) |
 | 本地动画视觉事件 | 本地推进动画时可使用事件回调 |
-| 标准同步动画视觉事件 | 当前绝对时间采样路径不派发事件；不能依赖它播放事件粒子/声音 |
+| 标准同步动画视觉事件 | 26.3 派发接受序列后的有限追赶视觉事件，见[同步事件](synchronized-visual-events.md) |
 | 节点程序化姿态 | 实体公开回调支持旋转覆盖，不提供节点位移/缩放修改 |
 | 挂点 | 可在 descriptor 声明；实体有单挂点可视标记。通用查询到附件绘制尚无完整高层消费流程 |
 | 多控制器、分层混合、扩展材质/后端 | 存在内部或实验性实现，不作为普通接入教程的稳定能力 |
@@ -681,7 +681,7 @@ public final class HandbookServerAnimations {
 
 当前没有普通 facade 的 `stop()` / `clearPersistent()`。可根据需求切到已声明的 idle/静止状态；不要用不存在的动画 key 清空，也不要访问内部 registry 手动清理。
 
-伤害、命中、消耗、掉落由服务端玩法计时决定。标准同步动画路径按绝对时间采样且不派发历史视觉事件；声音/特效若必须跟随服务端动作，可由业务模组自己的表现同步消息或明确的客户端状态转换触发。
+伤害、命中、消耗、掉落由服务端玩法计时决定。26.3 标准同步动画路径按绝对时间采样，并通过已有视觉事件回调派发接受序列之后的时间交叉事件；首次加入不回放历史，最多追赶最近 1 秒，详见[同步视觉事件](synchronized-visual-events.md)。
 
 <a id="block-entities"></a>
 ## 11. 方块实体接入
@@ -785,7 +785,7 @@ BlendLib 通过已安装的模型加载 hook 替换显式注册的 marker。不�
 
 ### 12.3 物品动画和版本限制
 
-当前标准 marker 路线没有调用动画采样器，不能承诺 GLB 内的动画会自动播放，更不能承诺每个 ItemStack 独立的一次性动作。主线示例使用静态 rigid 模型。
+默认 marker 注册仍使用静态姿态。26.3 可通过 `BlendLibItemAnimations.register(binding, defaultAnimation)` 显式启用每个栈对象独立播放，再调用 `playback(stack)` 控制 LOOP/ONCE/HOLD、暂停、速率和跳转；GUI、手持和掉落物保留原版展示变换。复制栈默认获得新实例，见[完整接入与限制](animated-items.md)。
 
 1.21.1–1.21.3 不使用上面新的 `assets/<namespace>/items/` 格式；使用该版本的正常 `models/item/<item>.json`。1.21.4 及之后按目标版本的 item model 格式组织资源。1.21.x 的资源 ID Java 类型通常是 `ResourceLocation`（此处指 Mojang 映射）；见第 20 节。不要把 26.x 的 JSON/Java 回调未经核对复制到所有旧版本。
 
@@ -867,7 +867,7 @@ public final class HandbookProceduralPoses {
 
 descriptor 中 `events` 的时间单位是秒，事件 ID 如 `example:swing`。`SkinnedAnimationVisualEventHandler` 的签名是 `onVisualEvent(entity, eventKey)`，只提供实体和事件 ID，不包含自定义 JSON payload、世界变换、clip 时间或服务器伤害信息。
 
-第 9 节 `registerLocalAnimated` 接收的回调适用于本地推进路径。你可以在里面按 event key 调用业务模组的本地声音或粒子功能。标准同步路径每次从绝对时间采样，不派发这条事件列表；不要依赖同一回调在同步实体上实现可靠的特效时序。
+第 9 节 `registerLocalAnimated` 接收的回调适用于本地推进路径。你可以在里面按 event key 调用业务模组的本地声音或粒子功能。26.3 标准同步路径也派发该回调，使用接受序列与时间交叉去重；跳帧最多追赶最近 1 秒，预算超限时丢弃整段表现事件，首次接受序列不补播历史。详见[同步视觉事件](synchronized-visual-events.md)。
 
 第 9 节的最小 selector 只选择 idle/walk，因此可以观察第 7 节 Walk 中的 `example:step`。要观察 `example:swing`，还需要让本地业务动作状态选择 ATTACK 并在动作结束后退出该条件；仅在 descriptor 声明攻击事件不会自动启动攻击。
 
@@ -883,7 +883,7 @@ descriptor 中 `events` 的时间单位是秒，事件 ID 如 `example:swing`。
 
 ### 14.3 `SocketQuery` 的真实范围
 
-`SocketQuery.of(modelInstance, socketId)` 只建立查询请求。当前解析实现位于程序化 core 快照中；普通稳定 facade 没有直接提供 `querySocketWorldTransform` 或附件 renderer。
+`SocketQuery.of(modelInstance, socketId)` 仍只建立通用语义查询。26.3 实体 builder 新增 `.sockets(...)` 与 `.attachments(...)`，提供最终动画/程序化姿态的模型、实体、世界坐标和朝向，以及已提取子模型附件；见[挂点和附件](final-pose-sockets.md)。
 
 做武器、挂件、拖尾时，先确认所需消费入口是否存在。不能为了实现一个附件就把内部 pose cache、矩阵数组或 core snapshot 变成业务模组的长期依赖。需要高级集成时，把它作为针对精确版本的单独 adapter 扩展设计，并明确重载、坐标空间、所有权与视觉验证要求。
 
@@ -978,10 +978,10 @@ public final class HandbookDiagnostics {
 | `BLENDLIB-X1-REG-005` / `006` | 平台适配器失败或回执不一致 | 向该适配器维护者提供诊断与最小复现 |
 | `BLENDLIB-X1-REG-007` | 通用 item 请求是否为 ONCE/HOLD | 当前语义 item 仅接受 LOOP；不代表 marker 会播放 |
 | 实体动画始终停留在初始姿态 | 是否用了 `staticRestPose()`、状态名是否指向实际 clip | 使用正确动画路线并检查 descriptor |
-| 同步事件声音/粒子不触发 | 是否依赖标准同步采样的事件回调 | 按第 14 节使用独立表现同步或本地事件路线 |
+| 同步事件声音/粒子不触发 | 是否首次接受、回退或跳过追赶窗口 | 按第 14 节检查序列、声明事件和有限追赶规则 |
 | 每次动画刚开始就重新开始 | 是否每 tick 同步同一个 key | 在业务状态变化时发命令 |
 | 一次性动作反复重播 | selector 条件是否一直返回 attack | 在动作结束时更新业务状态 |
-| 物品模型存在但不播放动画 | marker 路线是否被误当成动画控制器 | 当前按静态路径使用 |
+| 物品模型存在但不播放动画 | 是否显式注册 `BlendLibItemAnimations` | 默认 marker 仍静态，见物品动画指南 |
 | 重进世界后机器动画丢失 | 是否仅依赖 runtime persistent 状态 | 保存业务状态，并在重新加载时恢复同步 |
 | 朝向错误或比例差 16 倍 | 坐标是否二次转换、`units_per_block` 是否重复补偿 | 统一资产尺度和一次边界转换 |
 | 姿态节点在换资源包后错位 | 是否跨 generation 缓存 node index | 按当前 rig 名称重新定位 |
@@ -1093,6 +1093,8 @@ public final class HandbookDiagnostics {
 | `BlendEntityRootRotationSelector` | 当前提取帧的完整模型根旋转 |
 | `BlendEntitySnapshotFactory`、`BlendEntitySnapshotRequest` | 高级自定义快照提取与输入 |
 | `BlendEntityRenderState` | 平台渲染状态载体；一般由 renderer 管理 |
+
+26.3 新增高层入口：[`animationLayers`](layered-animation.md)、[`poseComponents`](procedural-components.md)、[`sockets` / `attachments`](final-pose-sockets.md)、[`BlendLibItemAnimations`](animated-items.md)。这些是版本范围客户端 API，不改变通用语义 facade 的既有约束。
 
 ### 18.4 Fabric block entity / item
 

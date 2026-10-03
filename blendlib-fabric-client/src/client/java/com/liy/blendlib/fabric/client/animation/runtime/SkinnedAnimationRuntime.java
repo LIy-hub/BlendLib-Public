@@ -28,6 +28,8 @@ import com.liy.blendlib.fabric.client.reload.ModelRegistryGeneration;
 import com.liy.blendlib.fabric.client.render.SkinnedRenderHandle;
 import com.liy.blendlib.fabric.client.render.StaticRigidRenderHandle;
 import com.liy.blendlib.fabric.common.animation.SyncedAnimationState;
+import com.liy.blendlib.core.animation.v2.*;
+import com.liy.blendlib.core.animation.runtime.SynchronizedVisualEventCursor;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -54,6 +56,8 @@ public final class SkinnedAnimationRuntime {
     private final ClientAnimationLifecycleBridge lifecycle;
     private final Map<ModelGenerationKey, PreparedAnimationAsset> preparedAssets = new HashMap<>();
     private final Map<BlendInstanceKey, InstanceClock> clocks = new HashMap<>();
+    private final java.util.LinkedHashMap<LayerPlanKey, ModelAnimationLayers> preparedLayerPlans =
+            new java.util.LinkedHashMap<>(16, 0.75F, true);
 
     private long observedGeneration = NO_OBSERVED_GENERATION;
 
@@ -154,6 +158,7 @@ public final class SkinnedAnimationRuntime {
         }
         lifecycle.registry().retireOtherGenerations(activeGeneration);
         preparedAssets.keySet().removeIf(key -> key.generation() != activeGeneration);
+        preparedLayerPlans.keySet().removeIf(key -> key.generation() != activeGeneration);
         clocks.entrySet().removeIf(entry -> entry.getValue().generation != activeGeneration);
         observedGeneration = activeGeneration;
     }
@@ -167,7 +172,7 @@ public final class SkinnedAnimationRuntime {
      * controller error rather than a fallback to a different model profile.</p>
      */
     public Optional<SkinnedAnimationRuntimeResult> extract(SkinnedAnimationRuntimeInput input) {
-        return extractInternal(input, null);
+        return extractInternal(input, null, null, null, List.of());
     }
 
     /**
@@ -176,11 +181,43 @@ public final class SkinnedAnimationRuntime {
      */
     public Optional<SkinnedAnimationRuntimeResult> extract(
             SkinnedAnimationRuntimeInput input, ClientAnimationPoseModifier poseModifier) {
-        return extractInternal(input, Objects.requireNonNull(poseModifier, "poseModifier"));
+        return extractInternal(input, Objects.requireNonNull(poseModifier, "poseModifier"), null, null, List.of());
+    }
+
+    /** Extracts an explicitly controlled clip-local time, bypassing descriptor looping and next-state logic. */
+    public Optional<SkinnedAnimationRuntimeResult> extractClipAt(
+            SkinnedAnimationRuntimeInput input, double clipSeconds, ClientAnimationPoseModifier modifier) {
+        if (!Double.isFinite(clipSeconds) || clipSeconds < 0.0D) {
+            throw new IllegalArgumentException("clipSeconds must be finite and non-negative");
+        }
+        return extractInternal(input, modifier, clipSeconds, null, List.of());
+    }
+
+    /** Returns raw clip duration without creating an instance; empty for an unavailable model. */
+    public java.util.OptionalDouble animationDuration(BlendModelKey key, BlendAnimationKey animation) {
+        var handle = modelRegistry.current().find(Objects.requireNonNull(key, "key"));
+        if (handle.isEmpty() || !(handle.get() instanceof LoadedModelHandle loaded)
+                || loaded.asset().animationDefinition() == null) return java.util.OptionalDouble.empty();
+        return java.util.OptionalDouble.of(preparedAsset(loaded).definition().state(animation).clip().durationSeconds());
+    }
+
+    /** Retires explicit item/ephemeral owners as soon as their bounded registry evicts them. */
+    public void retire(BlendInstanceKey key) {
+        Objects.requireNonNull(key, "key");
+        clocks.remove(key);
+        lifecycle.registry().remove(key);
+    }
+
+    /** Composes descriptor-backed masked controllers before procedural modifiers and palettes. */
+    public Optional<SkinnedAnimationRuntimeResult> extractLayered(SkinnedAnimationRuntimeInput input,
+            List<ModelAnimationLayers.Layer> layers, List<AnimationV2Command> commands,
+            ClientAnimationPoseModifier modifier) {
+        return extractInternal(input, modifier, null, List.copyOf(layers), List.copyOf(commands));
     }
 
     private Optional<SkinnedAnimationRuntimeResult> extractInternal(
-            SkinnedAnimationRuntimeInput input, ClientAnimationPoseModifier poseModifier) {
+            SkinnedAnimationRuntimeInput input, ClientAnimationPoseModifier poseModifier, Double clipSeconds,
+            List<ModelAnimationLayers.Layer> layers, List<AnimationV2Command> commands) {
         long preparationStartedNanos = ClientRenderMeasurementCollector.startAnimationPreparation();
         try {
             SkinnedAnimationRuntimeInput checkedInput = Objects.requireNonNull(input, "input");
@@ -206,8 +243,15 @@ public final class SkinnedAnimationRuntime {
             ClientAnimationInstanceRegistry instances = lifecycle.registry();
             ClientAnimationInstance instance = instances.bind(instanceKey, checkedInput.modelKey(), generation, prepared.definition());
             InstanceClock clock = clockFor(
-                    instanceKey, checkedInput.modelKey(), generation, checkedInput.clientGameTimeInTicks());
-            AnimationAdvance advance = advance(instance, clock, checkedInput);
+                    instanceKey, checkedInput.modelKey(), generation, checkedInput.clientGameTimeInTicks(), prepared.definition());
+            AnimationAdvance advance;
+            if (clipSeconds == null) {
+                advance = advance(instance, clock, checkedInput);
+            } else {
+                advance = instance.controller().synchronizeClip(checkedInput.fallbackAnimation(), clipSeconds);
+                clock.deactivateSynchronizedState();
+                clock.incrementSampleRevision();
+            }
             PoseCacheKey poseKey = new PoseCacheKey(
                     instanceKey,
                     checkedInput.modelKey(),
@@ -215,6 +259,19 @@ public final class SkinnedAnimationRuntime {
                     instance.controller().currentState(),
                     clock.sampleRevision);
             ClientAnimationPoseSnapshot basePose = instances.preparePoseSnapshot(poseKey, prepared.sampler());
+            if (layers != null) {
+                if (clock.layered == null || !clock.layered.layers.equals(layers)) {
+                    clock.layered = new LayeredClock(preparedLayers(loaded, layers), layers, checkedInput.clientGameTimeInTicks());
+                }
+                LayeredClock layered = clock.layered;
+                double tick = checkedInput.clientGameTimeInTicks();
+                double delta = Math.max(0.0D, tick - layered.lastTick) / TICKS_PER_SECOND;
+                var evaluation = layered.runtime.advanceAtFrame(delta, commands);
+                layered.lastTick = Math.max(layered.lastTick, tick);
+                basePose = instances.captureEvaluatedPose(basePose, layered.model.localPose(evaluation.pose()));
+            } else {
+                clock.layered = null;
+            }
             ClientAnimationPoseSnapshot effectivePose = basePose;
             if (poseModifier != null) {
                 ClientAnimationPoseContext poseContext = new ClientAnimationPoseContext(
@@ -290,12 +347,12 @@ public final class SkinnedAnimationRuntime {
     }
 
     private InstanceClock clockFor(
-            BlendInstanceKey key, BlendModelKey modelKey, long generation, double sampleTick) {
+            BlendInstanceKey key, BlendModelKey modelKey, long generation, double sampleTick, AnimationControllerDefinition definition) {
         InstanceClock current = clocks.get(key);
         if (current != null && current.matches(modelKey, generation)) {
             return current;
         }
-        InstanceClock replacement = new InstanceClock(modelKey, generation, sampleTick);
+        InstanceClock replacement = new InstanceClock(key, modelKey, generation, sampleTick, definition);
         clocks.put(key, replacement);
         return replacement;
     }
@@ -322,6 +379,8 @@ public final class SkinnedAnimationRuntime {
                 SYNCHRONIZED_SNAP_THRESHOLD_SECONDS));
         if (correction != AnimationCorrectionResult.STALE_DROPPED) {
             clock.acceptSynchronizedState(state);
+            clock.visualEventCursor.accept(state.sequence(), state.animationKey(),
+                    synchronizedControllerTimeSeconds(state, sampleTick));
             clock.resetAt(sampleTick, input.updateBucket());
             clock.incrementSampleRevision();
             return instance.advance(0.0d);
@@ -339,7 +398,10 @@ public final class SkinnedAnimationRuntime {
                             clock.synchronizedStartGameTick(), (float) clock.synchronizedSpeed(), sampleTick));
             clock.recordAdvanceAt(sampleTick, input.updateBucket());
             clock.incrementSampleRevision();
-            return synchronizedAdvance;
+            return new AnimationAdvance(synchronizedAdvance.state(), synchronizedAdvance.timeSeconds(),
+                    clock.visualEventCursor.advance(clock.synchronizedSequence,
+                            synchronizedControllerTimeSeconds(clock.synchronizedStartGameTick(),
+                                    (float) clock.synchronizedSpeed(), sampleTick)));
         }
         return new AnimationAdvance(
                 instance.controller().currentState(), instance.controller().currentTimeSeconds(), List.of());
@@ -400,6 +462,7 @@ public final class SkinnedAnimationRuntime {
 
     private void clearRuntimeState() {
         preparedAssets.clear();
+        preparedLayerPlans.clear();
         clocks.clear();
         observedGeneration = NO_OBSERVED_GENERATION;
     }
@@ -424,7 +487,42 @@ public final class SkinnedAnimationRuntime {
         }
     }
 
+    /** Most recent immutable layered publication, including sequence and bounded-work diagnostics. */
+    public Optional<AnimationV2EvaluationSnapshot> layeredSnapshot(BlendInstanceKey key) {
+        InstanceClock clock = clocks.get(Objects.requireNonNull(key, "key"));
+        return clock == null || clock.layered == null ? Optional.empty()
+                : Optional.of(clock.layered.runtime.latestSnapshot());
+    }
+
+    private ModelAnimationLayers preparedLayers(LoadedModelHandle loaded, List<ModelAnimationLayers.Layer> layers) {
+        LayerPlanKey key = new LayerPlanKey(loaded.key(), loaded.generationId(), layers);
+        ModelAnimationLayers prepared = preparedLayerPlans.get(key);
+        if (prepared == null) {
+            prepared = new ModelAnimationLayers(loaded.asset(), layers);
+            preparedLayerPlans.put(key, prepared);
+            if (preparedLayerPlans.size() > 64) preparedLayerPlans.remove(preparedLayerPlans.keySet().iterator().next());
+        }
+        return prepared;
+    }
+
+    private record LayerPlanKey(BlendModelKey model, long generation, List<ModelAnimationLayers.Layer> layers) {}
+
+    private static final class LayeredClock {
+        private final List<ModelAnimationLayers.Layer> layers;
+        private final ModelAnimationLayers model;
+        private final AnimationV2InstanceRuntime runtime;
+        private double lastTick;
+        private LayeredClock(ModelAnimationLayers model, List<ModelAnimationLayers.Layer> layers, double tick) {
+            this.layers = layers;
+            this.model = model;
+            this.runtime = new AnimationV2InstanceRuntime(model.plan());
+            this.lastTick = tick;
+        }
+    }
+
     private static final class InstanceClock {
+        private LayeredClock layered;
+        private final SynchronizedVisualEventCursor visualEventCursor;
         private final BlendModelKey modelKey;
         private final long generation;
         private double lastAdvancedGameTick;
@@ -437,7 +535,9 @@ public final class SkinnedAnimationRuntime {
         private boolean synchronizedStateActive;
         private boolean initialized;
 
-        private InstanceClock(BlendModelKey modelKey, long generation, double sampleTick) {
+        private InstanceClock(BlendInstanceKey key, BlendModelKey modelKey, long generation, double sampleTick,
+                AnimationControllerDefinition definition) {
+            this.visualEventCursor = new SynchronizedVisualEventCursor(key, definition);
             this.modelKey = Objects.requireNonNull(modelKey, "modelKey");
             this.generation = generation;
             this.lastAdvancedGameTick = sampleTick;
@@ -514,6 +614,7 @@ public final class SkinnedAnimationRuntime {
 
         private void deactivateSynchronizedState() {
             synchronizedStateActive = false;
+            visualEventCursor.deactivate();
         }
     }
 }

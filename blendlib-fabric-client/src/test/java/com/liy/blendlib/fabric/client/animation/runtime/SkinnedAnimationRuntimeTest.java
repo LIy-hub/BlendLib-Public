@@ -15,6 +15,12 @@ import com.liy.blendlib.core.animation.AnimationClip;
 import com.liy.blendlib.core.animation.AnimationPath;
 import com.liy.blendlib.core.animation.Interpolation;
 import com.liy.blendlib.core.animation.runtime.AnimationControllerDefinition;
+import com.liy.blendlib.core.animation.runtime.LocalPose;
+import com.liy.blendlib.core.animation.v2.AnimationV2Command;
+import com.liy.blendlib.core.animation.v2.AnimationV2LayerMode;
+import com.liy.blendlib.core.animation.v2.BoneMask;
+import com.liy.blendlib.core.animation.v2.ModelAnimationLayers;
+import com.liy.blendlib.core.model.Quaternion;
 import com.liy.blendlib.core.descriptor.AnimationDefinition;
 import com.liy.blendlib.core.descriptor.AnimationEventDefinition;
 import com.liy.blendlib.core.descriptor.AnimationStateDefinition;
@@ -41,6 +47,7 @@ import com.liy.blendlib.fabric.client.render.RenderVisibility;
 import com.liy.blendlib.fabric.client.render.SkinnedRenderHandle;
 import com.liy.blendlib.fabric.client.render.StaticRigidRenderHandle;
 import com.liy.blendlib.fabric.common.animation.SyncedAnimationState;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -55,6 +62,182 @@ class SkinnedAnimationRuntimeTest {
     private static final BlendResourceId IDLE_ENTRY = BlendResourceId.parse("runtime_test:events/idle_entry");
     private static final BlendResourceId WALK_ENTRY = BlendResourceId.parse("runtime_test:events/walk_entry");
     private static final BlendResourceId ATTACK_ENTRY = BlendResourceId.parse("runtime_test:events/attack_entry");
+
+    private static final BlendResourceId SOCKET = BlendResourceId.parse("runtime_test:bone_socket");
+    private static final BlendResourceId BASE = BlendResourceId.parse("runtime_test:base");
+    private static final BlendResourceId OVERLAY = BlendResourceId.parse("runtime_test:overlay");
+
+    @Test
+    void layeredMaskAndAdditivePoseReachSocketBeforeProceduralRotation() {
+        SkinnedFixture fixture = skinnedFixture(101L);
+        RuntimeHarness harness = harness();
+        harness.runtime().onPlayInit();
+        publish(harness.models(), fixture.loaded());
+        var layers = List.of(
+                layer(BASE, 0, AnimationV2LayerMode.OVERRIDE, 1.0F, WALK, List.of()),
+                layer(OVERLAY, 1, AnimationV2LayerMode.ADDITIVE, 0.5F, ATTACK,
+                        List.of(new BoneMask.NamedWeight("Bone", 0.5F))));
+        var commands = List.of(new AnimationV2Command(BASE, WALK, 1L, 0.5D, 1.0D),
+                new AnimationV2Command(OVERLAY, ATTACK, 1L, 0.5D, 1.0D));
+        Quaternion rotation = new Quaternion(0, 0, 0.70710677F, 0.70710677F).normalized();
+        var result = harness.runtime().extractLayered(
+                input(MODEL, 101, 0, IDLE, AnimationUpdateBucket.VISIBLE_NEAR, fixture.handle()),
+                layers, commands, (context, pose) -> {
+                    assertEquals(0.75F, pose.transform(1).translation().x(), 1.0e-6F);
+                    assertEquals(Transform.IDENTITY, pose.transform(0));
+                    var transforms = new LinkedHashMap<>(pose.transforms());
+                    Transform bone = pose.transform(1);
+                    transforms.put(1, new Transform(bone.translation(), rotation, bone.scale()));
+                    return new LocalPose(transforms);
+                }).orElseThrow();
+        assertSocketX(result, 0.75F);
+        assertEquals(rotation, result.frame().socketTransform(SOCKET).orElseThrow().rotation());
+    }
+
+    @Test
+    void maskedHigherPriorityOverrideLeavesUnselectedBoneAtBasePose() {
+        SkinnedFixture fixture = skinnedFixture(102L);
+        RuntimeHarness harness = harness();
+        harness.runtime().onPlayInit();
+        publish(harness.models(), fixture.loaded());
+        var layers = List.of(
+                layer(BASE, 0, AnimationV2LayerMode.OVERRIDE, 1, WALK, List.of()),
+                layer(OVERLAY, 1, AnimationV2LayerMode.OVERRIDE, 1, ATTACK,
+                        List.of(new BoneMask.NamedWeight("Mesh", 1))));
+        var result = harness.runtime().extractLayered(
+                input(MODEL, 102, 0, IDLE, AnimationUpdateBucket.VISIBLE_NEAR, fixture.handle()), layers,
+                List.of(new AnimationV2Command(BASE, WALK, 1, 0.5D, 1),
+                        new AnimationV2Command(OVERLAY, ATTACK, 1, 0.5D, 1)), null).orElseThrow();
+        assertSocketX(result, 0.5F);
+    }
+
+    @Test
+    void layeredTransitionAndRepeatedExtractionProduceStableFinalPose() {
+        SkinnedFixture fixture = skinnedFixture(103L);
+        RuntimeHarness harness = harness();
+        harness.runtime().onPlayInit();
+        publish(harness.models(), fixture.loaded());
+        var layers = List.of(layer(BASE, 0, AnimationV2LayerMode.OVERRIDE, 1, IDLE, List.of()));
+        harness.runtime().extractLayered(
+                input(MODEL, 103, 0, IDLE, AnimationUpdateBucket.VISIBLE_NEAR, fixture.handle()),
+                layers, List.of(), null).orElseThrow();
+        var command = List.of(new AnimationV2Command(BASE, WALK, 1, 0.5D, 1));
+        var transitionStart = harness.runtime().extractLayered(
+                input(MODEL, 103, 0, IDLE, AnimationUpdateBucket.VISIBLE_NEAR, fixture.handle()),
+                layers, command, null).orElseThrow();
+        var halfway = harness.runtime().extractLayered(
+                input(MODEL, 103, 1, IDLE, AnimationUpdateBucket.VISIBLE_NEAR, fixture.handle()),
+                layers, command, null).orElseThrow();
+        var duplicate = harness.runtime().extractLayered(
+                input(MODEL, 103, 1, IDLE, AnimationUpdateBucket.VISIBLE_NEAR, fixture.handle()),
+                layers, command, null).orElseThrow();
+        var complete = harness.runtime().extractLayered(
+                input(MODEL, 103, 2, IDLE, AnimationUpdateBucket.VISIBLE_NEAR, fixture.handle()),
+                layers, command, null).orElseThrow();
+        assertSocketX(transitionStart, 0);
+        assertSocketX(halfway, 0.275F);
+        assertSocketX(duplicate, 0.275F);
+        assertSocketX(complete, 0.6F);
+        assertSocketX(halfway, 0.275F); // Previously captured frames remain immutable.
+    }
+
+    @Test
+    void layeredClockAndCommandSequencesResetAfterUnloadAndGenerationReplacement() {
+        SkinnedFixture fixture = skinnedFixture(104L);
+        RuntimeHarness harness = harness();
+        harness.runtime().onPlayInit();
+        publish(harness.models(), fixture.loaded());
+        var layers = List.of(layer(BASE, 0, AnimationV2LayerMode.OVERRIDE, 1, WALK, List.of()));
+        var command = List.of(new AnimationV2Command(BASE, WALK, 9, 0.7D, 1));
+        assertSocketX(harness.runtime().extractLayered(
+                input(MODEL, 104, 0, IDLE, AnimationUpdateBucket.VISIBLE_NEAR, fixture.handle()),
+                layers, command, null).orElseThrow(), 0.7F);
+        assertEquals(1, harness.runtime().onEntityUnload(104));
+        assertSocketX(harness.runtime().extractLayered(
+                input(MODEL, 104, 100, IDLE, AnimationUpdateBucket.VISIBLE_NEAR, fixture.handle()),
+                layers, List.of(), null).orElseThrow(), 0);
+        SkinnedFixture replacement = skinnedFixture(105L);
+        publish(harness.models(), replacement.loaded());
+        assertSocketX(harness.runtime().extractLayered(
+                input(MODEL, 104, 200, IDLE, AnimationUpdateBucket.VISIBLE_NEAR, replacement.handle()),
+                layers, List.of(new AnimationV2Command(BASE, WALK, 1, 0.25D, 1)), null).orElseThrow(), 0.25F);
+        assertEquals(1, harness.runtime().trackedClockCount());
+    }
+
+    @Test
+    void controlledClipTimeClampsAtEndpointWithoutLoopingOrFollowingNextState() {
+        SkinnedFixture fixture = skinnedFixture(106L);
+        RuntimeHarness harness = harness();
+        harness.runtime().onPlayInit();
+        publish(harness.models(), fixture.loaded());
+        assertEquals(1.0D, harness.runtime().animationDuration(MODEL, WALK).orElseThrow());
+        assertEquals(0, harness.runtime().trackedClockCount());
+        for (double time : new double[] {1.0D, 2.0D}) {
+            var loop = harness.runtime().extractClipAt(
+                    input(MODEL, 106, 0, WALK, AnimationUpdateBucket.VISIBLE_NEAR, fixture.handle()),
+                    time, null).orElseThrow();
+            var once = harness.runtime().extractClipAt(
+                    input(MODEL, 107, 0, ATTACK, AnimationUpdateBucket.VISIBLE_NEAR, fixture.handle()),
+                    time, null).orElseThrow();
+            assertSocketX(loop, 1);
+            assertSocketX(once, 2);
+            assertEquals(ATTACK, once.advance().state());
+            assertTrue(once.advance().visualEvents().isEmpty());
+        }
+    }
+
+    @Test
+    void thousandsOfControlledStateSwitchesNeverAccumulateEntryEvents() {
+        SkinnedFixture fixture = skinnedFixture(108L);
+        RuntimeHarness harness = harness();
+        harness.runtime().onPlayInit();
+        publish(harness.models(), fixture.loaded());
+        for (int index = 0; index < 6000; index++) {
+            BlendAnimationKey state = index % 2 == 0 ? WALK : ATTACK;
+            var result = harness.runtime().extractClipAt(
+                    input(MODEL, 109, index, state, AnimationUpdateBucket.VISIBLE_NEAR, fixture.handle()),
+                    0.5D, null).orElseThrow();
+            assertEquals(state, result.advance().state());
+            assertTrue(result.advance().visualEvents().isEmpty());
+            assertSocketX(result, state.equals(WALK) ? 0.5F : 1.0F);
+        }
+        assertEquals(1, harness.runtime().trackedClockCount());
+        assertEquals(1, harness.lifecycle().registry().size());
+    }
+
+    @Test
+    void synchronizedLoopMarkersEmitOnceAndNewSequenceRebasesSilently() {
+        SkinnedFixture fixture = skinnedFixture(107L);
+        RuntimeHarness harness = harness();
+        harness.runtime().onPlayInit();
+        publish(harness.models(), fixture.loaded());
+        BlendInstanceKey.Entity key = new BlendInstanceKey.Entity("events", 108);
+        SyncedAnimationState state = synced(WALK, 0, 1, 1);
+        var initial = harness.runtime().extract(input(MODEL, key, 19, 0, IDLE, Optional.of(state),
+                AnimationUpdateBucket.VISIBLE_NEAR, fixture.handle())).orElseThrow();
+        var crossing = harness.runtime().extract(input(MODEL, key, 20, 0, IDLE, Optional.of(state),
+                AnimationUpdateBucket.VISIBLE_NEAR, fixture.handle())).orElseThrow();
+        var duplicate = harness.runtime().extract(input(MODEL, key, 20, 0, IDLE, Optional.of(state),
+                AnimationUpdateBucket.VISIBLE_NEAR, fixture.handle())).orElseThrow();
+        var correction = harness.runtime().extract(input(MODEL, key, 21, 0, IDLE,
+                Optional.of(synced(WALK, 1, 2, 1)), AnimationUpdateBucket.VISIBLE_NEAR,
+                fixture.handle())).orElseThrow();
+        assertTrue(initial.advance().visualEvents().isEmpty());
+        assertEquals(List.of(WALK_ENTRY), crossing.advance().visualEvents().stream()
+                .map(event -> event.eventKey()).toList());
+        assertTrue(duplicate.advance().visualEvents().isEmpty());
+        assertTrue(correction.advance().visualEvents().isEmpty());
+        assertSocketX(crossing, 0);
+    }
+
+    private static ModelAnimationLayers.Layer layer(BlendResourceId id, int priority,
+            AnimationV2LayerMode mode, float weight, BlendAnimationKey initial, List<BoneMask.NamedWeight> mask) {
+        return new ModelAnimationLayers.Layer(id, priority, mode, weight, mask, initial);
+    }
+
+    private static void assertSocketX(SkinnedAnimationRuntimeResult result, float expected) {
+        assertEquals(expected, result.frame().socketTransform(SOCKET).orElseThrow().translation().x(), 1.0e-6F);
+    }
 
     @Test
     void bindsCanonicalLoadedSkinnedAssetSamplesIdleAndCapturesItsFrame() {
@@ -312,7 +495,7 @@ class SkinnedAnimationRuntimeTest {
     }
 
     @Test
-    void repeatedSynchronizedStateSeeksAfterLongCullWithoutReplayingLoops() {
+    void repeatedSynchronizedStateSeeksAfterLongCullWithOnlyBoundedRecentMarkers() {
         SkinnedFixture fixture = skinnedFixture(81L);
         RuntimeHarness harness = harness();
         harness.runtime().onPlayInit();
@@ -329,7 +512,8 @@ class SkinnedAnimationRuntimeTest {
 
         assertEquals(IDLE, reappeared.advance().state());
         assertEquals(0.15d, reappeared.advance().timeSeconds(), 1.0e-9d);
-        assertTrue(reappeared.advance().visualEvents().isEmpty());
+        assertEquals(List.of(IDLE_ENTRY), reappeared.advance().visualEvents().stream()
+                .map(event -> event.eventKey()).toList());
     }
 
     @Test
@@ -633,7 +817,7 @@ class SkinnedAnimationRuntimeTest {
                 List.of(new ModelPrimitive(0, 0, 0, geometry)),
                 new Skeleton(List.of(new Skin("RuntimeSkin", 1, List.of(1), identityMatrix()))),
                 List.of(clip("idle", 0.0f), clip("walk", 1.0f), clip("attack", 2.0f)),
-                new SocketTable(Map.of()),
+                new SocketTable(Map.of(SOCKET, new SocketTable.Socket(1, "Mesh/Bone"))),
                 Bounds.fromPositions(geometry.positions()),
                 List.of());
         SkinnedRenderHandle handle = SkinnedRenderHandle.prepare(MODEL, asset);

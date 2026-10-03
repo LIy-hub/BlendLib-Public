@@ -21,6 +21,11 @@ public final class BlendEntityRendererBuilder<E extends Entity> {
     private BlendEntityPoseModifier<? super E> poseModifier;
     private BlendEntityRootRotationSelector<? super E> rootRotationSelector;
     private BlendResourceId skinnedSocketMarkerKey;
+    private java.util.List<com.liy.blendlib.core.animation.v2.ModelAnimationLayers.Layer> animationLayers;
+    private BlendEntityLayerCommands<? super E> layerCommands;
+    private com.liy.blendlib.fabric.client.animation.runtime.ClientAnimationPoseModifier poseComponents;
+    private BlendEntitySocketHandler<? super E> socketHandler;
+    private BlendEntityAttachmentProvider<? super E> attachmentProvider;
     private float shadowRadius = 0.5F;
     private float shadowStrength = 1.0F;
 
@@ -172,6 +177,39 @@ public final class BlendEntityRendererBuilder<E extends Entity> {
         return this;
     }
 
+    /** Adds descriptor-backed independent controllers. Commands use increasing per-controller sequences. */
+    public BlendEntityRendererBuilder<E> animationLayers(
+            java.util.List<com.liy.blendlib.core.animation.v2.ModelAnimationLayers.Layer> layers,
+            BlendEntityLayerCommands<? super E> commands) {
+        requireAnimated();
+        if (layers.isEmpty()) throw new IllegalArgumentException("At least one layer is required");
+        this.animationLayers = java.util.List.copyOf(layers);
+        this.layerCommands = Objects.requireNonNull(commands, "commands");
+        return this;
+    }
+
+    /** Runs reusable pose components after layered animation, before sockets and palettes. */
+    public BlendEntityRendererBuilder<E> poseComponents(
+            com.liy.blendlib.fabric.client.animation.runtime.ClientAnimationPoseModifier components) {
+        requireAnimated();
+        this.poseComponents = Objects.requireNonNull(components, "components");
+        return this;
+    }
+
+    /** Observes this extraction's complete post-animation socket frame. */
+    public BlendEntityRendererBuilder<E> sockets(BlendEntitySocketHandler<? super E> handler) {
+        requireAnimated(); this.socketHandler = Objects.requireNonNull(handler, "handler"); return this;
+    }
+
+    /** Captures child snapshots at final-pose sockets; submit never calls the provider. */
+    public BlendEntityRendererBuilder<E> attachments(BlendEntityAttachmentProvider<? super E> provider) {
+        requireAnimated(); this.attachmentProvider = Objects.requireNonNull(provider, "provider"); return this;
+    }
+
+    private void requireAnimated() {
+        if (skinnedAnimationStateSelector == null) throw new IllegalStateException("Configure skinnedAnimation first");
+    }
+
     public BlendEntityRendererBuilder<E> shadowRadius(float shadowRadius) {
         this.shadowRadius = requireNonNegativeFinite(shadowRadius, "shadowRadius");
         return this;
@@ -192,7 +230,7 @@ public final class BlendEntityRendererBuilder<E extends Entity> {
                     skinnedAnimationVisualEventHandler,
                     poseModifier,
                     rootRotationSelector,
-                    skinnedSocketMarkerKey);
+                    skinnedSocketMarkerKey, animationLayers, layerCommands, poseComponents, socketHandler, attachmentProvider);
         }
         if (snapshotFactory == null) {
             throw new IllegalStateException("A BlendEntityRenderer requires an extraction-only snapshotFactory");

@@ -238,6 +238,34 @@ sourceSets["test"].compileClasspath += sourceSets["client"].output + configurati
 sourceSets["test"].runtimeClasspath += sourceSets["client"].output + configurations["clientRuntimeClasspath"]
 tasks.test { useJUnitPlatform() }
 
+// Exercise the shipped 26.3 integration against real Minecraft/Fabric types, not only the
+// original split-module 26.1.2 classpath. Consumer samples compile as part of this source set.
+if (minecraftVersion == "26.3") {
+    sourceSets["test"].java.apply {
+        srcDir(repository.resolve("blendlib-core/src/test/java"))
+        srcDir(repository.resolve("blendlib-fabric-client/src/test/java"))
+        include(
+            "**/X7PipelinePortTest.java",
+            "**/Minecraft263ShutdownMixinTest.java",
+            "**/StaticDirectPipelinePortTest.java",
+            "**/AnimationV2NativeClipTest.java",
+            "**/SynchronizedVisualEventCursorTest.java",
+            "**/AnimationControllerTest.java",
+            "**/SkinnedAnimationRuntimeTest.java",
+            "**/ClientAnimationRigViewTestAccess.java",
+            "**/animation/runtime/procedural/*.java",
+            "**/entity/BlendEntitySocketsTest.java",
+            "**/entity/consumer/LayeredAnimationConsumerSample.java",
+            "**/item/ItemAnimation*Test.java",
+            "**/item/BlendLibItemAdapterContractsTest.java",
+            "**/item/consumer/*.java",
+        )
+    }
+    tasks.test {
+        systemProperty("blendlib.projectDir", repository.resolve("blendlib-fabric-client").absolutePath)
+    }
+}
+
 tasks.withType<JavaCompile>().configureEach {
     dependsOn(preparePortSources)
     options.encoding = "UTF-8"

@@ -48,11 +48,13 @@ public final class BlendLibClientEntrypoint implements ClientModInitializer {
                         MODEL_REGISTRY, SKINNED_ANIMATION_RUNTIME::onActiveGeneration));
         ClientAnimationPayloadReceivers.register(ANIMATION_SYNC);
         ClientPlayConnectionEvents.INIT.register((handler, client) -> {
+            com.liy.blendlib.fabric.client.item.BlendLibItemAnimations.clear();
             SKINNED_ANIMATION_RUNTIME.onPlayInit();
             ANIMATION_SYNC.onPlayInit();
         });
         ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> {
             X7_DEFERRED_SUBMISSION_ENDPOINT.onReloadOrWorldLeave();
+            com.liy.blendlib.fabric.client.item.BlendLibItemAnimations.clear();
             SKINNED_ANIMATION_RUNTIME.onWorldDisconnect();
             ANIMATION_SYNC.onDisconnect();
         });

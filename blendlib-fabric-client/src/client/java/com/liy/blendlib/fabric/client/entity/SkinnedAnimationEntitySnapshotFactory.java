@@ -38,6 +38,11 @@ final class SkinnedAnimationEntitySnapshotFactory<E extends Entity> implements B
     private final BlendEntityPoseModifier<? super E> poseModifier;
     private final BlendEntityRootRotationSelector<? super E> rootRotationSelector;
     private final BlendResourceId presentationSocketMarkerKey;
+    private final java.util.List<com.liy.blendlib.core.animation.v2.ModelAnimationLayers.Layer> animationLayers;
+    private final BlendEntityLayerCommands<? super E> layerCommands;
+    private final com.liy.blendlib.fabric.client.animation.runtime.ClientAnimationPoseModifier poseComponents;
+    private final BlendEntitySocketHandler<? super E> socketHandler;
+    private final BlendEntityAttachmentProvider<? super E> attachmentProvider;
     private final VisualEventDispatcher visualEvents = new VisualEventDispatcher();
 
     SkinnedAnimationEntitySnapshotFactory(
@@ -48,6 +53,27 @@ final class SkinnedAnimationEntitySnapshotFactory<E extends Entity> implements B
             BlendEntityPoseModifier<? super E> poseModifier,
             BlendEntityRootRotationSelector<? super E> rootRotationSelector,
             BlendResourceId presentationSocketMarkerKey) {
+        this(modelKey, stateSelector, syncedStateSelector, visualEventHandler, poseModifier, rootRotationSelector,
+                presentationSocketMarkerKey, null, null, null, null, null);
+    }
+
+    SkinnedAnimationEntitySnapshotFactory(BlendModelKey modelKey,
+            SkinnedAnimationStateSelector<? super E> stateSelector,
+            SyncedSkinnedAnimationStateSelector<? super E> syncedStateSelector,
+            SkinnedAnimationVisualEventHandler<? super E> visualEventHandler,
+            BlendEntityPoseModifier<? super E> poseModifier,
+            BlendEntityRootRotationSelector<? super E> rootRotationSelector,
+            BlendResourceId presentationSocketMarkerKey,
+            java.util.List<com.liy.blendlib.core.animation.v2.ModelAnimationLayers.Layer> animationLayers,
+            BlendEntityLayerCommands<? super E> layerCommands,
+            com.liy.blendlib.fabric.client.animation.runtime.ClientAnimationPoseModifier poseComponents,
+            BlendEntitySocketHandler<? super E> socketHandler,
+            BlendEntityAttachmentProvider<? super E> attachmentProvider) {
+        this.animationLayers = animationLayers;
+        this.layerCommands = layerCommands;
+        this.poseComponents = poseComponents;
+        this.socketHandler = socketHandler;
+        this.attachmentProvider = attachmentProvider;
         this.modelKey = Objects.requireNonNull(modelKey, "modelKey");
         this.stateSelector = Objects.requireNonNull(stateSelector, "stateSelector");
         this.syncedStateSelector = syncedStateSelector;
@@ -102,18 +128,21 @@ final class SkinnedAnimationEntitySnapshotFactory<E extends Entity> implements B
                         0xFFFFFFFF,
                         visibility,
                         new CullingMetadata(model.renderHandle().bounds(), true)));
-        var extraction = poseModifier == null
-                ? animationRuntime.extract(runtimeInput)
-                : animationRuntime.extract(
-                        runtimeInput,
-                        (animationContext, basePose) -> {
-                            BlendEntityRotationPose capturedBase = BlendEntityRotationPoseAdapter.capture(basePose);
-                            BlendEntityRotationPose modifiedPose = poseModifier.modify(
-                                    checkedEntity,
-                                    new BlendEntityPoseContext(checkedRequest, animationContext),
-                                    capturedBase);
-                            return BlendEntityRotationPoseAdapter.apply(basePose, capturedBase, modifiedPose);
-                        });
+        com.liy.blendlib.fabric.client.animation.runtime.ClientAnimationPoseModifier combinedModifier =
+                (animationContext, basePose) -> {
+                    var current = basePose;
+                    if (poseModifier != null) {
+                        BlendEntityRotationPose capturedBase = BlendEntityRotationPoseAdapter.capture(current);
+                        var modified = poseModifier.modify(checkedEntity,
+                                new BlendEntityPoseContext(checkedRequest, animationContext), capturedBase);
+                        current = BlendEntityRotationPoseAdapter.apply(current, capturedBase, modified);
+                    }
+                    return poseComponents == null ? current : poseComponents.modify(animationContext, current);
+                };
+        var extraction = animationLayers == null
+                ? animationRuntime.extract(runtimeInput, combinedModifier)
+                : animationRuntime.extractLayered(runtimeInput, animationLayers,
+                        layerCommands.commands(checkedEntity, checkedRequest), combinedModifier);
         ModelRenderSnapshot extracted = extraction
                 .map(result -> {
                     visualEvents.dispatch(
@@ -124,10 +153,15 @@ final class SkinnedAnimationEntitySnapshotFactory<E extends Entity> implements B
                                     : (eventInstanceKey, event) -> visualEventHandler.onVisualEvent(
                                             checkedEntity, event.eventKey()));
                     ModelRenderSnapshot capturedSnapshot = result.frame().renderSnapshot();
+                    if (socketHandler != null || attachmentProvider != null) {
+                        var sockets = BlendEntitySockets.capture(checkedRequest, result.frame());
+                        if (socketHandler != null) socketHandler.onSockets(checkedEntity, checkedRequest, sockets);
+                        if (attachmentProvider != null) capturedSnapshot = capturedSnapshot.withAttachments(
+                                java.util.List.copyOf(attachmentProvider.attachments(checkedEntity, checkedRequest, sockets)));
+                    }
                     if (presentationSocketMarkerKey != null) {
-                        return result.frame().socketTransform(presentationSocketMarkerKey)
-                                .map(capturedSnapshot::withPresentationSocketTransform)
-                                .orElse(capturedSnapshot);
+                        var socket = result.frame().socketTransform(presentationSocketMarkerKey);
+                        if (socket.isPresent()) return capturedSnapshot.withPresentationSocketTransform(socket.get());
                     }
                     return capturedSnapshot;
                 })
