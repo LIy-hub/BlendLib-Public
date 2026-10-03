@@ -93,7 +93,11 @@ frame handoff and does not grant permission to reuse a retired procedural graph 
 
 ## Example status
 
-The helper is an extraction integration example, not a new registered three-asset runnable scene.
+The isolated helper remains an extraction integration example. The separate opt-in 26.3
+[registered runnable actor](../versions/modern/showcase/README.md) now also demonstrates a
+real skinned actor → rigid weapon → independently animated skinned ornament using the
+existing authored assets. Its guide documents lifecycle, reload and the exact conservative
+culling proof.
 The isolated source fixture is compiled and exercised by the client test suite; it does not
 change the historical ecosystem project's dependency defaults. Use the newly built 26.3 artifact
 and matching Minecraft/Fabric settings when incorporating it into a mod. Automated composition checks do not establish native visual or frustum-edge acceptance.

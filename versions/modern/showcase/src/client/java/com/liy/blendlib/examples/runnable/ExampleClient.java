@@ -2,26 +2,20 @@ package com.liy.blendlib.examples.runnable;
 
 import com.liy.blendlib.fabric.client.entity.BlendEntityLayerCue;
 import com.liy.blendlib.api.BlendAnimationKey;
-import com.liy.blendlib.core.model.Transform;
 import com.liy.blendlib.fabric.client.api.BlendLibClientServices;
 import com.liy.blendlib.fabric.client.entity.BlendEntityAttachment;
 import com.liy.blendlib.fabric.client.entity.BlendEntityRenderer;
 import com.liy.blendlib.fabric.client.entity.BlendEntityRenderers;
-import com.liy.blendlib.fabric.client.entity.BlendEntityRotation;
-import com.liy.blendlib.fabric.client.entity.BlendEntitySocketPose;
 import com.liy.blendlib.fabric.client.entity.BlendEntitySnapshotRequest;
 import com.liy.blendlib.fabric.client.entity.BlendEntitySockets;
 import com.liy.blendlib.fabric.client.item.BlendLibItemAnimations;
 import com.liy.blendlib.fabric.client.item.BlendLibItemBinding;
-import com.liy.blendlib.fabric.client.render.CullingMetadata;
-import com.liy.blendlib.fabric.client.render.ModelRenderSnapshot;
-import com.liy.blendlib.fabric.client.render.RenderVisibility;
 import java.util.List;
 import net.fabricmc.api.ClientModInitializer;
-import net.minecraft.client.renderer.texture.OverlayTexture;
 
 /** A real client consumer of the shipped version-specific public animation adapters. */
 public final class ExampleClient implements ClientModInitializer {
+    private static final ExampleAttachmentOwners ATTACHMENT_OWNERS = new ExampleAttachmentOwners();
     private static final BlendAnimationKey ATTACK = BlendAnimationKey.parse(ExampleContent.MOD_ID + ":attack");
 
     @Override
@@ -42,6 +36,12 @@ public final class ExampleClient implements ClientModInitializer {
                         .attachments(ExampleClient::attachments)
                         .shadowRadius(0.45F)
                         .build());
+        net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientEntityEvents.ENTITY_UNLOAD.register(
+                (entity, level) -> ATTACHMENT_OWNERS.remove(entity,
+                        BlendLibClientServices.skinnedAnimationRuntime()::retire));
+        net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents.DISCONNECT.register(
+                (handler, client) -> ATTACHMENT_OWNERS.clear(
+                        BlendLibClientServices.skinnedAnimationRuntime()::retire));
         ExampleItemCommands.register();
         ExampleInspectionCommands.register();
     }
@@ -53,17 +53,14 @@ public final class ExampleClient implements ClientModInitializer {
 
     private static List<BlendEntityAttachment> attachments(
             LayeredActor entity, BlendEntitySnapshotRequest request, BlendEntitySockets sockets) {
-        var socket = sockets.socket(ExampleContent.TIP);
-        if (socket.isEmpty()) return List.of();
-        // Resolve an already-loaded immutable handle only during extraction. Never read assets,
-        // retain a generation across reload, or look up sockets from a render-submit callback.
-        var model = BlendLibClientServices.models().resolve(ExampleContent.MARKER_MODEL);
-        var handle = model.renderHandle();
-        if (model.missing() || handle.generation() != sockets.generation()) return List.of();
-        var child = new ModelRenderSnapshot(handle, Transform.IDENTITY, request.packedLight(),
-                OverlayTexture.NO_OVERLAY, 0xFFFFC040, RenderVisibility.VISIBLE,
-                new CullingMetadata(handle.bounds(), true));
-        var offset = new BlendEntitySocketPose(0, 0.45, 0, BlendEntityRotation.IDENTITY, 0.18F);
-        return List.of(BlendEntityAttachment.at(socket.orElseThrow(), offset, child));
+        var runtime = BlendLibClientServices.skinnedAnimationRuntime();
+        var active = runtime.activeEntityKey(entity.getId());
+        if (entity.isRemoved() || active.isEmpty()) {
+            ATTACHMENT_OWNERS.remove(entity, runtime::retire);
+            return List.of();
+        }
+        var owner = ATTACHMENT_OWNERS.key(entity, active.orElseThrow().connectionSession(), runtime::retire);
+        return ExampleAttachmentScene.capture(BlendLibClientServices.models(), runtime, owner, request, sockets,
+                net.minecraft.client.renderer.texture.OverlayTexture.NO_OVERLAY);
     }
 }

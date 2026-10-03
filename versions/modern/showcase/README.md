@@ -44,8 +44,9 @@ Watch for at least ten seconds:
    while the base layer keeps running; its clip-layer contribution fades on a four-second
    per-entity cycle without restarting either controller
 3. A procedural look-at and rotation-limit pipeline bends the tip after the clip layers
-4. A small gold-tinted cube follows an offset from the **final** tip socket, including the
-   procedural bend. This is a real separately captured model attachment, not just a debug line
+4. A small gold rigid fixture (the weapon) follows the **final** tip socket, including the
+   procedural bend. Its own authored mount carries a cyan, independently walking skinned
+   ornament: actor → weapon → ornament. Both children are real captured models, not debug lines
 
 The actor stays where summoned. Its fixed gameplay dimensions and damage behavior do not use
 the visual bounds or socket. Remove it with the standard command:
@@ -57,7 +58,9 @@ the visual bounds or socket. Remove it with the standard command:
 The server emits a sequence/tick cue via vanilla entity data every 100 ticks. Client extraction
 uses `animationLayerCues` and `BlendEntityLayerCue` to produce a deduplicated upper-controller
 command, including elapsed time for late tracking. The library owns command capture, reload
-recapture and unload/disconnect cleanup; this consumer needs no identity cache or lifecycle hooks.
+recapture and unload/disconnect cleanup for the actor. The optional ornament uses a separate
+consumer-owned ephemeral identity per loaded actor object, with explicit unload/disconnect
+retirement through the same entrypoint-owned runtime. It never reuses the actor controller key.
 This is deliberately consumer-owned synchronization; it does not introduce another BlendLib
 network protocol or claim to exercise every library resynchronization path.
 
@@ -97,7 +100,9 @@ independent playback. The adapter owns bounded instance retention and disconnect
 
 - `ExampleContent` / `LayeredActor`: server-safe item/entity registration and authoritative cue
 - `ExampleClient`: public entity renderer, layer descriptors, reusable procedural components,
-  final socket and immutable child snapshot attachment; no resource reads on hot paths
+  final socket and immutable nested attachment capture; no resource reads on hot paths
+- `ExampleAttachmentScene` / `ExampleAttachmentOwners`: rigid weapon mount, independently
+  animated skinned ornament, generation checks, optional-child fallback and lifecycle retirement
 - `ExampleItemCommands`: public item playback API on the real current main-hand stack
 - `ExampleLayerVisualEvents`: actor-owned, bounded measurement of real layer-event callbacks
 - `blend_models/actor.json`, `wand.json`, `marker.json`: ordinary strict-v1 model descriptors
@@ -261,3 +266,45 @@ selector independence, CPU capture and unknown-name diagnostics. See
 [`docs/material-appearance.md`](../../../docs/material-appearance.md) for the API, atomic
 unknown-slot fallback and the manual visual check. Headless verification does not claim
 native-window/GPU visual acceptance.
+
+
+## Three-level assembly, reload and culling
+
+The registered actor uses `ExampleAttachmentScene.capture` during extraction. It reuses
+`marker.glb` as the rigid weapon and the existing `wand` skinned model as its cyan ornament.
+The weapon's authored mount is `(0, 0.5, 0)` in its static model coordinates; it is captured
+with the weapon snapshot's actual root and units. The callback returns a nested graph; the
+standard renderer captures and submits its flattened immutable form exactly once.
+The ornament has its own walking clock, appearance, light and overlay. Its clock cannot
+replace or reset the actor's layered animation. No extra model assets or library API were added.
+
+Missing actor tip or unavailable/stale weapon omits both children. An unavailable/stale ornament
+or absent walk state omits only that ornament and retires its clock, leaving the weapon visible.
+Current handles are resolved each extraction; no generation-bound handle is cached. Resource
+reload uses the existing runtime's generation retirement and creates current-generation frames.
+Entity unload, object replacement and disconnect cannot transfer the child clock to another
+actor. Spawn two actors, remove one, reload resources (F3+T), and reconnect to exercise these flows
+when performing the later native visual check.
+
+**There is no automatic aggregate attachment culling.** Vanilla culls the root before the
+attachment callback runs. These exact authored assets and transforms intentionally fit inside
+the existing root envelope; changing child `CullingMetadata` cannot enlarge that root envelope.
+The root prepared bounds are the cube with half-extent `1.320986986160` blocks. The authored
+root sway is at most `0.070000000298`, and the tip translation is `0.600000023842`. All scales
+in the clips are one; procedural components change rotation only.
+
+- With fixed identity weapon root/offset rotation, offset `(0,.20,0)` and scale `.25`, its actual
+  vertices have combined local radius at most `sqrt(.125² + .20² + .50²)`. Adding the root/tip
+  translation bound gives `1.222833633827`; a 1% plus `.0001` float allowance gives
+  `1.235161970166`, below the root half-extent
+- The wand's all-pose unpadded authored radius is `1.307808796846`. With mount y `.5`, ornament
+  scale `1.5`, wand units-per-block `2.5`, and inherited weapon scale `.25`, its total radius is
+  at most `.670000024140 + .20 + .25 * (.5 + 1.5 / 2.5 * 1.307808796846)` = `1.191171343667`;
+  the same float allowance gives `1.203183057104`, also below the root half-extent
+
+These radial bounds cover arbitrary parent/socket rotations and current override-layer blends.
+They do **not** authorize independent weapon-root rotation, larger offsets/scales, additive
+translations, a different mount, or resource-pack geometry/animations. Such changes need a
+new conservative root/host envelope and re-verification. Server collision dimensions remain
+unchanged. Asset verification checks the fixed source assumptions; native frustum-edge and
+visual acceptance are deliberately deferred, with no native visual PASS claimed.
