@@ -182,3 +182,9 @@ explicitly stale until re-extraction. Unseen, copied, evicted, released and disc
 identities have no retained status; inspection does not recreate them. Repeated status queries
 do not advance animation or keep the stack in the LRU. Samples describe extraction, not proof
 that a frame was submitted. As with other controls, the command is client-only and opt-in.
+
+The item status command also prints the last extraction attempt independently: unavailable state,
+static/missing-model fallback, requested animation and attempt generation. Reload-stale successful
+samples remain labeled historical. If a resource pack removes the selected animation, controls
+remain intact; restoring it resumes with the requested LOOP/ONCE/HOLD behavior. Playing time
+includes the outage; paused time does not. No fallback is represented as a successful animation.

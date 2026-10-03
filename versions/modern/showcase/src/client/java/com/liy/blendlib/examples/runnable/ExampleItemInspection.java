@@ -1,6 +1,7 @@
 package com.liy.blendlib.examples.runnable;
 
 import com.liy.blendlib.fabric.client.item.ItemAnimationObservation;
+import com.liy.blendlib.fabric.client.item.ItemAnimationExtractionStatus;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -24,6 +25,20 @@ public final class ExampleItemInspection {
                 + " currentGeneration=" + status.sampleCurrentGeneration()
                 + " (historical; may differ from controls, does not prove submit)"),
                 () -> lines.add("No successful extraction recorded; controls may exist before the first sample"));
+        return List.copyOf(lines);
+    }
+
+    public static List<String> format(Optional<ItemAnimationObservation> observed,
+            Optional<ItemAnimationExtractionStatus> extraction) {
+        var lines = new ArrayList<>(format(observed));
+        if (observed.isPresent()) {
+            extraction.ifPresentOrElse(attempt -> lines.add("Last extraction attempt: requestedAnimation="
+                    + attempt.requestedAnimation() + " outcome=" + attempt.outcome()
+                    + " fallback=" + attempt.fallback() + " generation=" + attempt.generation()
+                    + " currentGeneration=" + attempt.currentGeneration()
+                    + " (historical handoff; may differ from controls, does not prove submit)"),
+                    () -> lines.add("No extraction attempt recorded"));
+        }
         return List.copyOf(lines);
     }
 

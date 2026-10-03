@@ -96,3 +96,31 @@ does not guess which absence cause applies. `null` is rejected.
 
 The opt-in runnable consumer exposes `/blendlib_example item status` for the actual main-hand
 wand and distinguishes absent playback, unsampled controls and historical/stale sample output.
+
+## Missing animations and reload recovery
+
+A selected state can disappear when a resource pack publishes a replacement descriptor.
+Ordinary item extraction now returns its safe fallback instead of throwing for that missing
+state. It never silently selects the initial/default animation or reuses an old-generation pose:
+rigid models use their static default pose, while skinned/missing models use the missing-model
+placeholder. An unavailable animation is not reported as a successful sample.
+
+`BlendLibItemAnimations.extractionStatus(stack)` returns an immutable optional last-attempt
+snapshot (`ItemAnimationExtractionStatus`). It includes `requestedAnimation`, model and generation,
+`outcome` (`ANIMATED`, `ANIMATION_UNAVAILABLE`, `MODEL_UNAVAILABLE`, or `EXTRACTION_UNAVAILABLE`),
+`fallback` (`NONE`, `STATIC_MODEL`, or `MISSING_MODEL`), and `currentGeneration`. Animation unavailable
+also covers a loaded model with no animation declaration. Empty means there has not been a retained
+attempt. This read does not acquire playback, read a clock, sample, refresh LRU or retire entries.
+
+Keep this distinct from `observe(stack)`: current controls may change after the last attempt, and
+`lastSample` still describes only the last successful animated extraction. Generation currency
+alone does not make an attempt reflect new controls and neither status proves successful submit.
+The example `item status` command presents all three independently.
+
+Unavailable attempts preserve the requested animation, mode, speed, playing flag and stored time.
+They do not wrap, clamp or stop playback against a replacement clip. Playing time continues
+logically: the next control operation or successful sample includes elapsed time; paused time
+never accumulates. When the requested state returns, the same controls resume sampling and normalize
+against its restored duration (LOOP wraps, ONCE stops at first pose, HOLD stops at last pose).
+Pause, seek, speed, stop and selecting another state remain available during the outage.
+Strict `AnimationControllerDefinition.state` and direct controller extraction retain their validation.

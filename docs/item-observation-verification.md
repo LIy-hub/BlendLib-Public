@@ -28,9 +28,9 @@ paused seeks beyond duration, current controls versus last successful sample, re
 sampling, immutable observations and generation staleness. The official-26.3 integration uses
 real ItemStacks and the renderer extraction path, including registry publication before runtime
 cleanup, missing-model empty extraction, copied stacks, public 256-entry LRU eviction and the
-production disconnect operations. Existing undeclared-state exceptions remain unchanged and
-are asserted without overwriting the last successful sample; safer missing-state recovery is
-a separate future improvement. The packaged formatter verifier
+production disconnect operations. The subsequent item-animation-reload safety slice replaces the previous undeclared-state
+exception with explicit unavailable extraction status and the ordinary safe renderer fallback;
+see item-animation-reload-plan.md and item-animation-reload-verification.md. The packaged formatter verifier
 covers absent/unsampled/stale states, locale-stable numbers, repeated reads and immutable lines.
 The ABI checks pin the additive public surface while retaining prior descriptor assertions.
 

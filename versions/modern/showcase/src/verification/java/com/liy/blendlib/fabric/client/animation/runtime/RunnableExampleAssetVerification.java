@@ -121,6 +121,19 @@ public final class RunnableExampleAssetVerification {
                 "item repeat inspection");
         try { lines.add("mutable"); throw new AssertionError("mutable item lines"); }
         catch (UnsupportedOperationException expected) { }
+        var attempt = new com.liy.blendlib.fabric.client.item.ItemAnimationExtractionStatus(sample.model(),
+                status.animation(), 2,
+                com.liy.blendlib.fabric.client.item.ItemAnimationExtractionStatus.Outcome.ANIMATION_UNAVAILABLE,
+                com.liy.blendlib.fabric.client.item.ItemAnimationExtractionStatus.Fallback.MISSING_MODEL, true);
+        var unavailable = com.liy.blendlib.examples.runnable.ExampleItemInspection.format(
+                java.util.Optional.of(status), java.util.Optional.of(attempt));
+        require(unavailable.getLast().contains("ANIMATION_UNAVAILABLE")
+                && unavailable.getLast().contains("fallback=MISSING_MODEL")
+                && unavailable.getLast().contains("requestedAnimation=test:attack")
+                && unavailable.getLast().contains("currentGeneration=true")
+                && unavailable.get(1).contains("currentGeneration=false"), "unavailable attempt and stale sample differ");
+        require(com.liy.blendlib.examples.runnable.ExampleItemInspection.format(java.util.Optional.of(status),
+                java.util.Optional.empty()).getLast().equals("No extraction attempt recorded"), "no attempt is not success");
         var unsampled = new com.liy.blendlib.fabric.client.item.ItemAnimationObservation(status.animation(), status.mode(),
                 0, true, 0, java.util.Optional.empty(), false);
         require(com.liy.blendlib.examples.runnable.ExampleItemInspection.format(java.util.Optional.of(unsampled))

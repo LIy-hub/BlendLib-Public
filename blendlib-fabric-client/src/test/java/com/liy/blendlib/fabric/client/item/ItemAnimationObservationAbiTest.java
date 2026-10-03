@@ -11,17 +11,21 @@ import org.junit.jupiter.api.Test;
 
 /** Exact compiled public/protected JVM descriptors, following the retained X7 ABI boundary pins. */
 class ItemAnimationObservationAbiTest {
-    @Test void existingItemFacadeAndPlaybackAbiHaveOnlyTheApprovedObserveAddition() throws Exception {
+    @Test void existingItemFacadeAndPlaybackAbiHaveOnlyTheApprovedObservationAdditions() throws Exception {
         assertEquals(Set.of(
                 "public static final MAX_RETAINED_INSTANCES:I",
                 "public static synchronized register(Lcom/liy/blendlib/fabric/client/item/BlendLibItemBinding;Lcom/liy/blendlib/api/BlendAnimationKey;)V",
                 "public static playback(Lnet/minecraft/world/item/ItemStack;)Lcom/liy/blendlib/fabric/client/item/ItemAnimationPlayback;",
                 "public static observe(Lnet/minecraft/world/item/ItemStack;)Ljava/util/Optional;",
+                "public static extractionStatus(Lnet/minecraft/world/item/ItemStack;)Ljava/util/Optional;",
                 "public static release(Lnet/minecraft/world/item/ItemStack;)V",
                 "public static clear()V"), exportedDescriptors(BlendLibItemAnimations.class));
         assertEquals(256, BlendLibItemAnimations.MAX_RETAINED_INSTANCES);
         assertEquals("java.util.Optional<com.liy.blendlib.fabric.client.item.ItemAnimationObservation>",
                 BlendLibItemAnimations.class.getDeclaredMethod("observe", net.minecraft.world.item.ItemStack.class)
+                        .getGenericReturnType().getTypeName());
+        assertEquals("java.util.Optional<com.liy.blendlib.fabric.client.item.ItemAnimationExtractionStatus>",
+                BlendLibItemAnimations.class.getDeclaredMethod("extractionStatus", net.minecraft.world.item.ItemStack.class)
                         .getGenericReturnType().getTypeName());
         assertEquals(Set.of(
                 "public play(Lcom/liy/blendlib/api/BlendAnimationKey;Lcom/liy/blendlib/fabric/client/item/ItemAnimationPlayback$Mode;)Lcom/liy/blendlib/fabric/client/item/ItemAnimationPlayback;",
@@ -77,6 +81,43 @@ class ItemAnimationObservationAbiTest {
         assertTrue(Modifier.isStatic(ItemAnimationObservation.Sample.class.getModifiers()));
         assertFalse(Modifier.isPublic(ItemAnimationInstances.class.getModifiers()));
         assertTrue(exportedDescriptors(ItemAnimationInstances.class).isEmpty());
+    }
+
+    @Test void extractionStatusAddsExactlyItsImmutableRecordAndExplicitOutcomeEnums() {
+        assertEquals(Set.of(
+                "public <init>(Lcom/liy/blendlib/api/BlendModelKey;Lcom/liy/blendlib/api/BlendAnimationKey;JLcom/liy/blendlib/fabric/client/item/ItemAnimationExtractionStatus$Outcome;Lcom/liy/blendlib/fabric/client/item/ItemAnimationExtractionStatus$Fallback;Z)V",
+                "public model()Lcom/liy/blendlib/api/BlendModelKey;",
+                "public requestedAnimation()Lcom/liy/blendlib/api/BlendAnimationKey;",
+                "public generation()J",
+                "public outcome()Lcom/liy/blendlib/fabric/client/item/ItemAnimationExtractionStatus$Outcome;",
+                "public fallback()Lcom/liy/blendlib/fabric/client/item/ItemAnimationExtractionStatus$Fallback;",
+                "public currentGeneration()Z",
+                "public final equals(Ljava/lang/Object;)Z",
+                "public final hashCode()I",
+                "public final toString()Ljava/lang/String;"), exportedDescriptors(ItemAnimationExtractionStatus.class));
+        assertEquals(java.util.List.of("model", "requestedAnimation", "generation", "outcome", "fallback", "currentGeneration"),
+                Arrays.stream(ItemAnimationExtractionStatus.class.getRecordComponents()).map(component -> component.getName()).toList());
+        assertEquals(Set.of(
+                "public static final ANIMATED:Lcom/liy/blendlib/fabric/client/item/ItemAnimationExtractionStatus$Outcome;",
+                "public static final ANIMATION_UNAVAILABLE:Lcom/liy/blendlib/fabric/client/item/ItemAnimationExtractionStatus$Outcome;",
+                "public static final MODEL_UNAVAILABLE:Lcom/liy/blendlib/fabric/client/item/ItemAnimationExtractionStatus$Outcome;",
+                "public static final EXTRACTION_UNAVAILABLE:Lcom/liy/blendlib/fabric/client/item/ItemAnimationExtractionStatus$Outcome;",
+                "public static values()[Lcom/liy/blendlib/fabric/client/item/ItemAnimationExtractionStatus$Outcome;",
+                "public static valueOf(Ljava/lang/String;)Lcom/liy/blendlib/fabric/client/item/ItemAnimationExtractionStatus$Outcome;"),
+                exportedDescriptors(ItemAnimationExtractionStatus.Outcome.class));
+        assertEquals(Set.of(
+                "public static final NONE:Lcom/liy/blendlib/fabric/client/item/ItemAnimationExtractionStatus$Fallback;",
+                "public static final STATIC_MODEL:Lcom/liy/blendlib/fabric/client/item/ItemAnimationExtractionStatus$Fallback;",
+                "public static final MISSING_MODEL:Lcom/liy/blendlib/fabric/client/item/ItemAnimationExtractionStatus$Fallback;",
+                "public static values()[Lcom/liy/blendlib/fabric/client/item/ItemAnimationExtractionStatus$Fallback;",
+                "public static valueOf(Ljava/lang/String;)Lcom/liy/blendlib/fabric/client/item/ItemAnimationExtractionStatus$Fallback;"),
+                exportedDescriptors(ItemAnimationExtractionStatus.Fallback.class));
+        assertTrue(Modifier.isPublic(ItemAnimationExtractionStatus.class.getModifiers()));
+        for (var type : new Class<?>[] {ItemAnimationExtractionStatus.Outcome.class, ItemAnimationExtractionStatus.Fallback.class}) {
+            assertTrue(type.isEnum());
+            assertTrue(Modifier.isPublic(type.getModifiers()));
+            assertTrue(Modifier.isStatic(type.getModifiers()));
+        }
     }
 
     private static Set<String> exportedDescriptors(Class<?> type) {

@@ -75,6 +75,23 @@ public final class BlendLibItemAnimations {
         return Optional.of(entry.playback().observe(generation));
     }
 
+    /**
+     * Observes the last extraction attempt without creating playback, touching its clock or LRU.
+     * Empty before the first attempt or after release/eviction/disconnect. Compare requestedAnimation
+     * with observe(stack).animation() after controls change; the status remains historical.
+     */
+    public static Optional<ItemAnimationExtractionStatus> extractionStatus(ItemStack stack) {
+        Objects.requireNonNull(stack, "stack");
+        if (stack.isEmpty()) return Optional.empty();
+        var entry = INSTANCES.peek(stack);
+        if (entry == null || entry.playback().lastExtraction() == null) return Optional.empty();
+        var last = entry.playback().lastExtraction();
+        long generation = BlendLibClientServices.isInitialized()
+                ? BlendLibClientServices.models().resolve(last.model()).generationId() : -1;
+        return Optional.of(new ItemAnimationExtractionStatus(last.model(), last.requestedAnimation(),
+                last.generation(), last.outcome(), last.fallback(), last.generation() == generation));
+    }
+
     /** Explicitly releases a stack and its runtime pose/controller cache entries. */
     public static void release(ItemStack stack) { INSTANCES.release(stack); }
 
@@ -84,21 +101,45 @@ public final class BlendLibItemAnimations {
     static Optional<ModelRenderSnapshot> extract(
             BlendLibItemBinding binding, ItemStack stack, ModelRenderHandle handle) {
         BlendAnimationKey defaultAnimation = DEFAULTS.get(binding.itemId());
-        if (defaultAnimation == null || stack.isEmpty() || handle.missingModel()) return Optional.empty();
-        var runtime = BlendLibClientServices.skinnedAnimationRuntime();
+        if (defaultAnimation == null || stack.isEmpty()) return Optional.empty();
         ItemAnimationInstances.Entry entry = INSTANCES.get(stack, defaultAnimation);
         ItemAnimationPlayback playback = entry.playback();
+        if (handle.missingModel()) {
+            unavailable(playback, binding, handle, ItemAnimationExtractionStatus.Outcome.MODEL_UNAVAILABLE);
+            return Optional.empty();
+        }
+        var runtime = BlendLibClientServices.skinnedAnimationRuntime();
         var duration = runtime.animationDuration(binding.modelKey(), playback.animation());
-        if (duration.isEmpty()) return Optional.empty();
+        if (duration.isEmpty()) {
+            unavailable(playback, binding, handle, ItemAnimationExtractionStatus.Outcome.ANIMATION_UNAVAILABLE);
+            return Optional.empty();
+        }
+        var checkpoint = playback.checkpoint();
         double seconds = playback.sample(duration.getAsDouble());
         var request = new SkinnedExtractionRequest(Transform.IDENTITY, 0, 0, 0xFFFFFFFF,
                 RenderVisibility.VISIBLE, new CullingMetadata(handle.bounds(), true));
         var input = new SkinnedAnimationRuntimeInput(binding.modelKey(), entry.key(), 0L, 0F,
                 playback.animation(), Optional.empty(), AnimationUpdateBucket.VISIBLE_NEAR, request);
-        return runtime.extractClipAt(input, seconds, null).map(result -> {
+        var extracted = runtime.extractClipAt(input, seconds, null);
+        if (extracted.isEmpty()) {
+            playback.restore(checkpoint);
+            unavailable(playback, binding, handle, ItemAnimationExtractionStatus.Outcome.EXTRACTION_UNAVAILABLE);
+        }
+        return extracted.map(result -> {
             var snapshot = result.frame().renderSnapshot();
             playback.sampled(binding.modelKey(), snapshot.generation(), seconds, duration.getAsDouble());
+            playback.extracted(new ItemAnimationExtractionStatus(binding.modelKey(), playback.animation(),
+                    snapshot.generation(), ItemAnimationExtractionStatus.Outcome.ANIMATED,
+                    ItemAnimationExtractionStatus.Fallback.NONE, true));
             return snapshot;
         });
+    }
+
+    private static void unavailable(ItemAnimationPlayback playback, BlendLibItemBinding binding,
+            ModelRenderHandle handle, ItemAnimationExtractionStatus.Outcome outcome) {
+        playback.extracted(new ItemAnimationExtractionStatus(binding.modelKey(), playback.animation(),
+                handle.generation(), outcome, handle.skinned() || handle.missingModel()
+                        ? ItemAnimationExtractionStatus.Fallback.MISSING_MODEL
+                        : ItemAnimationExtractionStatus.Fallback.STATIC_MODEL, true));
     }
 }

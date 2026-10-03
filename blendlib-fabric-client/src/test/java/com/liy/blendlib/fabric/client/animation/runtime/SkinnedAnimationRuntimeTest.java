@@ -230,6 +230,44 @@ class SkinnedAnimationRuntimeTest {
     }
 
     @Test
+    void durationDiscoveryTreatsUndeclaredStatesAsUnavailableWithoutWeakeningStrictLookup() {
+        var harness = harness();
+        var missing = BlendAnimationKey.parse("runtime_test:undeclared");
+        assertTrue(harness.runtime().animationDuration(MODEL, IDLE).isEmpty());
+        assertThrows(NullPointerException.class, () -> harness.runtime().animationDuration(null, IDLE));
+        assertThrows(NullPointerException.class, () -> harness.runtime().animationDuration(MODEL, null));
+        var fixture = skinnedFixture(106L);
+        publish(harness.models(), fixture.loaded());
+        var before = harness.runtime().measurementSnapshot();
+        assertTrue(harness.runtime().animationDuration(MODEL, missing).isEmpty());
+        assertEquals(before, harness.runtime().measurementSnapshot(), "undeclared-state discovery creates no runtime state");
+        assertEquals(0, harness.runtime().trackedClockCount());
+        var definition = AnimationControllerDefinition.fromModelAsset(fixture.asset());
+        assertThrows(IllegalArgumentException.class, () -> definition.state(missing), "strict controller lookup still rejects undeclared states");
+        assertThrows(NullPointerException.class, () -> definition.state(null));
+        assertEquals(1, harness.runtime().animationDuration(MODEL, WALK).orElseThrow());
+        publish(harness.models(), staticFixture(107L).loaded());
+        assertTrue(harness.runtime().animationDuration(STATIC_MODEL, IDLE).isEmpty(), "models without declarations are unavailable");
+        assertTrue(harness.runtime().animationDuration(MODEL, IDLE).isEmpty(), "removed models are unavailable");
+        assertThrows(NullPointerException.class, () -> harness.runtime().animationDuration(STATIC_MODEL, null));
+    }
+
+    @Test
+    void durationDiscoveryDoesNotSwallowMalformedDeclaredAnimationErrors() {
+        var harness = harness();
+        var original = skinnedFixture(108L).asset();
+        var malformed = new ModelAsset(original.modelKey(), original.descriptorId(), original.generation(),
+                original.profile(), original.unitsPerBlock(), original.materials(), original.animationDefinition(),
+                original.nodes(), original.defaultSceneRoots(), original.primitives(), original.skeleton(),
+                List.of(), original.sockets(), original.bounds(), original.diagnostics());
+        publish(harness.models(), new LoadedModelHandle(MODEL, malformed, SkinnedRenderHandle.prepare(MODEL, malformed)));
+        assertTrue(harness.runtime().animationDuration(MODEL, BlendAnimationKey.parse("runtime_test:undeclared")).isEmpty(),
+                "an undeclared state must be checked before compiling unrelated malformed declarations");
+        assertThrows(IllegalArgumentException.class, () -> harness.runtime().animationDuration(MODEL, IDLE),
+                "a declared state with a missing clip remains a genuine preparation error");
+    }
+
+    @Test
     void controlledClipTimeClampsAtEndpointWithoutLoopingOrFollowingNextState() {
         SkinnedFixture fixture = skinnedFixture(106L);
         RuntimeHarness harness = harness();

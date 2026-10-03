@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased - item animation reload safety
+
+- Preserve item playback controls when a selected descriptor animation disappears after reload; use explicit unavailable status and safe static/missing-model fallback
+- Add immutable last-extraction status alongside historical sample observation and expose it in the opt-in item status command
+
 ## 1.0.0-beta.3 - 2026-09-11
 
 - Update all 15 Fabric builds to Loader 0.19.5.

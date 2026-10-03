@@ -39,7 +39,7 @@ final class ExampleItemCommands {
             source.sendError(Component.literal("Hold the BlendLib animated wand in your main hand first"));
             return 0;
         }
-        ExampleItemInspection.format(BlendLibItemAnimations.observe(stack))
+        ExampleItemInspection.format(BlendLibItemAnimations.observe(stack), BlendLibItemAnimations.extractionStatus(stack))
                 .forEach(line -> source.sendFeedback(Component.literal(line)));
         return 1;
     }

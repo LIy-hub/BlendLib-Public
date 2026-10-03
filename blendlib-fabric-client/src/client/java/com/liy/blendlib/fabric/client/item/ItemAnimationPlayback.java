@@ -17,6 +17,11 @@ public final class ItemAnimationPlayback {
     private long lastNanos;
     private boolean playing = true;
     private ItemAnimationObservation.Sample lastSample;
+    private ItemAnimationExtractionStatus lastExtraction;
+
+    ItemAnimationExtractionStatus lastExtraction() { return lastExtraction; }
+
+    void extracted(ItemAnimationExtractionStatus status) { lastExtraction = status; }
 
     ItemAnimationObservation.Sample lastSample() { return lastSample; }
 
@@ -72,6 +77,16 @@ public final class ItemAnimationPlayback {
     public Mode mode() { return mode; }
     public double speed() { return speed; }
     public boolean playing() { return playing; }
+
+    record SampleCheckpoint(double seconds, boolean playing, long lastNanos) { }
+
+    SampleCheckpoint checkpoint() { return new SampleCheckpoint(seconds, playing, lastNanos); }
+
+    void restore(SampleCheckpoint checkpoint) {
+        seconds = checkpoint.seconds();
+        playing = checkpoint.playing();
+        lastNanos = checkpoint.lastNanos();
+    }
 
     double sample(double durationSeconds) {
         requireTime(durationSeconds, "durationSeconds");

@@ -218,11 +218,15 @@ public final class SkinnedAnimationRuntime {
         return extractInternal(input, modifier, clipSeconds, null, List.of());
     }
 
-    /** Returns raw clip duration without creating an instance; empty for an unavailable model. */
+    /** Returns raw clip duration without creating an instance; empty for an unavailable model or undeclared state. */
     public java.util.OptionalDouble animationDuration(BlendModelKey key, BlendAnimationKey animation) {
+        Objects.requireNonNull(animation, "animation");
         var handle = modelRegistry.current().find(Objects.requireNonNull(key, "key"));
         if (handle.isEmpty() || !(handle.get() instanceof LoadedModelHandle loaded)
                 || loaded.asset().animationDefinition() == null) return java.util.OptionalDouble.empty();
+        if (!loaded.asset().animationDefinition().states().containsKey(animation.resourceId())) {
+            return java.util.OptionalDouble.empty();
+        }
         return java.util.OptionalDouble.of(preparedAsset(loaded).definition().state(animation).clip().durationSeconds());
     }
 
