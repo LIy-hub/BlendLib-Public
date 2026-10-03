@@ -17,10 +17,17 @@ public final class BlendLibLegacyItemRenderBridge {
     public static boolean renderRegistered(ItemStack stack, ItemDisplayContext context, boolean leftHand,
             PoseStack poses, MultiBufferSource buffers, int light, int overlay) {
         if (stack.isEmpty()) return false;
-        BlendLibItemBinding binding = BlendLibItemModelBindings.find(BuiltInRegistries.ITEM.getKey(stack.getItem())).orElse(null);
-        if (binding == null) return false;
+        var registration = BlendLibItemModelBindings.registration(BuiltInRegistries.ITEM.getKey(stack.getItem()));
+        if (registration == null) return false;
+        BlendLibItemBinding binding = registration.binding();
         ClientModelView model = BlendLibClientServices.models().resolve(binding.modelKey());
-        BlendLibItemRenderArgument argument = new BlendLibItemRenderArgument(binding, model.renderHandle());
+        var snapshot = BlendLibItemAnimations.extract(binding, stack, model.renderHandle());
+        var handle = model.renderHandle();
+        if (snapshot.isEmpty() && handle.skinned()) {
+            handle = new com.liy.blendlib.fabric.client.render.MissingModelRenderHandle(binding.modelKey(), handle.generation());
+        }
+        BlendLibItemRenderArgument argument = BlendLibItemRenderArgument.capture(
+                binding, handle, snapshot.orElse(null), stack, registration.appearance(), registration.skin());
         BakedModel base = Minecraft.getInstance().getModelManager().getModel(binding.baseModelId());
         poses.pushPose();
         try {

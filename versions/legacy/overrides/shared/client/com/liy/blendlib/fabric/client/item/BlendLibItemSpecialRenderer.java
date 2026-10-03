@@ -18,14 +18,24 @@ import org.joml.Vector3f;
 final class BlendLibItemSpecialRenderer implements SpecialModelRenderer<BlendLibItemRenderArgument> {
     private final BlendLibItemBinding binding;
     private final BlendLibItemMaterialAppearance appearance;
+    private final BlendLibItemSkinSelector skin;
     BlendLibItemSpecialRenderer(BlendLibItemBinding binding) { this(binding, null); }
     BlendLibItemSpecialRenderer(BlendLibItemBinding binding, BlendLibItemMaterialAppearance appearance) {
-        this.binding = Objects.requireNonNull(binding); this.appearance = appearance;
+        this(binding, appearance, null);
+    }
+    BlendLibItemSpecialRenderer(BlendLibItemBinding binding, BlendLibItemMaterialAppearance appearance,
+            BlendLibItemSkinSelector skin) {
+        this.binding = Objects.requireNonNull(binding); this.appearance = appearance; this.skin = skin;
     }
     @Override public BlendLibItemRenderArgument extractArgument(ItemStack stack) {
         Objects.requireNonNull(stack, "stack");
         ClientModelView model = BlendLibClientServices.models().resolve(binding.modelKey());
-        return BlendLibItemRenderArgument.capture(binding, model.renderHandle(), null, stack, appearance);
+        var snapshot = BlendLibItemAnimations.extract(binding, stack, model.renderHandle());
+        var handle = model.renderHandle();
+        if (snapshot.isEmpty() && handle.skinned()) {
+            handle = new com.liy.blendlib.fabric.client.render.MissingModelRenderHandle(binding.modelKey(), handle.generation());
+        }
+        return BlendLibItemRenderArgument.capture(binding, handle, snapshot.orElse(null), stack, appearance, skin);
     }
     @Override public void render(BlendLibItemRenderArgument argument, ItemDisplayContext displayContext,
             PoseStack poseStack, MultiBufferSource buffers, int packedLight, int packedOverlay, boolean hasFoil) {
@@ -40,13 +50,17 @@ final class BlendLibItemSpecialRenderer implements SpecialModelRenderer<BlendLib
     static final class Unbaked implements SpecialModelRenderer.Unbaked {
         private final BlendLibItemBinding binding;
         private final BlendLibItemMaterialAppearance appearance;
+        private final BlendLibItemSkinSelector skin;
         Unbaked(BlendLibItemBinding binding) { this(binding, null); }
         Unbaked(BlendLibItemBinding binding, BlendLibItemMaterialAppearance appearance) {
-            this.binding = Objects.requireNonNull(binding); this.appearance = appearance;
+            this(binding, appearance, null);
+        }
+        Unbaked(BlendLibItemBinding binding, BlendLibItemMaterialAppearance appearance, BlendLibItemSkinSelector skin) {
+            this.binding = Objects.requireNonNull(binding); this.appearance = appearance; this.skin = skin;
         }
         @Override public SpecialModelRenderer<?> bake(EntityModelSet models) {
             Objects.requireNonNull(models, "models");
-            return new BlendLibItemSpecialRenderer(binding, appearance);
+            return new BlendLibItemSpecialRenderer(binding, appearance, skin);
         }
         @Override public MapCodec<? extends SpecialModelRenderer.Unbaked> type() { return MapCodec.unit(this); }
     }

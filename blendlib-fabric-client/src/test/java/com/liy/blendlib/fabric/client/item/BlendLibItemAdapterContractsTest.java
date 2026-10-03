@@ -131,6 +131,48 @@ class BlendLibItemAdapterContractsTest {
         assertTrue(ported.contains("binding.baseModelId(), new BlendLibItemSpecialRenderer.Unbaked(binding, registration.appearance(), registration.skin())"));
     }
 
+    @Test
+    void legacyReloadAdaptationMatchesTheSignatureIndependentlyOfPrepareBody() throws IOException {
+        var repository = Path.of(System.getProperty("blendlib.projectDir")).getParent();
+        String transform = Files.readString(repository.resolve("versions/legacy/transforms.gradle"));
+        assertTrue(transform.contains(".replace('protected PreparedModelGeneration prepare(PreparableReloadListener.SharedState state) {',"));
+        String source = Files.readString(clientSource("reload/ClientModelReloadListener.java"));
+        String ported = source.replace("protected PreparedModelGeneration prepare(PreparableReloadListener.SharedState state) {",
+                "protected PreparedModelGeneration prepare(ResourceManager resourceManager, ProfilerFiller profiler) {")
+                .replace("        ResourceManager resourceManager = Objects.requireNonNull(state, \"state\").resourceManager();\n", "")
+                .replace("protected void apply(PreparedModelGeneration prepared, PreparableReloadListener.SharedState state)",
+                        "protected void apply(PreparedModelGeneration prepared, ResourceManager resourceManager, ProfilerFiller profiler)");
+        assertFalse(ported.contains("PreparableReloadListener.SharedState"));
+        assertFalse(ported.contains("Objects.requireNonNull(state"));
+        assertTrue(ported.contains("var skinDefinitions = BlendLibModelSkins.snapshotForReload();"));
+        assertTrue(ported.contains("prepare(ResourceManager resourceManager, ProfilerFiller profiler)"));
+    }
+
+    @Test
+    void everyLegacyItemTemplateRetainsBothSelectorsAndCapturedAnimation() throws IOException {
+        var repository = Path.of(System.getProperty("blendlib.projectDir")).getParent();
+        var overrides = repository.resolve("versions/legacy/overrides");
+        String shared = Files.readString(overrides.resolve("shared/client/com/liy/blendlib/fabric/client/item/BlendLibItemSpecialRenderer.java"));
+        assertTrue(shared.contains("Unbaked(BlendLibItemBinding binding, BlendLibItemMaterialAppearance appearance, BlendLibItemSkinSelector skin)"));
+        assertTrue(shared.contains("new BlendLibItemSpecialRenderer(binding, appearance, skin)"));
+        assertTrue(shared.contains("BlendLibItemAnimations.extract(binding, stack, model.renderHandle())"));
+        assertTrue(shared.contains("capture(binding, handle, snapshot.orElse(null), stack, appearance, skin)"));
+        assertTrue(shared.contains("argument.snapshot(packedLight, packedOverlay)"));
+        String bridge = Files.readString(overrides.resolve("pre-1.21.4/client/com/liy/blendlib/fabric/client/item/BlendLibLegacyItemRenderBridge.java"));
+        assertTrue(bridge.contains("BlendLibItemAnimations.extract(binding, stack, model.renderHandle())"));
+        assertTrue(bridge.contains("binding, handle, snapshot.orElse(null), stack, registration.appearance(), registration.skin()"));
+        assertTrue(bridge.contains("argument.snapshot(light, overlay)"));
+        for (String variant : List.of("pre-1.21.4", "1.21.4")) {
+            String bindings = Files.readString(overrides.resolve(variant + "/client/com/liy/blendlib/fabric/client/item/BlendLibItemModelBindings.java"));
+            assertTrue(bindings.contains("registerWithSkin(BlendLibItemBinding binding, BlendLibItemSkinSelector selector)"), variant);
+            assertTrue(bindings.contains("previous.appearance() : appearance"), variant);
+            assertTrue(bindings.contains("previous.skin() : skin"), variant);
+            assertTrue(bindings.contains("previous.skin() != skin"), variant);
+            if (variant.equals("1.21.4")) assertTrue(bindings.contains(
+                    "new BlendLibItemSpecialRenderer(binding, registration.appearance(), registration.skin())"));
+        }
+    }
+
     private static Path clientSource(String relativePath) {
         return Path.of(System.getProperty("blendlib.projectDir"), "src", "client", "java", "com", "liy", "blendlib", "fabric", "client")
                 .resolve(relativePath);
