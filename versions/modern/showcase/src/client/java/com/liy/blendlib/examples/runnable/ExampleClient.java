@@ -1,6 +1,7 @@
 package com.liy.blendlib.examples.runnable;
 
-import com.liy.blendlib.core.animation.v2.AnimationV2Command;
+import com.liy.blendlib.fabric.client.entity.BlendEntityLayerCue;
+import com.liy.blendlib.api.BlendAnimationKey;
 import com.liy.blendlib.core.model.Transform;
 import com.liy.blendlib.fabric.client.api.BlendLibClientServices;
 import com.liy.blendlib.fabric.client.entity.BlendEntityAttachment;
@@ -17,13 +18,11 @@ import com.liy.blendlib.fabric.client.render.ModelRenderSnapshot;
 import com.liy.blendlib.fabric.client.render.RenderVisibility;
 import java.util.List;
 import net.fabricmc.api.ClientModInitializer;
-import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientEntityEvents;
-import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 import net.minecraft.client.renderer.texture.OverlayTexture;
 
 /** A real client consumer of the shipped version-specific public animation adapters. */
 public final class ExampleClient implements ClientModInitializer {
-    private static final ExampleCueCommands CUES = new ExampleCueCommands();
+    private static final BlendAnimationKey ATTACK = BlendAnimationKey.parse(ExampleContent.MOD_ID + ":attack");
 
     @Override
     public void onInitializeClient() {
@@ -33,20 +32,17 @@ public final class ExampleClient implements ClientModInitializer {
         BlendEntityRenderers.register(ExampleContent.ACTOR,
                 context -> BlendEntityRenderer.<LayeredActor>builder(context, ExampleContent.ACTOR_MODEL)
                         .skinnedAnimation((entity, request) -> ExampleContent.WALK)
-                        .animationLayers(ExampleAnimationScene.layers(), ExampleClient::commands)
+                        .animationLayerCues(ExampleAnimationScene.layers(), ExampleClient::cues)
                         .poseComponents(ExampleAnimationScene.procedural())
                         .attachments(ExampleClient::attachments)
                         .shadowRadius(0.45F)
                         .build());
-        ClientEntityEvents.ENTITY_UNLOAD.register((entity, level) -> CUES.retire(entity));
-        ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> CUES.clear());
         ExampleItemCommands.register();
     }
 
-    private static List<AnimationV2Command> commands(LayeredActor entity, BlendEntitySnapshotRequest request) {
-        long generation = BlendLibClientServices.models().resolve(ExampleContent.ACTOR_MODEL).generationId();
-        return CUES.capture(entity, entity.cueSequence(), entity.cueTick(),
-                request.clientGameTick() + request.partialTick(), generation);
+    private static List<BlendEntityLayerCue> cues(LayeredActor entity, BlendEntitySnapshotRequest request) {
+        return entity.cueSequence() == 0 ? List.of() : List.of(new BlendEntityLayerCue(
+                ExampleAnimationScene.UPPER, ATTACK, entity.cueSequence(), entity.cueTick(), 1.0));
     }
 
     private static List<BlendEntityAttachment> attachments(

@@ -252,6 +252,7 @@ if (minecraftVersion == "26.3") {
             "**/SynchronizedVisualEventCursorTest.java",
             "**/AnimationControllerTest.java",
             "**/SkinnedAnimationRuntimeTest.java",
+            "**/EntityLayerCueCacheTest.java",
             "**/ClientAnimationRigViewTestAccess.java",
             "**/animation/runtime/procedural/*.java",
             "**/entity/BlendEntitySocketsTest.java",
@@ -422,7 +423,7 @@ if (providers.gradleProperty("runnable_examples").orNull == "true") {
                         it.startsWith("com/liy/blendlib/core/") || it.startsWith("com/liy/blendlib/api/") }) {
                     "Example JAR must not embed library implementation or API classes"
                 }
-                listOf("ExampleContent", "LayeredActor", "ExampleClient", "ExampleItemCommands", "ExampleAnimationScene", "ExampleCueCommands").forEach {
+                listOf("ExampleContent", "LayeredActor", "ExampleClient", "ExampleItemCommands", "ExampleAnimationScene").forEach {
                     check("com/liy/blendlib/examples/runnable/$it.class" in names) { "Missing example class: $it" }
                 }
                 val metadata = zip.getInputStream(zip.getEntry("fabric.mod.json")).reader().readText()

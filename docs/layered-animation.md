@@ -54,6 +54,44 @@ The original selector/controller still supplies legacy event and diagnostic sema
 Keep it aligned with your full-body layer if using its visual-event callback. Layer-specific
 visual event tracks are not yet dispatched by this opt-in composition API.
 
+## Tick-based cues without a consumer cache
+
+For entity action state carrying a sequence and start tick, prefer the additive
+`animationLayerCues(layers, cues)` convenience:
+
+```java
+builder.skinnedAnimation((entity, request) -> walk)
+    .animationLayerCues(layers, (entity, request) ->
+        entity.cueSequence() == 0 ? List.of() : List.of(new BlendEntityLayerCue(
+            upper, attack, entity.cueSequence(), entity.cueTick(), 1.0)));
+```
+
+The entity methods here are consumer-defined state. The real, compiled
+[`ExampleClient`](../versions/modern/showcase/src/client/java/com/liy/blendlib/examples/runnable/ExampleClient.java)
+uses this exact pattern. For an existing command-source registration, use
+`BlendEntityLayerCommands.fromCues(cues)` once and retain the returned source.
+The original `animationLayers` command API remains available unchanged.
+
+`startTick` must use the same client game-tick epoch as the snapshot request. Convert a
+server clock yourself if your synchronization uses another epoch. At the first observation,
+BlendLib computes `max(0, clientTick + partialTick - startTick) / 20 * playbackSpeed * descriptorStateSpeed`, then
+freezes that immutable command for the sequence. Future ticks start immediately at zero;
+this is clip-local catch-up, not a scheduler. As with an explicit absolute command, a completed
+one-shot clamps to its endpoint and follows `next` on a subsequent positive advance; this
+adapter does not reconstruct historical transition chains or blends. The first capture wins: changing animation, start tick or
+speed requires a new increasing sequence. Older sequences are ignored without replacing
+the latest frozen command. An empty list keeps playback and the sequence watermark.
+Sequences are independent per controller, zero is valid, and a batch must contain at most
+one cue per controller. The example reserves zero only as its own “no cue yet” convention.
+
+Capture state is scoped by exact entity object identity, source identity, full active
+connection key, model and resource generation. Equal/reused entity IDs do not share captured
+commands. BlendLib's existing unload, reload, disconnect, repeated play-init and explicit
+runtime retirement paths release it, so consumers register no lifecycle hooks and retain no
+entity maps. A still-current cue is recaptured with current elapsed time after reload or
+retracking; it is not restarted at zero. Extraction after disconnect returns no commands.
+Only extraction sees the cue source; rendering retains immutable snapshots as before.
+
 ## Order and lifetime
 
 Loaded asset → v1 base identity/clock → v2 layer composition → entity pose modifier →

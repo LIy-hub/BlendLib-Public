@@ -15,7 +15,7 @@ import com.liy.blendlib.core.loader.ModelAssetLoader;
 import com.liy.blendlib.core.model.ModelAsset;
 import com.liy.blendlib.core.model.Vec3;
 import com.liy.blendlib.examples.runnable.ExampleAnimationScene;
-import com.liy.blendlib.examples.runnable.ExampleCueCommands;
+import com.liy.blendlib.fabric.client.entity.BlendEntityLayerCue;
 import java.io.IOException;
 import java.util.List;
 
@@ -36,11 +36,11 @@ public final class RunnableExampleAssetVerification {
         var runtime = new AnimationV2InstanceRuntime(layers.plan());
         var attack = BlendAnimationKey.parse(NS + "attack");
         var idle = BlendAnimationKey.parse(NS + "idle");
-        var commands = new ExampleCueCommands();
+        var commands = new EntityLayerCueCache();
         Object entity = new EqualEntity(42);
-        var cue = commands.capture(entity, 1, 29, 31, 1).getFirst();
+        var cue = capture(commands, entity, 1, 29, 31, 1).getFirst();
         runtime.advanceAtFrame(0, List.of(cue));
-        var repeated = commands.capture(entity, 1, 29, 35, 1);
+        var repeated = capture(commands, entity, 1, 29, 35, 1);
         require(repeated.getFirst().equals(cue), "same cue at later extraction must remain byte-for-byte semantic duplicate");
         var frame = runtime.advanceAtFrame(0.2, repeated);
         require(frame.diagnostics().stream().noneMatch(d -> d.code() == AnimationV2DiagnosticCode.COMMAND_SEQUENCE_CONFLICT),
@@ -79,19 +79,26 @@ public final class RunnableExampleAssetVerification {
         require(retrigger.playheads().get(ExampleAnimationScene.UPPER).state().equals(attack), "new cue must retrigger");
         // A new controller generation can accept the same authoritative cue after resource reload.
         var reloaded = new ModelAnimationLayers(load("actor"), ExampleAnimationScene.layers());
-        var reloadCue = commands.capture(entity, 1, 29, 39, 2);
+        var reloadCue = capture(commands, entity, 1, 29, 39, 2);
         require(reloadCue.getFirst().requestedPlayheadSeconds() == 0.5, "reload must refresh elapsed-time capture");
         require(new AnimationV2InstanceRuntime(reloaded.plan()).advanceAtFrame(0, reloadCue)
                 .playheads().get(ExampleAnimationScene.UPPER).acceptedSequence() == 1, "reload must accept current cue");
-        var other = commands.capture(new EqualEntity(42), 1, 29, 33, 1).getFirst();
+        var other = capture(commands, new EqualEntity(42), 1, 29, 33, 1).getFirst();
         require(other.requestedPlayheadSeconds() == 0.2, "distinct equal-ID entities must capture independently");
-        commands.retire(entity);
-        require(commands.capture(entity, 1, 29, 41, 2).getFirst().requestedPlayheadSeconds() == 0.6,
+        commands.retireEntity(42);
+        require(capture(commands, entity, 1, 29, 41, 2).getFirst().requestedPlayheadSeconds() == 0.6,
                 "entity unload must retire the captured command");
         commands.clear();
-        require(commands.capture(entity, 1, 29, 43, 2).getFirst().requestedPlayheadSeconds() == 0.7,
+        require(capture(commands, entity, 1, 29, 43, 2).getFirst().requestedPlayheadSeconds() == 0.7,
                 "disconnect must clear captured commands");
         System.out.println("Verified packaged actor/wand/marker with strict loader, layers, procedural pose, final socket, duplicate/retrigger and reload cues");
+    }
+
+    private static List<AnimationV2Command> capture(EntityLayerCueCache cache, Object owner, long sequence,
+            long startTick, double ticks, long generation) {
+        return cache.capture(RunnableExampleAssetVerification.class, owner, BlendInstanceKey.entity("verify", 42),
+                BlendModelKey.parse(NS + "actor"), generation, ticks, List.of(new BlendEntityLayerCue(
+                        ExampleAnimationScene.UPPER, BlendAnimationKey.parse(NS + "attack"), sequence, startTick, 1)));
     }
 
     private static ModelAsset load(String name) {

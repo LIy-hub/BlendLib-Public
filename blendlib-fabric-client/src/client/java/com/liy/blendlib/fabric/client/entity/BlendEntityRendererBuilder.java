@@ -188,6 +188,13 @@ public final class BlendEntityRendererBuilder<E extends Entity> {
         return this;
     }
 
+    /** Adds tick-based entity cues with runtime-owned capture and automatic lifecycle cleanup. */
+    public BlendEntityRendererBuilder<E> animationLayerCues(
+            java.util.List<com.liy.blendlib.core.animation.v2.ModelAnimationLayers.Layer> layers,
+            BlendEntityLayerCues<? super E> cues) {
+        return animationLayers(layers, BlendEntityLayerCommands.fromCues(cues));
+    }
+
     /** Runs reusable pose components after layered animation, before sockets and palettes. */
     public BlendEntityRendererBuilder<E> poseComponents(
             com.liy.blendlib.fabric.client.animation.runtime.ClientAnimationPoseModifier components) {

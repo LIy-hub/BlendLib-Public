@@ -68,6 +68,39 @@ class SkinnedAnimationRuntimeTest {
     private static final BlendResourceId OVERLAY = BlendResourceId.parse("runtime_test:overlay");
 
     @Test
+    void tickCueCaptureUsesDescriptorSpeedAndStaysStableAcrossLayerExtractionAndReload() {
+        var fixture = skinnedFixture(120L, 1.0, 2.0, 1.0);
+        var harness = harness();
+        harness.runtime().onPlayInit();
+        publish(harness.models(), fixture.loaded());
+        var source = new Object();
+        var entity = new Object();
+        var cue = new com.liy.blendlib.fabric.client.entity.BlendEntityLayerCue(BASE, WALK, 1, 10, 1.5);
+        var key = harness.runtime().entityKey(42);
+        var layers = List.of(layer(BASE, 0, AnimationV2LayerMode.OVERRIDE, 1F, IDLE, List.of()));
+        var commands = harness.runtime().captureEntityLayerCues(source, entity, 42, MODEL, 120, 12.5, List.of(cue));
+        assertEquals(0.375, commands.getFirst().requestedPlayheadSeconds(), 1e-9);
+        harness.runtime().extractLayered(input(MODEL, key, 12, 0.5F, IDLE, Optional.empty(),
+                AnimationUpdateBucket.VISIBLE_NEAR, fixture.handle()), layers, commands, null).orElseThrow();
+        var repeated = harness.runtime().captureEntityLayerCues(source, entity, 42, MODEL, 120, 13.5, List.of(cue));
+        assertSame(commands.getFirst(), repeated.getFirst());
+        harness.runtime().extractLayered(input(MODEL, key, 13, 0.5F, IDLE, Optional.empty(),
+                AnimationUpdateBucket.VISIBLE_NEAR, fixture.handle()), layers, repeated, null).orElseThrow();
+        var frame = harness.runtime().layeredSnapshot(key).orElseThrow();
+        assertEquals(0.525, frame.playheads().get(BASE).timeSeconds(), 1e-9);
+        assertTrue(frame.diagnostics().stream().noneMatch(d -> d.code()
+                == com.liy.blendlib.core.animation.v2.AnimationV2DiagnosticCode.COMMAND_SEQUENCE_CONFLICT));
+        var replacement = skinnedFixture(121L, 1.0, 0.5, 1.0);
+        publish(harness.models(), replacement.loaded());
+        harness.runtime().onActiveGeneration(121);
+        var reloaded = harness.runtime().captureEntityLayerCues(source, entity, 42, MODEL, 121, 14, List.of(cue));
+        assertEquals(0.15, reloaded.getFirst().requestedPlayheadSeconds(), 1e-9);
+        harness.runtime().extractLayered(input(MODEL, key, 14, 0F, IDLE, Optional.empty(),
+                AnimationUpdateBucket.VISIBLE_NEAR, replacement.handle()), layers, reloaded, null).orElseThrow();
+        assertEquals(1, harness.runtime().layeredSnapshot(key).orElseThrow().playheads().get(BASE).acceptedSequence());
+    }
+
+    @Test
     void layeredMaskAndAdditivePoseReachSocketBeforeProceduralRotation() {
         SkinnedFixture fixture = skinnedFixture(101L);
         RuntimeHarness harness = harness();

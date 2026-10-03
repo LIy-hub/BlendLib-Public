@@ -59,6 +59,8 @@ public final class SkinnedAnimationRuntime {
     private final java.util.LinkedHashMap<LayerPlanKey, ModelAnimationLayers> preparedLayerPlans =
             new java.util.LinkedHashMap<>(16, 0.75F, true);
 
+    private final EntityLayerCueCache entityLayerCues = new EntityLayerCueCache();
+
     private long observedGeneration = NO_OBSERVED_GENERATION;
 
     /**
@@ -93,6 +95,7 @@ public final class SkinnedAnimationRuntime {
         if (entityId < 0) {
             return 0;
         }
+        entityLayerCues.retireEntity(entityId);
         int removed = lifecycle.onEntityUnload(entityId);
         Iterator<BlendInstanceKey> keys = clocks.keySet().iterator();
         while (keys.hasNext()) {
@@ -105,6 +108,27 @@ public final class SkinnedAnimationRuntime {
             }
         }
         return removed;
+    }
+
+    /** Internal extraction bridge used by the public tick-based entity cue adapter. */
+    public List<AnimationV2Command> captureEntityLayerCues(Object source, Object owner, int entityId,
+            BlendModelKey model, long generation, double clientTicks,
+            List<com.liy.blendlib.fabric.client.entity.BlendEntityLayerCue> cues) {
+        return activeEntityKey(entityId)
+                .map(instance -> entityLayerCues.capture(source, owner, instance, model, generation, clientTicks, cues,
+                        cue -> cueStateSpeed(model, generation, cue.animationKey())))
+                .orElseGet(List::of);
+    }
+
+    private double cueStateSpeed(BlendModelKey model, long generation, BlendAnimationKey animation) {
+        var handle = modelRegistry.current().find(model);
+        if (handle.isPresent() && handle.get() instanceof LoadedModelHandle loaded
+                && loaded.generationId() == generation && loaded.asset().animationDefinition() != null) {
+            var state = loaded.asset().animationDefinition().states().get(animation.resourceId());
+            if (state != null) return state.speed();
+        }
+        // Missing/undeclared states still follow the existing extraction/command rejection path.
+        return 1.0;
     }
 
     /**
@@ -156,6 +180,7 @@ public final class SkinnedAnimationRuntime {
         if (activeGeneration < 0L) {
             throw new IllegalArgumentException("activeGeneration must be non-negative");
         }
+        entityLayerCues.retainGeneration(activeGeneration);
         lifecycle.registry().retireOtherGenerations(activeGeneration);
         preparedAssets.keySet().removeIf(key -> key.generation() != activeGeneration);
         preparedLayerPlans.keySet().removeIf(key -> key.generation() != activeGeneration);
@@ -204,6 +229,7 @@ public final class SkinnedAnimationRuntime {
     /** Retires explicit item/ephemeral owners as soon as their bounded registry evicts them. */
     public void retire(BlendInstanceKey key) {
         Objects.requireNonNull(key, "key");
+        entityLayerCues.retire(key);
         clocks.remove(key);
         lifecycle.registry().remove(key);
     }
@@ -474,6 +500,7 @@ public final class SkinnedAnimationRuntime {
     }
 
     private void clearRuntimeState() {
+        entityLayerCues.clear();
         preparedAssets.clear();
         preparedLayerPlans.clear();
         clocks.clear();

@@ -54,7 +54,9 @@ the visual bounds or socket. Remove it with the standard command:
 ```
 
 The server emits a sequence/tick cue via vanilla entity data every 100 ticks. Client extraction
-turns that into a deduplicated upper-controller command, including elapsed time for late tracking.
+uses `animationLayerCues` and `BlendEntityLayerCue` to produce a deduplicated upper-controller
+command, including elapsed time for late tracking. The library owns command capture, reload
+recapture and unload/disconnect cleanup; this consumer needs no identity cache or lifecycle hooks.
 This is deliberately consumer-owned synchronization; it does not introduce another BlendLib
 network protocol or claim to exercise every library resynchronization path.
 
