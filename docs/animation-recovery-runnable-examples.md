@@ -54,8 +54,11 @@ covered by the executable fixture checks.
 
 ## Verification limits
 
-Compilation, headless animation checks and CI are not visual acceptance. This
-cloud execution environment has no configured display, virtual display runner
-or graphics device, so no in-world native/visual pass is claimed. No EULA or new
-security setting was accepted. Use the manual acceptance checklist in the example
+Compilation, headless animation checks and CI are not visual acceptance. The opt-in client was actually launched on the cloud Xfce desktop (`DISPLAY=:0`).
+Fabric loaded the library and example mod, but Minecraft stopped before opening
+a world: OpenGL could not find a matching GLX visual, and Vulkan lacked
+`VK_KHR_surface`. The error dialog was dismissed and the client closed. Gradle
+returned exit zero despite that graphics failure, so launch-task success must not
+be treated as visual acceptance. No in-world native/visual pass is claimed, and
+no EULA or new security setting was accepted. Use the manual acceptance checklist in the example
 README for native rendering, reload and multiplayer tracking checks.
