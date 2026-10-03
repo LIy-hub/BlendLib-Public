@@ -95,3 +95,46 @@ Run the normal Java 25 test suite:
 `ProceduralPoseConsumerProbe.main` is an executable, assertion-based consumer example with no
 Minecraft runtime or JUnit dependency. It exercises the same public modifier contract and component
 composition using a prepared test rig. The JUnit suite also invokes it.
+
+## Dynamic weights and node masks
+
+`WeightedPoseComponent` blends an existing component or whole `ProceduralPosePipeline` against
+that stage's incoming local pose. This is independent of animation-v2's fixed clip-layer weights.
+
+```java
+var fadingAim = new WeightedPoseComponent(
+    new LookAtPoseComponent("head", new Vec3(0, 0, 1), 1F,
+        context -> targetsInModelSpace.get(context.instanceKey())),
+    context -> Math.clamp(
+        (context.clientGameTimeInTicks() - actionStartTicks.get(context.instanceKey())) / 20.0,
+        0.0, 1.0),
+    Map.of("head", 1F));
+builder.poseComponents(ProceduralPosePipeline.of(fadingAim,
+    new RotationLimitPoseComponent("head", Quaternion.IDENTITY, 1.0F)));
+```
+
+The target and action-start maps above belong to the consumer and must contain the current
+instance; no new clock, action store or lifecycle registry is introduced. This fades aim in over
+one second using the existing extraction clock. For fade-out return `1 - progress`; for other
+curves calculate a bounded weight from your game state. The executable
+`ProceduralPoseConsumerProbe` asserts start, midpoint and completed fade. The live
+`ExampleAnimationScene` smoothly cycles aim strength with client time.
+
+The two-argument constructor affects all nodes. The three-argument constructor copies its
+`Map<String, Float>`: empty means all nodes, otherwise omitted nodes have zero weight and each
+named weight multiplies the dynamic weight. A zero-valued entry explicitly suppresses that node.
+Names resolve against the current rig on every call; unknown or ambiguous names fail even at zero
+weight. Masks select exact local nodes, not descendants. Parent rotation can still move children
+in model/world space. All weights must be finite in [0,1]; invalid values fail rather than clamp.
+
+The supplier is called once and then the wrapped component is evaluated exactly once, including
+at zero weight or with an all-zero mask. This keeps a spring tracking its input while invisible;
+it does not pause or reset the simulation. Full output is checked for exact node membership,
+translation and scale preservation before masking. `Transform` already enforces normalized finite
+rotations. Only rotations are blended with shortest-arc slerp; zero contribution preserves the
+incoming pose. Nested wrappers multiply their effects relative to each stage's incoming pose.
+Keep final safety limits outside a weighted wrapper if the final visible pose must respect them.
+
+Both reset methods forward to the wrapped component. Existing per-instance/generation spring
+isolation is retained; use separate stateful objects for separate pipeline stages. The wrapper
+adds no retained instance state and follows the existing client-thread supplier discipline.

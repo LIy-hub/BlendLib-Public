@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased - weighted procedural poses
+
+- Add dynamic weighted and named-node-masked composition for procedural components and pipelines, retaining zero-weight spring progression and rotation-only validation
+- Demonstrate time-varying aim fades in the runnable showcase and executable consumer probe
+
 ## Unreleased - item animation reload safety
 
 - Preserve item playback controls when a selected descriptor animation disappears after reload; use explicit unavailable status and safe static/missing-model fallback

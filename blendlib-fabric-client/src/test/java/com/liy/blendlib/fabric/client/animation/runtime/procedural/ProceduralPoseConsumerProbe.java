@@ -52,6 +52,15 @@ public final class ProceduralPoseConsumerProbe {
         require(spring.modify(context(rig, 1, 2, 120), rest) == rest, "long-gap reset");
         spring.modify(context(rig, 3, 1, 1), rest);
         require(spring.retainedInstanceCount() == 2, "bounded retention");
+        // A game action starts at tick 40; fade a complete aim component over 20 ticks.
+        var fadingAim = new WeightedPoseComponent(
+                new LookAtPoseComponent("head", new Vec3(0, 0, 1), 1, c -> new Vec3(1, 0, 0)),
+                c -> Math.clamp((c.clientGameTimeInTicks() - 40) / 20, 0, 1),
+                Map.of("head", 1F));
+        require(fadingAim.modify(context(rig, 1, 1, 40), rest) == rest, "fade starts at incoming pose");
+        require(Math.abs(angle(fadingAim.modify(context(rig, 1, 1, 50), rest), 0) - Math.PI/4) < 1e-5, "fade midpoint");
+        require(Math.abs(angle(fadingAim.modify(context(rig, 1, 1, 60), rest), 0) - Math.PI/2) < 1e-5, "fade completes");
+        require(fadingAim.modify(context(rig, 1, 1, 60), rest).transform(1).equals(rest.transform(1)), "masked tip unchanged");
         System.out.println("Procedural pose consumer probe passed");
     }
 
