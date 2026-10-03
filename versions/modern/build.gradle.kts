@@ -334,3 +334,143 @@ tasks.register("verifyRuntimeJar") {
     }
 }
 tasks.named("check") { dependsOn("verifyRuntimeJar") }
+
+// An explicitly enabled consumer mod, never part of BlendLib's production source sets or JAR.
+// Keeping it here allows compilation against the exact 26.3 port rather than the 26.1.2 root build.
+if (providers.gradleProperty("runnable_examples").orNull == "true") {
+    check(minecraftVersion == "26.3") { "Runnable examples currently target only Minecraft 26.3" }
+    val examples = sourceSets.create("runnableExamples")
+    val examplesClient = sourceSets.create("runnableExamplesClient")
+    examples.java.setSrcDirs(listOf("showcase/src/main/java"))
+    examples.resources.setSrcDirs(listOf("showcase/src/main/resources"))
+    examplesClient.java.setSrcDirs(listOf("showcase/src/client/java"))
+    examplesClient.resources.setSrcDirs(emptyList<String>())
+    examples.compileClasspath += sourceSets["main"].output + configurations["compileClasspath"]
+    examples.runtimeClasspath += sourceSets["main"].output + configurations["runtimeClasspath"]
+    examplesClient.compileClasspath += examples.output + sourceSets["main"].output +
+            sourceSets["client"].output + configurations["clientCompileClasspath"]
+    examplesClient.runtimeClasspath += examples.output + sourceSets["main"].output +
+            sourceSets["client"].output + configurations["clientRuntimeClasspath"]
+
+    val sourceAssets = repository.resolve("blendlib-showcase/src/main/resources/assets/blendlib_showcase")
+    // The binaries already belong to this repository (Apache-2.0). No network, Blender, Python,
+    // external asset path or optional benchmark pack is needed to build the runnable consumer.
+    val assetCopies = mapOf(
+        "models3d/showcase_animation/showcase_actor.glb" to "models3d/actor.glb",
+        "models3d/fixtures/static_model.glb" to "models3d/marker.glb",
+        "textures/blendlib/showcase_animation/showcase_actor__showcaseanimationsurface.png" to "textures/actor.png",
+        "textures/blendlib/fixtures_static_model__staticsurface.png" to "textures/marker.png",
+    )
+    val prepareExampleAssets = tasks.register<Sync>("prepareRunnableExampleAssets") {
+        into(layout.buildDirectory.dir("generated/runnable-example-resources/assets/blendlib_runnable_examples"))
+        assetCopies.forEach { (source, destination) ->
+            from(sourceAssets.resolve(source)) {
+                into(destination.substringBeforeLast('/'))
+                rename { destination.substringAfterLast('/') }
+            }
+        }
+    }
+    examples.resources.srcDir(layout.buildDirectory.dir("generated/runnable-example-resources"))
+    tasks.named(examples.processResourcesTaskName) { dependsOn(prepareExampleAssets) }
+
+    configure<net.fabricmc.loom.api.LoomGradleExtensionAPI> {
+        mods {
+            create("blendlib_runnable_examples") {
+                sourceSet(examples)
+                sourceSet(examplesClient)
+            }
+        }
+        runs {
+            create("runnableExamplesClient") {
+                client()
+                source(examplesClient)
+                setConfigName("BlendLib 26.3 Runnable Examples (opt-in)")
+                runDir("run/26.3/runnable-examples-client")
+            }
+        }
+    }
+    val exampleJar = tasks.register<Jar>("runnableExamplesJar") {
+        group = "build"
+        description = "Builds the separate opt-in Minecraft 26.3 consumer example mod."
+        archiveBaseName.set("blendlib-runnable-examples")
+        from(examples.output)
+        from(examplesClient.output)
+    }
+    val examplesVerify = sourceSets.create("runnableExamplesVerify")
+    examplesVerify.java.setSrcDirs(listOf("showcase/src/verification/java"))
+    examplesVerify.resources.setSrcDirs(emptyList<String>())
+    examplesVerify.compileClasspath += examplesClient.output + examplesClient.compileClasspath
+    examplesVerify.runtimeClasspath += sourceSets["main"].output + sourceSets["client"].output +
+            files(exampleJar.flatMap { it.archiveFile }) + configurations["clientRuntimeClasspath"]
+    val verifyExampleAssets = tasks.register<JavaExec>("verifyRunnableExampleAssets") {
+        group = "verification"
+        description = "Loads packaged example GLBs and evaluates the actual layered/procedural scene headlessly."
+        dependsOn(exampleJar)
+        classpath = examplesVerify.runtimeClasspath
+        mainClass.set("com.liy.blendlib.fabric.client.animation.runtime.RunnableExampleAssetVerification")
+        javaLauncher.set(javaToolchains.launcherFor { languageVersion.set(JavaLanguageVersion.of(25)) })
+    }
+    tasks.register("verifyRunnableExamples") {
+        group = "verification"
+        description = "Compiles and checks the opt-in consumer JAR, copied assets and runtime isolation."
+        dependsOn(exampleJar, tasks.named("jar"), verifyExampleAssets)
+        doLast {
+            val namespace = "assets/blendlib_runnable_examples/"
+            ZipFile(exampleJar.get().archiveFile.get().asFile).use { zip ->
+                val names = zip.entries().asSequence().map { it.name }.toSet()
+                check(names.none { it.startsWith("com/liy/blendlib/fabric/") ||
+                        it.startsWith("com/liy/blendlib/core/") || it.startsWith("com/liy/blendlib/api/") }) {
+                    "Example JAR must not embed library implementation or API classes"
+                }
+                listOf("ExampleContent", "LayeredActor", "ExampleClient", "ExampleItemCommands", "ExampleAnimationScene", "ExampleCueCommands").forEach {
+                    check("com/liy/blendlib/examples/runnable/$it.class" in names) { "Missing example class: $it" }
+                }
+                val metadata = zip.getInputStream(zip.getEntry("fabric.mod.json")).reader().readText()
+                check(metadata.contains("\"id\": \"blendlib_runnable_examples\""))
+                check(metadata.contains("\"minecraft\": \"26.3\""))
+                check(metadata.contains("\"blendlib\": \"${project.version}\""))
+                check(!metadata.contains("\"mixins\""))
+                listOf("ExampleContent", "LayeredActor").forEach {
+                    val bytes = zip.getInputStream(zip.getEntry("com/liy/blendlib/examples/runnable/$it.class")).readBytes()
+                    check(!bytes.toString(Charsets.ISO_8859_1).contains("net/minecraft/client/")) {
+                        "Common example entrypoint/entity must remain server-safe: $it"
+                    }
+                }
+                assetCopies.forEach { (source, destination) ->
+                    val entry = zip.getEntry(namespace + destination)
+                    check(entry != null) { "Missing example asset: $destination" }
+                    check(zip.getInputStream(entry).readBytes().contentEquals(sourceAssets.resolve(source).readBytes())) {
+                        "Example binary must be the documented repository-local asset: $destination"
+                    }
+                }
+                val slurper = groovy.json.JsonSlurper()
+                listOf("actor", "wand", "marker").forEach { model ->
+                    val path = namespace + "blend_models/$model.json"
+                    val descriptor = slurper.parseText(zip.getInputStream(zip.getEntry(path)).reader().readText()) as Map<*, *>
+                    val mesh = descriptor["mesh"] as String
+                    check(namespace + mesh.substringAfter(':') in names) { "Unresolved example mesh: $mesh" }
+                    val materials = descriptor["materials"] as Map<*, *>
+                    materials.values.forEach { value ->
+                        val texture = (value as Map<*, *>)["base_color"] as String
+                        check(namespace + texture.substringAfter(':') in names) { "Unresolved example texture: $texture" }
+                    }
+                    if (model != "marker") {
+                        val animation = descriptor["animation"] as Map<*, *>
+                        val states = animation["states"] as Map<*, *>
+                        check(states.keys.containsAll(listOf("idle", "walk", "attack").map { "blendlib_runnable_examples:$it" }))
+                        check((descriptor["sockets"] as Map<*, *>).containsKey("blendlib_runnable_examples:tip"))
+                    }
+                }
+                check(namespace + "items/animated_wand.json" in names)
+                check(namespace + "models/item/animated_wand.json" in names)
+            }
+            ZipFile(tasks.named<Jar>("jar").get().archiveFile.get().asFile).use { zip ->
+                check(zip.entries().asSequence().none {
+                    it.name.startsWith("com/liy/blendlib/examples/runnable/") || it.name.startsWith(namespace)
+                }) { "The normal BlendLib runtime must not include opt-in example content" }
+                val metadata = zip.getInputStream(zip.getEntry("fabric.mod.json")).reader().readText()
+                check(!metadata.contains("blendlib_runnable_examples"))
+            }
+        }
+    }
+}

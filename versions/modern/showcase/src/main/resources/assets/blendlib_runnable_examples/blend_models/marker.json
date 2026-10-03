@@ -1,0 +1,17 @@
+{
+  "extensions": {},
+  "extensions_required": [],
+  "extensions_used": [],
+  "format_version": 1,
+  "materials": {
+    "StaticSurface": {
+      "base_color": "blendlib_runnable_examples:textures/marker.png",
+      "double_sided": false,
+      "emissive": false,
+      "mode": "opaque"
+    }
+  },
+  "mesh": "blendlib_runnable_examples:models3d/marker.glb",
+  "profile": "blendlib:rigid_v1",
+  "units_per_block": 1.0
+}

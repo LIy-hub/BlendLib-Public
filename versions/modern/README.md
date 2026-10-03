@@ -55,3 +55,16 @@ and never joins a world. `finish_packaged_client.ps1` checks the matching proces
 result and startup errors, then closes only that test window. Offline authentication failures and
 the separately recorded Windows OSHI performance-counter diagnostic are environment evidence.
 Client startup remains separate from the user's visual acceptance.
+
+## Opt-in runnable 26.3 animation examples
+
+A separate consumer mod demonstrates layered entity animation, procedural final poses, a real
+socket-attached model, and animated handheld item playback. Build/verify it with:
+
+```sh
+./gradlew -p versions/modern -Pminecraft_version=26.3 -Prunnable_examples=true verifyRunnableExamples
+```
+
+Use `runRunnableExamplesClient` with the same properties for its isolated launch profile.
+See [commands, assets, packaging, and the manual acceptance checklist](showcase/README.md).
+The normal library JAR and default builds never include or register these examples.

@@ -1,0 +1,52 @@
+{
+  "animation": {
+    "initial_state": "blendlib_runnable_examples:idle",
+    "states": {
+      "blendlib_runnable_examples:attack": {
+        "blend_seconds": 0.08,
+        "clip": "attack",
+        "events": [
+          {
+            "event": "blendlib_runnable_examples:attack_whoosh",
+            "time_seconds": 0.25
+          }
+        ],
+        "loop": false,
+        "next": "blendlib_runnable_examples:idle",
+        "speed": 1.0
+      },
+      "blendlib_runnable_examples:idle": {
+        "blend_seconds": 0.12,
+        "clip": "idle",
+        "loop": true,
+        "speed": 1.0
+      },
+      "blendlib_runnable_examples:walk": {
+        "blend_seconds": 0.12,
+        "clip": "walk",
+        "loop": true,
+        "speed": 1.0
+      }
+    }
+  },
+  "extensions": {},
+  "extensions_required": [],
+  "extensions_used": [],
+  "format_version": 1,
+  "materials": {
+    "ShowcaseAnimationSurface": {
+      "base_color": "blendlib_runnable_examples:textures/actor.png",
+      "double_sided": false,
+      "emissive": false,
+      "mode": "opaque"
+    }
+  },
+  "mesh": "blendlib_runnable_examples:models3d/actor.glb",
+  "profile": "blendlib:skinned_v1",
+  "sockets": {
+    "blendlib_runnable_examples:tip": {
+      "node": "ShowcaseAnimationRoot/ShowcaseAnimationArmature/ShowcaseRootBone/ShowcaseTipBone"
+    }
+  },
+  "units_per_block": 2.5
+}
