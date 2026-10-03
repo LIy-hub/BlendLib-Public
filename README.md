@@ -20,13 +20,16 @@ and drive its movement with animation and pose APIs.
 model and animation layer for your own content. BlendLib is a library; installing it alone
 does not add creatures, items or gameplay.
 
-## Minecraft 26.3 source port
+## Current 26.3 development entry
 
-The `mc/26.3` branch adds a 26.3 target to the shared modern build. See the
-[26.3 changelog and evidence](docs/release/minecraft-26.3.md) for build instructions,
-CI artifacts and verification limits. This code update does not create a GitHub Release or CurseForge upload.
+**Developers using this cumulative source branch: start with the
+[26.3 quickstart](docs/developer-quickstart-26.3.md).** It covers exact dependencies/JARs,
+build and demo launch commands, minimal public APIs, cumulative capabilities and known limits.
+This includes the 26.3 port plus opt-in layers, procedural motion, animated items, attachments,
+appearance and named skins. It does not create a new public release or CurseForge upload.
 
-`mc/26.3` 分支已加入 26.3 源码适配；构建方法、CI 产物及验证边界见上述记录。未新增 GitHub Release 或 CurseForge 上传。
+当前累计开发源码请从 [26.3 入门](docs/developer-quickstart-26.3.md)开始；下方公开 Beta.3
+安装表与 26.1.2 示例保留各自版本范围，不代表 26.3 已发布或完成原生图形验收。
 
 ## From model to motion
 
@@ -64,6 +67,7 @@ Runtime JARs, sources and SHA-256 checksums are available in the GitHub release.
 
 | Start here | What you will find |
 | --- | --- |
+| [Current 26.3 quickstart](./docs/developer-quickstart-26.3.md) | Current development source, exact JARs, runnable examples, API entry and limits |
 | [Developer handbook / 模组开发者手册](./docs/developer-handbook.md) | Complete Chinese guide: dependencies, assets, entities, block entities, items, animation, synchronization, poses, diagnostics and API reference |
 | [Documentation](./docs/release/README.md) | Release, integration and troubleshooting links |
 | [Blender export checklist](./docs/release/blender-export-checklist-v1.md) | Supported profiles, asset layout and export validation |
@@ -77,7 +81,7 @@ signatures differ between releases. The separate Blender exporter requires **Ble
 Beta.3 leaves it unchanged, and its package remains available in the
 [Beta.1 release](https://github.com/LIy-hub/BlendLib-Public/releases/tag/v1.0.0-beta.1%2B26.1.2).
 
-### Developer quick start · Fabric 26.1.2
+### Historical release quick start · Fabric 26.1.2
 
 1. Add the matching runtime JAR to your existing Fabric project and declare the `blendlib`
    dependency. See the handbook's [dependency setup](./docs/developer-handbook.md#dependencies)
@@ -112,11 +116,11 @@ Continue with [entity animation](./docs/developer-handbook.md#entities),
 [block entities](./docs/developer-handbook.md#block-entities) or
 [item models](./docs/developer-handbook.md#items).
 
-The handbook distinguishes current behavior from extension contracts: ordinary item bindings
-currently render a base pose, the standard block-entity animation path requires a skinned model,
-and synchronized animation sampling does not dispatch visual event callbacks. These details,
-supported material combinations and advanced API boundaries are covered in the
-[capability matrix](./docs/developer-handbook.md#scope).
+For this older release baseline, ordinary item bindings render a base pose and synchronized
+sampling does not dispatch visual event callbacks. The cumulative 26.3 source adds opt-in item
+animation and bounded synchronized callbacks; see the [current entry](docs/developer-quickstart-26.3.md).
+The standard block-entity animation path still requires a skinned model. The
+[handbook matrix](./docs/developer-handbook.md#scope) marks current additions separately.
 
 To build a Beta.3 target locally, install the Java 21 and Java 25 toolchains and use:
 

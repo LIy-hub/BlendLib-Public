@@ -1,4 +1,10 @@
-# BlendLib 设计基线与 Alpha 文档入口
+# BlendLib 文档导航
+
+**当前累计 26.3 开发源码：[开发者入门](developer-quickstart-26.3.md)**。这里集中说明依赖、
+安装 JAR、构建与示例命令、普通 API、累计能力及未验收边界。
+公开 Beta.3 版本见 [release/](release/README.md)；以下设计/Alpha 状态仅为历史基线。
+
+## 历史设计基线
 
 > **来源基线说明。** 本文、`architecture.md`、`design-v1.md` 与
 > `implementation-plan.md` 保留为已批准的历史设计基线。下方“尚未开始实现”是
@@ -34,7 +40,7 @@ BlendLib 的核心差异不是“再做一个通用动画库”，而是提供�
 
 ## 文档入口
 
-- [当前模组开发者手册](./developer-handbook.md)（Beta.2 消费路径、完整示例与当前限制）
+- [模组开发者手册](./developer-handbook.md)（26.1.2 基线教程，26.3 增量能力链接）
 - [项目 Logo 与品牌资源](./assets/branding/README.md)
 - [总体架构](./architecture.md)
 - [v1 设计规格](./design-v1.md)

@@ -1,5 +1,9 @@
 # Minecraft 26.3 port
 
+This page records the initial port checkpoint. For the current cumulative development branch,
+use the [26.3 developer quickstart](../developer-quickstart-26.3.md); the hash and CI below
+identify the original port, not subsequent animation/appearance/attachment additions.
+
 ## Changes
 
 - Add `26.3` to the existing modern shared-source build, with Fabric API `0.161.0+26.3`, Loader `0.19.5`, Loom `1.17.21`, Java 25 and Gradle 9.6.0.

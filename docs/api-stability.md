@@ -1,5 +1,9 @@
 # API Stability Rules
 
+These are architectural compatibility goals. The current Beta development line does not
+provide a blanket stable API/ABI guarantee; use the exact target runtime and verify consumer
+integration. See the [26.3 migration guidance](developer-quickstart-26.3.md#migration-evidence-and-the-remaining-backlog).
+
 BlendLib separates public semantic contracts from adapter-specific and internal implementation details.
 
 | Layer | Examples | Compatibility commitment |
