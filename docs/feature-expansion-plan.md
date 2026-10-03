@@ -3,7 +3,7 @@
 Baseline: `mc/26.3` at `61620626a0c33cd7142bcb7a8e356854290a4eb5`.
 Dedicated local branch: `feature/mc26.3-animation-capabilities`.
 
-The implementation plan was agreed before product edits. Existing strict-v1 assets,
+The implementation plan was prepared and communicated before product edits. Existing strict-v1 assets,
 vanilla extraction/submit separation, and client lifecycle remain the foundation.
 
 ## Dependency order and completion criteria

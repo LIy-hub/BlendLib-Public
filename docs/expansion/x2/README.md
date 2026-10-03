@@ -1,4 +1,6 @@
-# X2：Experimental/internal animation-v2 runtime
+# X2：animation-v2 runtime 历史设计与评审记录
+
+> 26.3 功能分支新增标准实体渲染集成，见[分层动画接入](../../layered-animation.md)。下文“隔离候选 / 未接入”描述保留为旧基线历史，不代表这个分支的新适配入口。既有评审结果不因新增集成自动变为 PASS。
 
 状态：Proposed/Experimental implementation candidate。X2 只实现一个隔离的内部动画运行时、语义 intent 协调器和无平台依赖的 client owner；它不是新的稳定 API、wire 协议、reload 机制或宿主接入。independent r8 review 为 **FAIL（0 Critical / 0 High / 3 Medium / 1 Low）**；formal r9 review 为 **FAIL（0 Critical / 0 High / 1 Medium / 2 Low）**；fresh independent r10 review 已为 **FAIL（0 Critical / 0 High / 1 Medium / 1 Low）**；formal r11 review 为 **FAIL（0 Critical / 0 High / 1 Medium / 1 Low）**；formal r12 review 为 **FAIL（0 Critical / 0 High / 1 Medium / 1 Low）**。r13 是定向兼容治理修复，fresh independent r13 review 为 **PENDING**。
 

@@ -65,6 +65,19 @@ public final class PoseSampler {
         return new LocalPose(result);
     }
 
+    /** Samples one native channel domain without resampling STEP or quaternion interpolation. */
+    public Transform sampleNode(AnimationState state, double timeSeconds, int nodeIndex) {
+        Objects.requireNonNull(state, "state");
+        if (!Double.isFinite(timeSeconds) || timeSeconds < 0.0D) throw new IllegalArgumentException("Invalid time");
+        Transform base = baseTransforms.get(nodeIndex);
+        if (base == null) throw new IllegalArgumentException("Unknown node: " + nodeIndex);
+        MutableTransform result = new MutableTransform(base);
+        for (CompiledAnimationChannel channel : state.compiledClip().channelsForNode(nodeIndex)) {
+            channel.apply(timeSeconds, result);
+        }
+        return result.freeze();
+    }
+
     /** Blends two complete local poses with v1 linear-vector and normalized-slerp semantics. */
     public LocalPose blend(LocalPose previous, LocalPose current, double amount) {
         Objects.requireNonNull(previous, "previous");

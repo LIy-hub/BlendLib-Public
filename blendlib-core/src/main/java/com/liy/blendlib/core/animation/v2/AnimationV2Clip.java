@@ -11,8 +11,37 @@ public final class AnimationV2Clip {
     private final List<AnimationV2Keyframe> keyframes;
     private final int boneCount;
     private final double durationSeconds;
+    private final com.liy.blendlib.core.animation.runtime.PoseSampler nativeSampler;
+    private final com.liy.blendlib.core.animation.runtime.AnimationState nativeState;
+    private final List<Integer> nativeNodes;
+
+    /** Adapts a loaded strict-v1 clip without baking/resampling its original interpolation. */
+    public static AnimationV2Clip fromState(
+            com.liy.blendlib.core.animation.runtime.PoseSampler sampler,
+            com.liy.blendlib.core.animation.runtime.AnimationState state,
+            List<Integer> nodeIndices) {
+        Objects.requireNonNull(sampler, "sampler");
+        Objects.requireNonNull(state, "state");
+        List<Integer> nodes = List.copyOf(nodeIndices);
+        List<Transform> zero = nodes.stream().map(i -> sampler.sampleNode(state, 0.0D, i)).toList();
+        List<AnimationV2Keyframe> keys = new ArrayList<>();
+        keys.add(new AnimationV2Keyframe(0.0D, new AnimationV2Pose(zero)));
+        double duration = state.clip().durationSeconds();
+        if (duration > 0.0D) keys.add(new AnimationV2Keyframe(duration,
+                new AnimationV2Pose(nodes.stream().map(i -> sampler.sampleNode(state, duration, i)).toList())));
+        return new AnimationV2Clip(keys, sampler, state, nodes);
+    }
 
     public AnimationV2Clip(List<AnimationV2Keyframe> keyframes) {
+        this(keyframes, null, null, List.of());
+    }
+
+    private AnimationV2Clip(List<AnimationV2Keyframe> keyframes,
+            com.liy.blendlib.core.animation.runtime.PoseSampler sampler,
+            com.liy.blendlib.core.animation.runtime.AnimationState state, List<Integer> nodes) {
+        this.nativeSampler = sampler;
+        this.nativeState = state;
+        this.nativeNodes = nodes;
         Objects.requireNonNull(keyframes, "keyframes");
         if (keyframes.isEmpty() || keyframes.size() > AnimationV2Limits.MAX_KEYFRAMES_PER_CLIP) {
             throw new IllegalArgumentException("clip keyframe count is outside supported bounds");
@@ -81,6 +110,10 @@ public final class AnimationV2Clip {
     }
 
     void sampleIntoUnchecked(double timeSeconds, int boneIndex, AnimationV2TransformScratch target) {
+        if (nativeSampler != null) {
+            target.set(nativeSampler.sampleNode(nativeState, Math.min(timeSeconds, durationSeconds), nativeNodes.get(boneIndex)));
+            return;
+        }
         if (timeSeconds <= 0.0D || keyframes.size() == 1) {
             target.set(keyframes.getFirst().pose().transform(boneIndex));
             return;
