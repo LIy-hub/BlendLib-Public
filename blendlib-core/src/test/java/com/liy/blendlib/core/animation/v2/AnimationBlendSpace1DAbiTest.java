@@ -12,6 +12,7 @@ class AnimationBlendSpace1DAbiTest {
         String id="Lcom/liy/blendlib/api/BlendResourceId;";
         assertEquals(Set.of("public <init>(Ljava/util/List;D)V","public samples()Ljava/util/List;",
                 "public memberLayerIds()Ljava/util/Set;","public cycleSeconds()D",
+                "public syncGroup()"+base+"AnimationBlendSpaceSyncGroup;",
                 "public weights(D)"+base+"AnimationV2LayerWeights;",
                 "public validateExternalWeights("+base+"AnimationV2LayerWeights;)V",
                 "public validateExternalCommands(Ljava/util/List;)V",

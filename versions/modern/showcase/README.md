@@ -831,3 +831,35 @@ the same resource IDs; after reload the new resources should be used. Removing a
 resource or changing an authored slot should produce atomic authored fallback and a diagnostic,
 not a partially replaced skin. Also check a launch without the opt-in. No client session or
 visual/GPU acceptance is implied by a passing headless probe.
+
+## Opt-in directional 2D blendspace
+
+Build the cumulative preview with `-Pminecraft_version=26.3 -Prunnable_examples=true
+-Pblendlib_preview=directional-preview`. Install the library/runtime and example JARs of that
+same preview version, Fabric API 0.161.0+26.3, Fabric Loader 0.19.5+ and Java 25.
+
+Add `-Dblendlib.examples.blendspace2d=true` to the launcher's JVM arguments and restart.
+This selects the separate directional model ahead of 1D/discrete modes. Leave two-bone IK off;
+without this property the existing mode precedence is unchanged. On an open flat floor:
+
+```mcfunction
+/summon blendlib_runnable_examples:layered_actor ~ ~ ~3 {Tags:["blendlib_directional"],Rotation:[45f,0f]}
+```
+
+The tag explicitly opts this actor into consumer-owned circular motion with idle intervals.
+The animation input is measured collision-resolved world displacement transformed into local
+forward/left axes, not the trajectory request. The direction ring clamps to a diamond hull;
+diagonal full-motion begins at a lower Euclidean speed than cardinal full-motion.
+
+Use `/blendlib_example inspect`, then `/blendlib_example inspect <entity-id>` to inspect current
+layer weights, loaded-duration normalized phases and stable sequences. Observations are read-only
+and can lag a culled actor. The five actual loops have durations `2/1/0.5/1.5/2.5` seconds and
+share a fixed `0.8` second cycle. Authored phase alignment is required; direction/speed never
+changes cadence. There is no automatic footstep deduplication or foot locking.
+
+Manual acceptance, when resumed: watch every quadrant seam, diagonal sector, idle stop/start,
+upper attack, procedural socket and nested weapon/ornament. Reload resources with F3+T and check
+phase continuity; remove/re-summon the tagged actor and check fresh activation. Delete the actor
+with `/kill @e[type=blendlib_runnable_examples:layered_actor,tag=blendlib_directional]` and remove
+the JVM property to return to the prior mode. Headless packaged tests verify final poses and
+CPU vertices; native visual acceptance is still deferred.

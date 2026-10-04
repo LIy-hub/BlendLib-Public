@@ -11,13 +11,13 @@ import net.minecraft.network.chat.Component;
 final class ExampleInspectionCommands {
     private ExampleInspectionCommands() { }
 
-    static void register(boolean locomotionRules, boolean blendSpace) {
+    static void register(boolean locomotionRules, boolean blendSpace, boolean directional) {
         ClientCommandRegistrationCallback.EVENT.register((dispatcher, registry) -> dispatcher.register(
                 ClientCommands.literal("blendlib_example").then(ClientCommands.literal("inspect")
                         .executes(context -> listActors(context.getSource()))
                         .then(ClientCommands.argument("entity-id", IntegerArgumentType.integer(0))
                                 .executes(context -> inspect(context.getSource(),
-                                        IntegerArgumentType.getInteger(context, "entity-id"), locomotionRules, blendSpace))))));
+                                        IntegerArgumentType.getInteger(context, "entity-id"), locomotionRules, blendSpace, directional))))));
     }
 
     private static int listActors(FabricClientCommandSource source) {
@@ -31,7 +31,7 @@ final class ExampleInspectionCommands {
         return ids.isEmpty() ? 0 : 1;
     }
 
-    private static int inspect(FabricClientCommandSource source, int id, boolean locomotionRules, boolean blendSpace) {
+    private static int inspect(FabricClientCommandSource source, int id, boolean locomotionRules, boolean blendSpace, boolean directional) {
         var client = source.getClient();
         var entity = client.level == null ? null : client.level.getEntity(id);
         if (!(entity instanceof LayeredActor actor)) {
@@ -54,13 +54,24 @@ final class ExampleInspectionCommands {
         }
         source.sendFeedback(Component.literal("Actor " + actor.getId() + " received cueSequence=" + actor.cueSequence()
                 + " cueTick=" + actor.cueTick() + " (received cue may be newer than the sampled layers)"));
-        if (locomotionRules || blendSpace) source.sendFeedback(Component.literal(String.format(java.util.Locale.ROOT,
+        if (locomotionRules || blendSpace || directional) source.sendFeedback(Component.literal(String.format(java.util.Locale.ROOT,
                 "Received locomotion grounded=%s speed=%.4f blocks/tick (may be newer than sampled layers)",
                 actor.locomotionGrounded(), actor.locomotionSpeed())));
-        ExampleLayerInspection.format(blendSpace ? ExampleBlendSpaceScene.layers() : locomotionRules
+        ExampleLayerInspection.format(directional ? ExampleDirectionalScene.layers() : blendSpace ? ExampleBlendSpaceScene.layers() : locomotionRules
                         ? ExampleLocomotionScene.layers() : ExampleAnimationScene.layers(),
                 sampled.orElseThrow())
                 .forEach(line -> source.sendFeedback(Component.literal(line)));
+        if (directional) {
+            var local = ExampleDirectionalScene.localVelocity(actor.directionalDx(), actor.directionalDz(), actor.getYRot());
+            source.sendFeedback(Component.literal(String.format(java.util.Locale.ROOT,
+                    "Received local forward=%.4f left=%.4f blocks/tick (may be newer than sampled weights)", local.x(), local.y())));
+            for (var layer : ExampleDirectionalScene.layers().subList(0, 5)) {
+                var duration = runtime.animationDuration(ExampleDirectionalScene.MODEL, layer.initialState());
+                var head = sampled.orElseThrow().playheads().get(layer.id());
+                if (duration.isPresent() && head != null) source.sendFeedback(Component.literal(String.format(java.util.Locale.ROOT,
+                        "%s normalizedPhase=%.4f sequence=%d", layer.id(), head.timeSeconds()/duration.orElseThrow(), head.acceptedSequence())));
+            }
+        }
         if (blendSpace) {
             var durations = new java.util.LinkedHashMap<com.liy.blendlib.api.BlendResourceId, Double>();
             for (var layer : ExampleBlendSpaceScene.layers().subList(0, 3)) {

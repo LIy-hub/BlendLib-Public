@@ -24,8 +24,9 @@ public final class ExampleClient implements ClientModInitializer {
     public void onInitializeClient() {
         boolean itemAppearance = Boolean.getBoolean("blendlib.examples.itemAppearance");
         boolean namedSkins = Boolean.getBoolean("blendlib.examples.namedSkins");
-        boolean blendSpace = ExampleBlendSpaceScene.enabled();
-        boolean locomotionRules = !blendSpace && ExampleLocomotionScene.enabled();
+        boolean directional = ExampleDirectionalScene.enabled();
+        boolean blendSpace = !directional && ExampleBlendSpaceScene.enabled();
+        boolean locomotionRules = !directional && !blendSpace && ExampleLocomotionScene.enabled();
         if (namedSkins) ExampleNamedSkins.register();
         if (ITEM_VISUAL_EVENTS_ENABLED) {
             ExampleItemMaterialAppearance.register(itemAppearance, namedSkins, ITEM_VISUAL_EVENTS::accept);
@@ -45,13 +46,13 @@ public final class ExampleClient implements ClientModInitializer {
                                 .shadowRadius(0.45F)
                                 .build();
                     }
-                    var builder = BlendEntityRenderer.<LayeredActor>builder(context, blendSpace
+                    var builder = BlendEntityRenderer.<LayeredActor>builder(context, directional ? ExampleDirectionalScene.MODEL : blendSpace
                             ? ExampleBlendSpaceScene.MODEL : locomotionRules
                             ? ExampleLocomotionScene.MODEL : ExampleContent.APPEARANCE_ACTOR_MODEL)
                         .materialAppearance((entity, request) -> ExampleMaterialAppearance.forName(
                                 appearanceName(entity, namedSkins)))
-                        .skinnedAnimation((entity, request) -> ExampleContent.WALK)
-                        .animationLayerCues(blendSpace ? ExampleBlendSpaceScene.layers() : locomotionRules
+                        .skinnedAnimation((entity, request) -> directional ? ExampleContent.IDLE : ExampleContent.WALK)
+                        .animationLayerCues(directional ? ExampleDirectionalScene.layers() : blendSpace ? ExampleBlendSpaceScene.layers() : locomotionRules
                                 ? ExampleLocomotionScene.layers() : ExampleAnimationScene.layers(),
                                 ExampleClient::cues)
                         .onAnimationLayerVisualEvent((entity, event) -> entity.visualEvents().accept(event))
@@ -60,6 +61,8 @@ public final class ExampleClient implements ClientModInitializer {
                         .poseComponents(ExampleAnimationScene.procedural())
                         .attachments(ExampleClient::attachments)
                         .shadowRadius(0.45F);
+                    if (directional) builder.animationBlendSpace2D(ExampleDirectionalScene.definition(),
+                            (entity, request) -> ExampleDirectionalScene.localVelocity(entity.directionalDx(), entity.directionalDz(), entity.getYRot()));
                     if (blendSpace) builder.animationBlendSpace1D(ExampleBlendSpaceScene.definition(),
                             (entity, request) -> entity.locomotionSpeed());
                     if (locomotionRules) builder.animationLocomotionRules(ExampleAnimationScene.BASE,
@@ -80,7 +83,7 @@ public final class ExampleClient implements ClientModInitializer {
                 });
         ExampleItemCommands.register(ITEM_VISUAL_EVENTS_ENABLED, ITEM_VISUAL_EVENTS);
         ExampleInspectionCommands.register(locomotionRules && !ExampleTwoBoneIkScene.enabled(),
-                blendSpace && !ExampleTwoBoneIkScene.enabled());
+                blendSpace && !ExampleTwoBoneIkScene.enabled(), directional && !ExampleTwoBoneIkScene.enabled());
     }
 
     private static String appearanceName(LayeredActor entity, boolean namedSkins) {

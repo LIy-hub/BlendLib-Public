@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased: fixed-cycle directional 2D blendspaces
+
+- Add bounded immutable center/ring directional definitions, adjacent-sector interpolation and explicit inactive zeros
+- Reuse the 1D fixed-cycle group scheduler, ownership and lifecycle while retaining existing API descriptors
+- Add once-captured local-velocity entity binding, independent unequal-duration directional actor and read-only phase inspection
+- Verify exact-zero event boundaries, stop/start and quadrant continuity, reload/retirement, independent final poses and CPU vertices
+- Keep published beta.4 shader/reflection/resource-cache alignment and distinct directional-preview artifacts; native graphics remains deferred
+
 ## Unreleased: synchronized one-dimensional blendspaces
 
 - Add bounded immutable adjacent-sample definitions with explicit zero weights and overflow-safe interpolation

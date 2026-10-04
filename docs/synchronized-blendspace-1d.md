@@ -92,8 +92,9 @@ also checks procedural sockets/attachments and changed-descriptor-rate reloads. 
 tests separately verify reloaded assets whose raw clip durations change.
 
 These are headless checks. No native graphics or visual gait-quality acceptance is implied.
-There is no 2D blendspace, dynamic tempo, stride matching, root motion, foot locking, automatic
-phase inference, new Blender schema/editor or network authority in this slice.
+A separate [bounded directional 2D API](directional-blendspace-2d.md) now reuses this scheduler.
+There is no dynamic tempo, stride matching, root motion, foot locking, automatic phase inference,
+new Blender schema/editor or network authority in these slices.
 
 ## Released baseline and preview packaging
 

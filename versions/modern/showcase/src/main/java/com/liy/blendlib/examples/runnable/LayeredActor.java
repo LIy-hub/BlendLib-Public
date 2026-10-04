@@ -25,6 +25,8 @@ public final class LayeredActor extends Entity {
             SynchedEntityData.defineId(LayeredActor.class, EntityDataSerializers.FLOAT);
     private static final EntityDataAccessor<Boolean> LOCOMOTION_GROUNDED =
             SynchedEntityData.defineId(LayeredActor.class, EntityDataSerializers.BOOLEAN);
+    private static final EntityDataAccessor<Float> DIRECTIONAL_DX = SynchedEntityData.defineId(LayeredActor.class, EntityDataSerializers.FLOAT);
+    private static final EntityDataAccessor<Float> DIRECTIONAL_DZ = SynchedEntityData.defineId(LayeredActor.class, EntityDataSerializers.FLOAT);
     private boolean wasLocomotionDemo;
     private static final EntityDataAccessor<Integer> CUE_SEQUENCE =
             SynchedEntityData.defineId(LayeredActor.class, EntityDataSerializers.INT);
@@ -52,11 +54,13 @@ public final class LayeredActor extends Entity {
     }
 
     private void tickLocomotionDemo() {
+        boolean directional = entityTags().contains(ExampleDirectionalMotion.TAG);
         boolean blendSpace = entityTags().contains(ExampleBlendSpaceMotion.TAG);
-        if (!blendSpace && !entityTags().contains(LOCOMOTION_TAG)) {
+        if (!directional && !blendSpace && !entityTags().contains(LOCOMOTION_TAG)) {
             if (wasLocomotionDemo) setDeltaMovement(Vec3.ZERO);
             wasLocomotionDemo = false;
             entityData.set(LOCOMOTION_SPEED, 0F);
+            entityData.set(DIRECTIONAL_DX, 0F); entityData.set(DIRECTIONAL_DZ, 0F);
             entityData.set(LOCOMOTION_GROUNDED, onGround());
             return;
         }
@@ -66,16 +70,24 @@ public final class LayeredActor extends Entity {
         double speed = segment < 40 ? 0 : segment < 80 ? 0.065 : 0.18;
         double dx = blendSpace ? ExampleBlendSpaceMotion.requestedHorizontalVelocity(tickCount)
                 : phase < 120 ? speed : -speed;
+        var direction = ExampleDirectionalMotion.requestedVelocity(tickCount, getYRot());
+        if (directional) dx = direction.x();
+        double dz = directional ? direction.z() : 0;
         double dy = Math.max(-0.6, getDeltaMovement().y - 0.08);
         double oldX = getX(), oldZ = getZ();
-        setDeltaMovement(dx, dy, 0);
+        setDeltaMovement(dx, dy, dz);
         move(MoverType.SELF, getDeltaMovement());
-        if (onGround()) setDeltaMovement(dx, 0, 0);
+        if (onGround()) setDeltaMovement(dx, 0, dz);
         // Publish actual collision-resolved displacement, not the scripted requested speed.
         // Vanilla tracked entity data avoids client interpolation/network-update threshold jitter.
+        entityData.set(DIRECTIONAL_DX, (float) (getX() - oldX));
+        entityData.set(DIRECTIONAL_DZ, (float) (getZ() - oldZ));
         entityData.set(LOCOMOTION_SPEED, (float) Math.hypot(getX() - oldX, getZ() - oldZ));
         entityData.set(LOCOMOTION_GROUNDED, onGround());
     }
+
+    public float directionalDx() { return entityData.get(DIRECTIONAL_DX); }
+    public float directionalDz() { return entityData.get(DIRECTIONAL_DZ); }
 
     public float locomotionSpeed() { return entityData.get(LOCOMOTION_SPEED); }
     public boolean locomotionGrounded() { return entityData.get(LOCOMOTION_GROUNDED); }
@@ -87,6 +99,7 @@ public final class LayeredActor extends Entity {
     @Override
     protected void defineSynchedData(SynchedEntityData.Builder builder) {
         builder.define(LOCOMOTION_SPEED, 0F);
+        builder.define(DIRECTIONAL_DX, 0F); builder.define(DIRECTIONAL_DZ, 0F);
         builder.define(LOCOMOTION_GROUNDED, false);
         builder.define(CUE_SEQUENCE, 0);
         builder.define(CUE_TICK, 0L);

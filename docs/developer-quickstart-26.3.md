@@ -243,3 +243,10 @@ The [explicit Blender runtime-authoring guide](blender-runtime-authoring.md) sho
 sidebar/Text workflow and CLI flag. It exports existing strict descriptor states, Action-marker
 visual events and exact node-path sockets, plus a separate versioned locomotion-rule JSON.
 A genuine Blender 5.1+ source/export fixture is included; automatic export remains the default.
+
+## Directional blendspace preview
+
+The additive [fixed-cycle directional 2D API](directional-blendspace-2d.md) provides center +
+forward/back/strafe interpolation using local velocity. Use `-Pblendlib_preview=directional-preview`
+for distinct `1.0.0-beta.4+26.3-directional-preview` JARs and the documented separate opt-in actor.
+The published beta.4 baseline and 1D/discrete defaults remain unchanged.

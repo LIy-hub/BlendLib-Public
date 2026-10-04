@@ -24,8 +24,8 @@ public final class BlendEntityRendererBuilder<E extends Entity> {
     private java.util.List<com.liy.blendlib.core.animation.v2.ModelAnimationLayers.Layer> animationLayers;
     private BlendEntityLayerCommands<? super E> layerCommands;
     private BlendEntityLayerWeights<? super E> layerWeights;
-    private com.liy.blendlib.core.animation.v2.AnimationBlendSpace1D blendSpace;
-    private BlendEntityBlendSpaceParameter<? super E> blendSpaceParameter;
+    private com.liy.blendlib.core.animation.v2.AnimationBlendSpaceSyncGroup blendSpace;
+    private java.util.function.BiFunction<E, BlendEntitySnapshotRequest, com.liy.blendlib.core.animation.v2.AnimationV2LayerWeights> blendSpaceWeights;
     private BlendResourceId locomotionController;
     private BlendEntityLocomotionInputs<? super E> locomotionInputs;
     private BlendEntityLayerVisualEventHandler<? super E> layerVisualEventHandler;
@@ -267,7 +267,28 @@ public final class BlendEntityRendererBuilder<E extends Entity> {
             if (member.equals(locomotionController))
                 throw new IllegalArgumentException("blendspace owns locomotion controller: " + member);
         }
-        this.blendSpace = definition; this.blendSpaceParameter = parameter;
+        this.blendSpace = definition.syncGroup();
+        this.blendSpaceWeights = (entity, request) -> definition.weights(parameter.parameter(entity, request));
+        return this;
+    }
+
+    /** Opts existing layers into bounded directional center/ring mixing with a fixed shared cycle.
+     * Coordinates are consumer-defined; capture and transform local velocity in the callback. */
+    public BlendEntityRendererBuilder<E> animationBlendSpace2D(
+            com.liy.blendlib.core.animation.v2.AnimationBlendSpace2D definition,
+            BlendEntityBlendSpace2DParameter<? super E> parameter) {
+        requireAnimated();
+        if (animationLayers == null) throw new IllegalStateException("Configure animation layers or cues first");
+        if (blendSpace != null) throw new IllegalStateException("Only one blendspace may be configured");
+        Objects.requireNonNull(definition, "definition"); Objects.requireNonNull(parameter, "parameter");
+        for (var member : definition.memberLayerIds()) {
+            if (animationLayers.stream().noneMatch(layer -> layer.id().equals(member)))
+                throw new IllegalArgumentException("Undeclared blendspace layer: " + member);
+            if (member.equals(locomotionController))
+                throw new IllegalArgumentException("blendspace owns locomotion controller: " + member);
+        }
+        this.blendSpace = definition.syncGroup();
+        this.blendSpaceWeights = (entity, request) -> definition.weights(parameter.parameter(entity, request));
         return this;
     }
 
@@ -341,7 +362,7 @@ public final class BlendEntityRendererBuilder<E extends Entity> {
                     skinnedAnimationVisualEventHandler,
                     poseModifier,
                     rootRotationSelector,
-                    skinnedSocketMarkerKey, animationLayers, captureLocomotionCommands(layerCommands, locomotionController, locomotionInputs), poseComponents, socketHandler, attachmentProvider, layerWeights, layerVisualEventHandler, blendSpace, blendSpaceParameter);
+                    skinnedSocketMarkerKey, animationLayers, captureLocomotionCommands(layerCommands, locomotionController, locomotionInputs), poseComponents, socketHandler, attachmentProvider, layerWeights, layerVisualEventHandler, blendSpace, blendSpaceWeights);
         }
         if (snapshotFactory == null) {
             throw new IllegalStateException("A BlendEntityRenderer requires an extraction-only snapshotFactory");

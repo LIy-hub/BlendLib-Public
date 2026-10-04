@@ -477,7 +477,7 @@ if (providers.gradleProperty("runnable_examples").orNull == "true") {
                         it.startsWith("com/liy/blendlib/core/") || it.startsWith("com/liy/blendlib/api/") }) {
                     "Example JAR must not embed library implementation or API classes"
                 }
-                listOf("ExampleContent", "LayeredActor", "ExampleClient", "ExampleItemCommands", "ExampleAnimationScene", "ExampleInspectionCommands", "ExampleLayerInspection", "ExampleItemInspection", "ExampleLayerVisualEvents", "ExampleMaterialAppearance", "ExampleItemMaterialAppearance", "ExampleNamedSkins", "ExampleAttachmentScene", "ExampleAttachmentOwners", "ExampleTwoBoneIkScene", "ExampleLocomotionScene", "ExampleBlendSpaceScene", "ExampleBlendSpaceMotion").forEach {
+                listOf("ExampleContent", "LayeredActor", "ExampleClient", "ExampleItemCommands", "ExampleAnimationScene", "ExampleInspectionCommands", "ExampleLayerInspection", "ExampleItemInspection", "ExampleLayerVisualEvents", "ExampleMaterialAppearance", "ExampleItemMaterialAppearance", "ExampleNamedSkins", "ExampleAttachmentScene", "ExampleAttachmentOwners", "ExampleTwoBoneIkScene", "ExampleLocomotionScene", "ExampleBlendSpaceScene", "ExampleBlendSpaceMotion", "ExampleDirectionalScene", "ExampleDirectionalMotion").forEach {
                     check("com/liy/blendlib/examples/runnable/$it.class" in names) { "Missing example class: $it" }
                 }
                 val metadata = zip.getInputStream(zip.getEntry("fabric.mod.json")).reader().readText()
@@ -485,7 +485,7 @@ if (providers.gradleProperty("runnable_examples").orNull == "true") {
                 check(metadata.contains("\"minecraft\": \"26.3\""))
                 check(metadata.contains("\"blendlib\": \"${project.version}\""))
                 check(!metadata.contains("\"mixins\""))
-                listOf("ExampleContent", "LayeredActor", "ExampleLayerVisualEvents", "ExampleBlendSpaceMotion").forEach {
+                listOf("ExampleContent", "LayeredActor", "ExampleLayerVisualEvents", "ExampleBlendSpaceMotion", "ExampleDirectionalMotion").forEach {
                     val bytes = zip.getInputStream(zip.getEntry("com/liy/blendlib/examples/runnable/$it.class")).readBytes()
                     check(!bytes.toString(Charsets.ISO_8859_1).contains("net/minecraft/client/")) {
                         "Common example entrypoint/entity must remain server-safe: $it"
@@ -503,7 +503,7 @@ if (providers.gradleProperty("runnable_examples").orNull == "true") {
                 }
                 val slurper = groovy.json.JsonSlurper()
                 listOf("actor", "appearance_actor", "wand", "appearance_wand", "marker",
-                        "mechanical_arm", "ik_target_marker", "ik_end_marker", "locomotion_actor", "blendspace_actor").forEach { model ->
+                        "mechanical_arm", "ik_target_marker", "ik_end_marker", "locomotion_actor", "blendspace_actor", "directional_actor").forEach { model ->
                     val path = namespace + "blend_models/$model.json"
                     val descriptor = slurper.parseText(zip.getInputStream(zip.getEntry(path)).reader().readText()) as Map<*, *>
                     val mesh = descriptor["mesh"] as String
@@ -521,11 +521,12 @@ if (providers.gradleProperty("runnable_examples").orNull == "true") {
                     } else if (model !in setOf("marker", "ik_target_marker", "ik_end_marker")) {
                         val animation = descriptor["animation"] as Map<*, *>
                         val states = animation["states"] as Map<*, *>
-                        check(states.keys.containsAll(listOf("idle", "walk", "attack").map { "blendlib_runnable_examples:$it" }))
+                        val expectedStates = if (model == "directional_actor") listOf("idle", "forward", "left", "back", "right", "attack") else listOf("idle", "walk", "attack")
+                        check(states.keys.containsAll(expectedStates.map { "blendlib_runnable_examples:$it" }))
                         check((descriptor["sockets"] as Map<*, *>).containsKey("blendlib_runnable_examples:tip"))
                     }
                 }
-                listOf("models3d/blendspace_actor.glb", "blend_models/blendspace_actor.json", "models3d/mechanical_arm.glb", "models3d/ik_target_marker.glb",
+                listOf("models3d/directional_actor.glb", "blend_models/directional_actor.json", "models3d/blendspace_actor.glb", "blend_models/blendspace_actor.json", "models3d/mechanical_arm.glb", "models3d/ik_target_marker.glb",
                         "models3d/ik_end_marker.glb", "textures/mechanical_arm.png").forEach { asset ->
                     val bytes = zip.getInputStream(zip.getEntry(namespace + asset)).readBytes()
                     check(bytes.contentEquals(file("showcase/src/main/resources/$namespace$asset").readBytes())) {

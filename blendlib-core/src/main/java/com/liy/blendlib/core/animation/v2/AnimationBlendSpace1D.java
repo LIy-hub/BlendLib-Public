@@ -12,6 +12,7 @@ public final class AnimationBlendSpace1D {
     private final List<Sample> samples;
     private final Set<BlendResourceId> members;
     private final double cycleSeconds;
+    private final AnimationBlendSpaceSyncGroup syncGroup;
 
     public AnimationBlendSpace1D(List<Sample> samples, double cycleSeconds) {
         Objects.requireNonNull(samples, "samples");
@@ -30,6 +31,7 @@ public final class AnimationBlendSpace1D {
             previous = sample.position();
         }
         members = Collections.unmodifiableSet(ids);
+        syncGroup = new AnimationBlendSpaceSyncGroup(members, cycleSeconds);
     }
 
     public record Sample(double position, BlendResourceId layerId) {
@@ -68,66 +70,17 @@ public final class AnimationBlendSpace1D {
         return new AnimationV2LayerWeights(result);
     }
 
-    /** Rejects competing member multipliers even if they equal the generated value. */
-    public void validateExternalWeights(AnimationV2LayerWeights weights) {
-        Objects.requireNonNull(weights, "weights");
-        for (var key : weights.multipliers().keySet())
-            if (members.contains(key.controllerId())) throw new IllegalArgumentException("blendspace owns member weights: " + key);
-    }
-
-    /** Rejects member commands before live clocks or cue captures are changed. */
-    public void validateExternalCommands(List<AnimationV2Command> commands) {
-        for (var command : Objects.requireNonNull(commands, "commands"))
-            if (members.contains(command.controllerId())) throw new IllegalArgumentException("blendspace owns controller: " + command.controllerId());
-    }
-
-    /** Binds exact generation-prepared controllers; masks are compared by resolved bone weights. */
-    public Binding bind(AnimationV2InstancePlan plan) { return new Binding(this, plan); }
-
+    /** Stable immutable fixed-cycle group; ordinary frames only change solver weights. */
+    public AnimationBlendSpaceSyncGroup syncGroup() { return syncGroup; }
+    public void validateExternalWeights(AnimationV2LayerWeights weights) { syncGroup.validateExternalWeights(weights); }
+    public void validateExternalCommands(List<AnimationV2Command> commands) { syncGroup.validateExternalCommands(commands); }
+    public Binding bind(AnimationV2InstancePlan plan) { return new Binding(syncGroup.bind(plan)); }
     private static AnimationV2LayerWeights.Key key(BlendResourceId id) { return new AnimationV2LayerWeights.Key(id, id); }
 
-    /** Immutable generation-local resolution. Do not reuse with a different model plan. */
+    /** Immutable generation-local resolution. Existing 1D signature retained. */
     public static final class Binding {
-        private final List<AnimationV2ControllerDefinition> controllers;
-        private final List<Double> rates;
-        private Binding(AnimationBlendSpace1D definition, AnimationV2InstancePlan plan) {
-            Objects.requireNonNull(plan, "plan");
-            List<AnimationV2ControllerDefinition> resolved = new ArrayList<>();
-            List<Double> speeds = new ArrayList<>();
-            AnimationV2ControllerDefinition first = null;
-            for (Sample sample : definition.samples) {
-                var controller = plan.controller(sample.layerId());
-                var layer = controller.layers().getFirst();
-                var state = controller.initialStateDefinition();
-                if (controller.layers().size() != 1 || !layer.id().equals(sample.layerId())
-                        || layer.mode() != AnimationV2LayerMode.OVERRIDE || layer.weight() != 1F || layer.exclusive())
-                    throw new IllegalArgumentException("blendspace requires unit-weight independent OVERRIDE layers");
-                if (first != null && (controller.priority() != first.priority()
-                        || layer.priority() != first.layers().getFirst().priority()
-                        || !Arrays.equals(layer.mask().weights(), first.layers().getFirst().mask().weights())))
-                    throw new IllegalArgumentException("blendspace members must share priority and mask");
-                if (state.playbackMode() != AnimationV2PlaybackMode.LOOP || state.next() != null || state.durationSeconds() <= 0)
-                    throw new IllegalArgumentException("blendspace initial states must be positive-duration continuous loops");
-                double effective = state.durationSeconds() / definition.cycleSeconds;
-                double rate = effective / state.speed();
-                AnimationV2Limits.requireSpeed(rate, "blendspace command rate");
-                if (!AnimationV2Limits.isValidEffectivePlaybackSpeed(state.speed(), rate))
-                    throw new IllegalArgumentException("blendspace effective rate exceeds v2 bounds");
-                resolved.add(controller); speeds.add(rate); first = controller;
-            }
-            controllers = List.copyOf(resolved); rates = List.copyOf(speeds);
-        }
-
-        /** Initialization/recovery only. Ordinary weight changes must never generate new commands. */
-        public List<AnimationV2Command> commands(double phase, long sequence) {
-            if (!Double.isFinite(phase) || phase < 0 || phase >= 1) throw new IllegalArgumentException("phase must be in [0, 1)");
-            List<AnimationV2Command> commands = new ArrayList<>();
-            for (int i = 0; i < controllers.size(); i++) {
-                var controller = controllers.get(i);
-                commands.add(new AnimationV2Command(controller.id(), controller.initialState(), sequence,
-                        phase * controller.initialStateDefinition().durationSeconds(), rates.get(i)));
-            }
-            return List.copyOf(commands);
-        }
+        private final AnimationBlendSpaceSyncGroup.Binding binding;
+        private Binding(AnimationBlendSpaceSyncGroup.Binding binding) { this.binding = binding; }
+        public List<AnimationV2Command> commands(double phase, long sequence) { return binding.commands(phase, sequence); }
     }
 }

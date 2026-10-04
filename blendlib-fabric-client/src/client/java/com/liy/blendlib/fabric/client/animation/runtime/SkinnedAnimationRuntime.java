@@ -60,9 +60,9 @@ public final class SkinnedAnimationRuntime {
             new java.util.LinkedHashMap<>(16, 0.75F, true);
 
     private final Map<BlendInstanceKey, BlendSpaceClock> blendSpaceClocks = new HashMap<>();
-    private final java.util.LinkedHashMap<BlendSpacePlanKey, AnimationBlendSpace1D.Binding> preparedBlendSpaces =
+    private final java.util.LinkedHashMap<BlendSpacePlanKey, AnimationBlendSpaceSyncGroup.Binding> preparedBlendSpaces =
             new java.util.LinkedHashMap<>(16, 0.75F, true);
-    private AnimationBlendSpace1D capturingBlendSpace;
+    private AnimationBlendSpaceSyncGroup capturingBlendSpace;
 
     private EntityLayerCueCache entityLayerCues = new EntityLayerCueCache();
     private EntityLayerCueCache blendSpaceOriginalCues;
@@ -175,7 +175,7 @@ public final class SkinnedAnimationRuntime {
             if (capturingBlendSpace != null) {
                 capturingBlendSpace.validateExternalCommands(supplied);
                 int completeCount = supplied.size() + (rules.isPresent() ? 1 : 0);
-                if (completeCount > AnimationV2Limits.MAX_INGRESS_DRAIN_PER_ADVANCE - capturingBlendSpace.samples().size())
+                if (completeCount > AnimationV2Limits.MAX_INGRESS_DRAIN_PER_ADVANCE - capturingBlendSpace.memberLayerIds().size())
                     throw new IllegalArgumentException("blendspace capture reserves immediate-frame slots for all members");
             }
             if (epoch != locomotionEpoch || modelRegistry.current() != current
@@ -401,6 +401,10 @@ public final class SkinnedAnimationRuntime {
     /** Validates the exact current-generation binding before entity callbacks can capture cues. */
     public boolean validateBlendSpaceBinding(BlendModelKey model, long generation,
             List<ModelAnimationLayers.Layer> layers, AnimationBlendSpace1D definition) {
+        return validateBlendSpaceBinding(model, generation, layers, Objects.requireNonNull(definition, "definition").syncGroup());
+    }
+    public boolean validateBlendSpaceBinding(BlendModelKey model, long generation,
+            List<ModelAnimationLayers.Layer> layers, AnimationBlendSpaceSyncGroup definition) {
         var current = modelRegistry.current();
         if (current.isRetired() || current.generationId() != generation) return false;
         var handle = current.find(Objects.requireNonNull(model, "model"));
@@ -413,6 +417,10 @@ public final class SkinnedAnimationRuntime {
     /** Scopes cue/rule preflight so a conflicting member cannot commit its capture cache. */
     public List<AnimationV2Command> captureBlendSpaceCommands(AnimationBlendSpace1D definition,
             java.util.function.Supplier<List<AnimationV2Command>> commands) {
+        return captureBlendSpaceCommands(Objects.requireNonNull(definition, "definition").syncGroup(), commands);
+    }
+    public List<AnimationV2Command> captureBlendSpaceCommands(AnimationBlendSpaceSyncGroup definition,
+            java.util.function.Supplier<List<AnimationV2Command>> commands) {
         Objects.requireNonNull(definition, "definition"); Objects.requireNonNull(commands, "commands");
         if (capturingBlendSpace != null) throw new IllegalStateException("Recursive blendspace capture is not supported");
         capturingBlendSpace = definition;
@@ -424,7 +432,7 @@ public final class SkinnedAnimationRuntime {
         try {
             var captured = List.copyOf(commands.get());
             definition.validateExternalCommands(captured);
-            if (captured.size() > AnimationV2Limits.MAX_INGRESS_DRAIN_PER_ADVANCE - definition.samples().size())
+            if (captured.size() > AnimationV2Limits.MAX_INGRESS_DRAIN_PER_ADVANCE - definition.memberLayerIds().size())
                 throw new IllegalArgumentException("blendspace capture reserves immediate-frame slots for all members");
             accepted = epoch == locomotionEpoch && generation == modelRegistry.current();
             return accepted ? captured : List.of();
@@ -447,12 +455,40 @@ public final class SkinnedAnimationRuntime {
             AnimationV2LayerWeights weights, AnimationBlendSpace1D definition, double parameter,
             Object source, Object owner, ClientAnimationPoseModifier modifier,
             java.util.function.Consumer<LayerAnimationVisualEvent> listener) {
-        var request = new BlendSpaceRequest(Objects.requireNonNull(definition, "definition"), parameter,
-                Objects.requireNonNull(source, "source"), Objects.requireNonNull(owner, "owner"));
+        Objects.requireNonNull(definition, "definition");
+        return extractBlendSpaceFrame(input, layers, commands, weights, definition.syncGroup(),
+                definition.weights(parameter), source, owner, modifier, listener);
+    }
+
+    /** Same fixed-cycle scheduling and ownership contract as 1D; vector affects only weights. */
+    public Optional<SkinnedAnimationRuntimeResult> extractBlendSpace2D(SkinnedAnimationRuntimeInput input,
+            List<ModelAnimationLayers.Layer> layers, List<AnimationV2Command> commands,
+            AnimationV2LayerWeights weights, AnimationBlendSpace2D definition, AnimationBlendSpace2D.Input parameter,
+            Object source, Object owner, ClientAnimationPoseModifier modifier,
+            java.util.function.Consumer<LayerAnimationVisualEvent> listener) {
+        Objects.requireNonNull(definition, "definition");
+        return extractBlendSpaceFrame(input, layers, commands, weights, definition.syncGroup(),
+                definition.weights(parameter), source, owner, modifier, listener);
+    }
+
+    /** Capture bridge for a validated solver frame; no competing or missing member weights. */
+    public Optional<SkinnedAnimationRuntimeResult> extractBlendSpaceFrame(SkinnedAnimationRuntimeInput input,
+            List<ModelAnimationLayers.Layer> layers, List<AnimationV2Command> commands,
+            AnimationV2LayerWeights weights, AnimationBlendSpaceSyncGroup definition, AnimationV2LayerWeights memberWeights,
+            Object source, Object owner, ClientAnimationPoseModifier modifier,
+            java.util.function.Consumer<LayerAnimationVisualEvent> listener) {
+        Objects.requireNonNull(definition, "definition");
         definition.validateExternalCommands(commands);
         definition.validateExternalWeights(weights);
-        // Validate the scalar before preparing or binding any runtime state.
-        definition.weights(parameter);
+        var expectedKeys = new java.util.HashSet<AnimationV2LayerWeights.Key>();
+        for (var id : definition.memberLayerIds()) expectedKeys.add(new AnimationV2LayerWeights.Key(id, id));
+        if (!Objects.requireNonNull(memberWeights, "memberWeights").multipliers().keySet().equals(expectedKeys))
+            throw new IllegalArgumentException("blendspace frame must contain exactly all member weights");
+        double memberSum = memberWeights.multipliers().values().stream().mapToDouble(Float::doubleValue).sum();
+        if (Math.abs(memberSum - 1) > 1e-6)
+            throw new IllegalArgumentException("blendspace member weights must sum to one");
+        var request = new BlendSpaceRequest(definition, memberWeights,
+                Objects.requireNonNull(source, "source"), Objects.requireNonNull(owner, "owner"));
         return extractInternal(input, modifier, null, List.copyOf(layers), List.copyOf(commands),
                 Objects.requireNonNull(weights, "weights"), listener, request);
     }
@@ -514,7 +550,7 @@ public final class SkinnedAnimationRuntime {
                     initializeBlendSpace = selectedLayered.blendSpace != selectedBlendSpace
                             || (blendSpaceTick - selectedLayered.lastTick) / TICKS_PER_SECOND > AnimationV2Limits.MAX_ADVANCE_SECONDS;
                     var merged = new java.util.LinkedHashMap<>(weights.multipliers());
-                    merged.putAll(blendSpace.definition().weights(blendSpace.parameter()).multipliers());
+                    merged.putAll(blendSpace.memberWeights().multipliers());
                     weights = new AnimationV2LayerWeights(merged);
                     if (initializeBlendSpace) {
                         long maximum = -1;
@@ -840,8 +876,8 @@ public final class SkinnedAnimationRuntime {
         return prepared;
     }
 
-    private AnimationBlendSpace1D.Binding preparedBlendSpace(LoadedModelHandle loaded,
-            List<ModelAnimationLayers.Layer> layers, AnimationBlendSpace1D definition) {
+    private AnimationBlendSpaceSyncGroup.Binding preparedBlendSpace(LoadedModelHandle loaded,
+            List<ModelAnimationLayers.Layer> layers, AnimationBlendSpaceSyncGroup definition) {
         var key = new BlendSpacePlanKey(new LayerPlanKey(loaded.key(), loaded.generationId(), layers), definition);
         var binding = preparedBlendSpaces.get(key);
         if (binding == null) {
@@ -852,11 +888,11 @@ public final class SkinnedAnimationRuntime {
         return binding;
     }
 
-    private record BlendSpacePlanKey(LayerPlanKey layers, AnimationBlendSpace1D definition) { }
-    private record BlendSpaceRequest(AnimationBlendSpace1D definition, double parameter, Object source, Object owner) { }
+    private record BlendSpacePlanKey(LayerPlanKey layers, AnimationBlendSpaceSyncGroup definition) { }
+    private record BlendSpaceRequest(AnimationBlendSpaceSyncGroup definition, AnimationV2LayerWeights memberWeights, Object source, Object owner) { }
     private static final class BlendSpaceClock {
         final BlendModelKey model;
-        final AnimationBlendSpace1D definition;
+        final AnimationBlendSpaceSyncGroup definition;
         final Object source;
         final Object owner;
         final double originTick;
