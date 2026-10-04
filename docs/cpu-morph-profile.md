@@ -63,12 +63,26 @@ BlendEntityRenderer.<MyActor>builder(context, MODEL)
 ```
 
 Import `MorphFrameOverrides` from `com.liy.blendlib.core.animation.runtime`.
-The standard entity builder and animation-runtime extraction methods require a
-real descriptor animation declaration with at least one authored clip. An
-animation-free morph export is accepted as data for explicit lower-level
-`MorphWeights.defaults` / `CpuMorphSkinner` consumers; high-level animation-free
-rendering is deferred. No dummy transform track or synthetic state is generated.
-An empty batch resumes sampled values next frame. The complete batch is validated
+For animation-free exports, select `.staticMorph()` instead of `.skinnedAnimation(...)`.
+The same `.morphControls(...)` callback applies named frame overrides to authored
+node/mesh defaults. This mode requires the CPU morph profile but requires no
+animation declaration or clip. Rest bone transforms remain fixed; no controller,
+clock, animation instance, dummy track or synthetic state is allocated.
+Empty/omitted controls return to defaults on the next extraction. Reload, unload
+or disconnect during the callback discards the frame. Captured meshes remain
+immutable and CPU-only, including all-zero weights. Material appearance, skins,
+yaw and conservative model culling use the ordinary builder path. Animation-only
+features (layers, events, procedural rotations and attachments) still require the
+animated path.
+
+The runnable consumer includes `/summon blendlib_runnable_examples:static_cpu_morph_actor`.
+Its separate `static_face_actor.glb` has no animations and its descriptor has no
+animation states. The extraction callback drives named blink/smile values from
+client time; the body remains in its authored rest pose and omitted breath uses
+its nonzero default. This is a visual demonstration, not gameplay or synchronized
+state. Native graphics acceptance remains deferred.
+
+On the animated path, An empty batch resumes sampled values next frame. The complete batch is validated
 against the current generation before clocks, controller commands or cue capture
 advance. Controls apply after clip sampling, then travel with the same immutable
 pose snapshot through rotation-only procedural modifiers. Held transform cadence

@@ -56,6 +56,7 @@ public final class RunnableCpuMorphVerification {
         h.reload.apply(prepared, shared);
         require(X7GenerationResourceBridge.authoritativeInventory(h.models.current()).keysInDeterministicOrder()
                 .stream().noneMatch(key -> key.modelId().equals(MODEL.value())), "GPU inventory excludes CPU morph generations");
+        verifyStaticMorph(h, prepared);
         int reads = resources.reads;
         var a = h.controls(new ExampleCpuMorphControls(), 42);
         var b = h.controls(new ExampleCpuMorphControls(), 43);
@@ -152,6 +153,33 @@ public final class RunnableCpuMorphVerification {
         System.out.println("Verified packaged CPU morph consumer: real cubic/weight-only clips, object-owned controls/reset, independent actors, events/socket attachment/materials/bounds, zero-weight CPU-only provenance, immutable captures, stale reload and lifecycle; native Minecraft graphics remains unverified");
     }
 
+    private static void verifyStaticMorph(Harness h, PreparedModelGeneration prepared) {
+        var key = BlendModelKey.parse("cpu_morph:static_face_actor");
+        var asset = prepared.loadedAssets().get(key);
+        require(asset != null && asset.animationDefinition() == null && asset.clips().isEmpty(),
+                "static example has no descriptor states or GLB animation clips");
+        var model = h.lookup.resolve(key);
+        var request = new SkinnedExtractionRequest(Transform.IDENTITY, 0xF000F0, 0, 0xFFFFFFFF,
+                RenderVisibility.VISIBLE, new CullingMetadata(model.renderHandle().bounds(), true));
+        long revision = h.runtime.captureExtractionLifecycleRevision();
+        var owner = h.runtime.entityKey(91);
+        var rest = h.runtime.extractStaticMorph(key, model.generationId(), owner, revision,
+                MorphFrameOverrides.empty(), request).orElseThrow().renderSnapshot();
+        var manual = h.runtime.extractStaticMorph(key, model.generationId(), owner, revision,
+                new MorphFrameOverrides(Map.of(BLINK, 1F, SMILE, 1F)), request).orElseThrow().renderSnapshot();
+        require(!RunnableAttachmentRenderVerification.positions(rest).equals(RunnableAttachmentRenderVerification.positions(manual)),
+                "animation-free blink and smile deform actual packaged geometry");
+        var reset = h.runtime.extractStaticMorph(key, model.generationId(), owner, revision,
+                MorphFrameOverrides.empty(), request).orElseThrow().renderSnapshot();
+        require(RunnableAttachmentRenderVerification.positions(rest).equals(RunnableAttachmentRenderVerification.positions(reset)),
+                "omitted static controls return to authored defaults");
+        require(h.lifecycle.registry().find(owner).isEmpty(), "static extraction creates no controller");
+        RunnableCpuMorphRenderVerification.verify(manual);
+        h.runtime.onEntityUnload(91);
+        require(h.runtime.extractStaticMorph(key, model.generationId(), owner, revision,
+                MorphFrameOverrides.empty(), request).isEmpty(), "unload rejects a previously captured static callback");
+    }
+
     private static void verifyInvalidEdits(Harness h, ExampleCpuMorphControls controls) {
         controls.set("smile",.5F);
         var before = controls.capture().values();
@@ -227,6 +255,7 @@ public final class RunnableCpuMorphVerification {
         int reads;
         PackagedResources() {
             for (String file : List.of("blend_models/face_actor.json","models3d/face_actor.glb",
+                    "blend_models/static_face_actor.json","models3d/static_face_actor.glb",
                     "textures/blendlib/face_actor__morphsurface.png","textures/blendlib/face_actor__facedetails.png")) add("cpu_morph",file);
             for (String file : List.of("blend_models/marker.json","models3d/marker.glb","textures/marker.png")) add("blendlib_runnable_examples",file);
         }

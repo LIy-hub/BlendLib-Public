@@ -14,5 +14,9 @@ public final class ExampleCpuMorphContent implements ModInitializer {
             ExampleContent.id("cpu_morph_actor"), EntityType.Builder.of(CpuMorphActor::new, MobCategory.MISC)
                     .sized(.8F, 1.8F).clientTrackingRange(8).updateInterval(3)
                     .build(ResourceKey.create(Registries.ENTITY_TYPE, ExampleContent.id("cpu_morph_actor"))));
+    public static final EntityType<StaticCpuMorphActor> STATIC_ACTOR = Registry.register(BuiltInRegistries.ENTITY_TYPE,
+            ExampleContent.id("static_cpu_morph_actor"), EntityType.Builder.of(StaticCpuMorphActor::new, MobCategory.MISC)
+                    .sized(.8F, 1.8F).clientTrackingRange(8).updateInterval(3)
+                    .build(ResourceKey.create(Registries.ENTITY_TYPE, ExampleContent.id("static_cpu_morph_actor"))));
     @Override public void onInitialize() { }
 }

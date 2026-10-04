@@ -26,6 +26,67 @@ class CpuMorphRuntimeIntegrationTest {
     final SkinnedAnimationRuntime runtime=new SkinnedAnimationRuntime(models,lifecycle);
     CpuMorphRuntimeIntegrationTest(){runtime.onPlayInit();publish(1);}
 
+    @Test void animationFreeRestMorphUsesDefaultsAndNeverCreatesControllers() {
+        publishStatic(2);
+        var defaults = staticFrame(MorphFrameOverrides.empty()).orElseThrow();
+        assertEquals(.25, firstX(defaults), 1e-6);
+        var overridden = staticFrame(controls(1, 0)).orElseThrow();
+        assertEquals(1, firstX(overridden), 1e-6);
+        assertEquals(.25, firstX(staticFrame(MorphFrameOverrides.empty()).orElseThrow()), 1e-6);
+        assertEquals(.25, firstX(defaults), 1e-6);
+        assertTrue(lifecycle.registry().find(runtime.entityKey(42)).isEmpty());
+        assertNull(asset().animationDefinition());
+        assertTrue(asset().clips().isEmpty());
+        assertThrows(IllegalStateException.class, () -> overridden.renderSnapshot().skinnedRenderSnapshot()
+                .x7FrameProvenanceAt(0, handle().skinnedPrimitives().getFirst()));
+    }
+
+    @Test void invalidStaticBatchDoesNotLeaveStateBehind() {
+        publishStatic(2);
+        assertThrows(IllegalArgumentException.class, () -> staticFrame(new MorphFrameOverrides(Map.of(id("absent"), 1F))));
+        assertThrows(IllegalArgumentException.class, () -> staticFrame(controls(0, 2)));
+        assertEquals(.25, firstX(staticFrame(MorphFrameOverrides.empty()).orElseThrow()), 1e-6);
+        assertTrue(lifecycle.registry().find(runtime.entityKey(42)).isEmpty());
+    }
+
+    @ParameterizedTest @ValueSource(strings={"unload", "disconnect", "play_init", "reload"})
+    void staticMorphDiscardsCallbacksAcrossLifecycleBoundaries(String action) {
+        publishStatic(2);
+        var owner = runtime.entityKey(42);
+        long revision = runtime.captureExtractionLifecycleRevision();
+        var frozen = staticFrame(controls(1, 0)).orElseThrow();
+        var request = input(42,0,IDLE).extractionRequest();
+        switch (action) {
+            case "unload" -> runtime.onEntityUnload(42);
+            case "disconnect" -> runtime.onWorldDisconnect();
+            case "play_init" -> runtime.onPlayInit();
+            case "reload" -> publishStatic(3);
+        }
+        assertTrue(runtime.extractStaticMorph(MODEL, 2, owner, revision, controls(0,0), request).isEmpty());
+        assertEquals(1, firstX(frozen), 1e-6);
+    }
+
+    private Optional<com.liy.blendlib.fabric.client.animation.extract.ClientSkinnedExtractionFrame> staticFrame(MorphFrameOverrides overrides) {
+        long revision = runtime.captureExtractionLifecycleRevision();
+        return runtime.extractStaticMorph(MODEL, models.current().generationId(), runtime.entityKey(42), revision,
+                overrides, input(42,0,IDLE).extractionRequest());
+    }
+    private static float firstX(com.liy.blendlib.fabric.client.animation.extract.ClientSkinnedExtractionFrame frame) {
+        var positions = new ArrayList<Float>();
+        frame.renderSnapshot().skinnedRenderSnapshot().meshes().getFirst().emit((x,y,z,nx,ny,nz,u,v) -> positions.add(x));
+        return positions.getFirst();
+    }
+    private void publishStatic(long generation) {
+        var a = asset(generation);
+        var targets = new IdentityHashMap<MeshPrimitive,MorphTargetSet>();
+        a.primitives().forEach(p -> targets.put(p.geometry(), a.morphTargets(p)));
+        var staticAsset = new ModelAsset(a.modelKey(), a.descriptorId(), a.generation(), a.profile(), a.unitsPerBlock(),
+                a.materials(), null, a.nodes(), a.defaultSceneRoots(), a.primitives(), a.skeleton(), List.of(),
+                a.sockets(), a.bounds(), a.diagnostics(), a.morphBindings(), targets);
+        models.publish(new ModelRegistryGeneration(generation, Map.of(MODEL,
+                new LoadedModelHandle(MODEL, staticAsset, SkinnedRenderHandle.prepare(MODEL, staticAsset))), Map.of(), List.of()));
+    }
+
     @Test void realWeightOnlyClipDurationSamplingDefaultsStepAndClampedEndpoints() {
         var asset=asset(); var sampler=MorphWeightSampler.fromModelAsset(asset);
         var clip=asset.clips().stream().filter(c->c.name().equals("pulse")).findFirst().orElseThrow();

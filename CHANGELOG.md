@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased: animation-free CPU morph entities
+
+- Added `staticMorph()` to the normal entity renderer builder, with per-frame named controls and authored default reset semantics, without animation clips or controllers
+- Added a genuinely animation-free runnable face actor, immutable CPU-only extraction tests, and reload/unload/disconnect fencing coverage
+- Native Minecraft graphics acceptance is still pending; animated morph and legacy profiles remain unchanged
+
 ## Unreleased: bounded CPU shape-key profile
 
 - Add explicit format-2 skinned_morph_cpu_v1 with dense POSITION/NORMAL deltas, named bounded controls and unchanged strict old profiles

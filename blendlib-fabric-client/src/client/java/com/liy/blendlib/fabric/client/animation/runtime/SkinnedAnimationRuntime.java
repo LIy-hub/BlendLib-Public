@@ -368,6 +368,28 @@ public final class SkinnedAnimationRuntime {
                 Objects.requireNonNull(weights, "weights"), listener, null, Objects.requireNonNull(overrides, "overrides"));
     }
 
+    /**
+     * Stateless CPU morph extraction. The caller captures the lifecycle before invoking controls;
+     * stale callbacks, disconnected owners and retired generations never publish a frame.
+     * No controller, clock, clip or pose-cache entry is created.
+     */
+    public Optional<ClientSkinnedExtractionFrame> extractStaticMorph(
+            BlendModelKey model, long generation, BlendInstanceKey.Entity owner, long lifecycleRevision,
+            MorphFrameOverrides overrides,
+            com.liy.blendlib.fabric.client.animation.extract.SkinnedExtractionRequest request) {
+        Objects.requireNonNull(model, "model");
+        Objects.requireNonNull(owner, "owner");
+        Objects.requireNonNull(overrides, "overrides");
+        Objects.requireNonNull(request, "request");
+        if (captureExtractionLifecycleRevision() != lifecycleRevision
+                || !activeEntityKey(owner.entityId()).equals(Optional.of(owner))) return Optional.empty();
+        var current = modelRegistry.current();
+        if (current.isRetired() || current.generationId() != generation) return Optional.empty();
+        var found = current.find(model);
+        if (found.isEmpty() || !(found.get() instanceof LoadedModelHandle loaded)) return Optional.empty();
+        return Optional.of(ClientSkinnedExtractionBridge.extractStaticMorph(loaded, overrides, request));
+    }
+
     /** Generation-local preflight for control callbacks, before stateful cue capture. */
     public boolean validateMorphControls(BlendModelKey model, long generation, MorphFrameOverrides overrides) {
         Objects.requireNonNull(overrides, "overrides");

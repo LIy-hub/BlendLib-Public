@@ -25,6 +25,7 @@ public final class BlendEntityRendererBuilder<E extends Entity> {
     private BlendEntityLayerCommands<? super E> layerCommands;
     private BlendEntityLayerWeights<? super E> layerWeights;
     private BlendEntityMorphControls<? super E> morphControls;
+    private boolean staticMorph;
     private com.liy.blendlib.core.animation.v2.AnimationBlendSpaceSyncGroup blendSpace;
     private java.util.function.BiFunction<E, BlendEntitySnapshotRequest, com.liy.blendlib.core.animation.v2.AnimationV2LayerWeights> blendSpaceWeights;
     private BlendEntityBlendSpaceCadence<? super E> blendSpaceCadence;
@@ -49,7 +50,7 @@ public final class BlendEntityRendererBuilder<E extends Entity> {
 
     /** Supplies extraction-only snapshot construction for this entity type. */
     public BlendEntityRendererBuilder<E> snapshotFactory(BlendEntitySnapshotFactory<? super E> snapshotFactory) {
-        if (skinnedAnimationStateSelector != null) {
+        if (skinnedAnimationStateSelector != null || staticMorph) {
             throw new IllegalStateException("Choose either skinnedAnimation or a custom snapshotFactory, not both");
         }
         this.snapshotFactory = Objects.requireNonNull(snapshotFactory, "snapshotFactory");
@@ -64,7 +65,7 @@ public final class BlendEntityRendererBuilder<E extends Entity> {
      * transform, bounds, registry, or snapshot implementation types for the common P4 case.</p>
      */
     public BlendEntityRendererBuilder<E> staticRestPose() {
-        if (snapshotFactory != null || skinnedAnimationStateSelector != null) {
+        if (snapshotFactory != null || skinnedAnimationStateSelector != null || staticMorph) {
             throw new IllegalStateException("Choose either staticRestPose, skinnedAnimation, or a custom snapshotFactory, not both");
         }
         this.snapshotFactory = (entity, request) -> StaticRestPoseEntitySnapshotFactory.create(
@@ -82,7 +83,7 @@ public final class BlendEntityRendererBuilder<E extends Entity> {
      */
     public BlendEntityRendererBuilder<E> skinnedAnimation(
             SkinnedAnimationStateSelector<? super E> stateSelector) {
-        if (snapshotFactory != null || skinnedAnimationStateSelector != null) {
+        if (snapshotFactory != null || skinnedAnimationStateSelector != null || staticMorph) {
             throw new IllegalStateException("Choose exactly one entity snapshot construction path");
         }
         this.skinnedAnimationStateSelector = Objects.requireNonNull(stateSelector, "stateSelector");
@@ -99,7 +100,7 @@ public final class BlendEntityRendererBuilder<E extends Entity> {
     public BlendEntityRendererBuilder<E> synchronizedSkinnedAnimation(
             SyncedSkinnedAnimationStateSelector<? super E> syncedStateSelector,
             SkinnedAnimationStateSelector<? super E> fallbackStateSelector) {
-        if (snapshotFactory != null || skinnedAnimationStateSelector != null) {
+        if (snapshotFactory != null || skinnedAnimationStateSelector != null || staticMorph) {
             throw new IllegalStateException("Choose exactly one entity snapshot construction path");
         }
         this.syncedSkinnedAnimationStateSelector = Objects.requireNonNull(syncedStateSelector, "syncedStateSelector");
@@ -334,9 +335,17 @@ public final class BlendEntityRendererBuilder<E extends Entity> {
         return this;
     }
 
+    /** Uses authored rest transforms and CPU morph defaults, without animation clips or controllers. */
+    public BlendEntityRendererBuilder<E> staticMorph() {
+        if (snapshotFactory != null || skinnedAnimationStateSelector != null || staticMorph)
+            throw new IllegalStateException("Choose exactly one entity snapshot construction path");
+        staticMorph = true;
+        return this;
+    }
+
     /** Replaces named morph weights for one extracted frame. Omitted names resume clip/default values. */
     public BlendEntityRendererBuilder<E> morphControls(BlendEntityMorphControls<? super E> controls) {
-        requireAnimated();
+        if (!staticMorph) requireAnimated();
         this.morphControls = Objects.requireNonNull(controls, "controls");
         return this;
     }
@@ -375,6 +384,7 @@ public final class BlendEntityRendererBuilder<E extends Entity> {
 
     /** Builds the renderer after all extraction data has been specified. */
     public BlendEntityRenderer<E> build() {
+        if (staticMorph) snapshotFactory = new StaticMorphEntitySnapshotFactory<>(modelKey, morphControls);
         if (snapshotFactory == null && skinnedAnimationStateSelector != null) {
             snapshotFactory = new SkinnedAnimationEntitySnapshotFactory<>(
                     modelKey,

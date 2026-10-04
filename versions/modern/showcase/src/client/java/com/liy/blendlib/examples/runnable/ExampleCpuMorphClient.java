@@ -25,6 +25,21 @@ public final class ExampleCpuMorphClient implements ClientModInitializer {
                         .cullingEnvelope(ExampleCpuMorphScene.ENVELOPE)
                         .shadowRadius(.45F)
                         .build());
+        // This separate GLB contains no animations and its descriptor has no animation states.
+        BlendEntityRenderers.register(ExampleCpuMorphContent.STATIC_ACTOR, context ->
+                BlendEntityRenderer.<StaticCpuMorphActor>builder(context,
+                        com.liy.blendlib.api.BlendModelKey.parse("cpu_morph:static_face_actor"))
+                        .staticMorph()
+                        .morphControls((entity, request) -> {
+                            double time = (request.clientGameTick() + request.partialTick()) / 20.0;
+                            float blink = (float) Math.max(0, 1 - Math.abs((time % 4) - 2) * 8);
+                            float smile = (float) (.5 + .5 * Math.sin(time));
+                            return new com.liy.blendlib.core.animation.runtime.MorphFrameOverrides(java.util.Map.of(
+                                    com.liy.blendlib.api.BlendResourceId.parse("cpu_morph:blink"), blink,
+                                    com.liy.blendlib.api.BlendResourceId.parse("cpu_morph:smile"), smile));
+                        })
+                        .shadowRadius(.45F)
+                        .build());
         ClientEntityEvents.ENTITY_UNLOAD.register((entity, level) -> {
             if (entity instanceof CpuMorphActor actor) OWNERS.remove(actor.controls());
         });

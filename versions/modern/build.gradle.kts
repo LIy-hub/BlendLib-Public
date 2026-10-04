@@ -478,7 +478,7 @@ if (providers.gradleProperty("runnable_examples").orNull == "true") {
                         it.startsWith("com/liy/blendlib/core/") || it.startsWith("com/liy/blendlib/api/") }) {
                     "Example JAR must not embed library implementation or API classes"
                 }
-                listOf("ExampleContent", "LayeredActor", "ExampleClient", "ExampleItemCommands", "ExampleAnimationScene", "ExampleInspectionCommands", "ExampleLayerInspection", "ExampleItemInspection", "ExampleLayerVisualEvents", "ExampleMaterialAppearance", "ExampleItemMaterialAppearance", "ExampleNamedSkins", "ExampleAttachmentScene", "ExampleAttachmentOwners", "ExampleTwoBoneIkScene", "ExampleLocomotionScene", "ExampleBlendSpaceScene", "ExampleBlendSpaceMotion", "ExampleDirectionalScene", "ExampleDirectionalMotion", "ExampleNativeCubicContent", "ExampleNativeCubicClient", "CpuMorphActor", "ExampleCpuMorphContent", "ExampleCpuMorphControls", "ExampleCpuMorphOwners", "ExampleCpuMorphClient", "ExampleCpuMorphScene", "ExampleCpuMorphCommands").forEach {
+                listOf("ExampleContent", "LayeredActor", "ExampleClient", "ExampleItemCommands", "ExampleAnimationScene", "ExampleInspectionCommands", "ExampleLayerInspection", "ExampleItemInspection", "ExampleLayerVisualEvents", "ExampleMaterialAppearance", "ExampleItemMaterialAppearance", "ExampleNamedSkins", "ExampleAttachmentScene", "ExampleAttachmentOwners", "ExampleTwoBoneIkScene", "ExampleLocomotionScene", "ExampleBlendSpaceScene", "ExampleBlendSpaceMotion", "ExampleDirectionalScene", "ExampleDirectionalMotion", "ExampleNativeCubicContent", "ExampleNativeCubicClient", "CpuMorphActor", "StaticCpuMorphActor", "ExampleCpuMorphContent", "ExampleCpuMorphControls", "ExampleCpuMorphOwners", "ExampleCpuMorphClient", "ExampleCpuMorphScene", "ExampleCpuMorphCommands").forEach {
                     check("com/liy/blendlib/examples/runnable/$it.class" in names) { "Missing example class: $it" }
                 }
                 val metadata = zip.getInputStream(zip.getEntry("fabric.mod.json")).reader().readText()
@@ -486,7 +486,7 @@ if (providers.gradleProperty("runnable_examples").orNull == "true") {
                 check(metadata.contains("\"minecraft\": \"26.3\""))
                 check(metadata.contains("\"blendlib\": \"${project.version}\""))
                 check(!metadata.contains("\"mixins\""))
-                listOf("ExampleContent", "LayeredActor", "ExampleLayerVisualEvents", "ExampleBlendSpaceMotion", "ExampleDirectionalMotion", "ExampleNativeCubicContent", "CpuMorphActor", "ExampleCpuMorphContent", "ExampleCpuMorphControls", "ExampleCpuMorphOwners").forEach {
+                listOf("ExampleContent", "LayeredActor", "ExampleLayerVisualEvents", "ExampleBlendSpaceMotion", "ExampleDirectionalMotion", "ExampleNativeCubicContent", "CpuMorphActor", "StaticCpuMorphActor", "ExampleCpuMorphContent", "ExampleCpuMorphControls", "ExampleCpuMorphOwners").forEach {
                     val bytes = zip.getInputStream(zip.getEntry("com/liy/blendlib/examples/runnable/$it.class")).readBytes()
                     check(!bytes.toString(Charsets.ISO_8859_1).contains("net/minecraft/client/")) {
                         "Common example entrypoint/entity must remain server-safe: $it"
@@ -530,6 +530,10 @@ if (providers.gradleProperty("runnable_examples").orNull == "true") {
                 val morphDescriptor = slurper.parseText(zip.getInputStream(zip.getEntry(morphNamespace + "blend_models/face_actor.json")).reader().readText()) as Map<*, *>
                 check(morphDescriptor["format_version"] == 2 && morphDescriptor["profile"] == "blendlib:skinned_morph_cpu_v1")
                 check((morphDescriptor["morph_controls"] as Map<*, *>).keys == setOf("cpu_morph:blink", "cpu_morph:smile", "cpu_morph:breath"))
+                val staticMorphDescriptor = slurper.parseText(zip.getInputStream(zip.getEntry(morphNamespace + "blend_models/static_face_actor.json")).reader().readText()) as Map<*, *>
+                check(!staticMorphDescriptor.containsKey("animation"))
+                check(staticMorphDescriptor["profile"] == "blendlib:skinned_morph_cpu_v1")
+                check(morphNamespace + "models3d/static_face_actor.glb" in names)
                 val morphAnimation = morphDescriptor["animation"] as Map<*, *>
                 check((morphAnimation["states"] as Map<*, *>).keys == setOf("cpu_morph:nod", "cpu_morph:blink", "cpu_morph:smile", "cpu_morph:breath"))
                 check((morphDescriptor["sockets"] as Map<*, *>).containsKey("cpu_morph:face"))

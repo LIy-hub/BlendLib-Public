@@ -119,6 +119,22 @@ class BlendEntityPoseModifierBuilderTest {
         org.junit.jupiter.api.Assertions.assertTrue(BlendEntityLayerWeights.class.isAnnotationPresent(FunctionalInterface.class));
     }
 
+    @Test
+    void staticMorphIsAnExclusiveSnapshotPathAndAcceptsFrameControls() {
+        var stat = builder().staticMorph();
+        assertSame(stat, stat.morphControls((entity, request) ->
+                com.liy.blendlib.core.animation.runtime.MorphFrameOverrides.empty()));
+        assertThrows(NullPointerException.class, () -> stat.morphControls(null));
+        assertThrows(IllegalStateException.class, stat::staticRestPose);
+        assertThrows(IllegalStateException.class, stat::staticMorph);
+        assertThrows(IllegalStateException.class, () -> stat.skinnedAnimation((entity, request) -> IDLE));
+        assertThrows(IllegalStateException.class, () -> stat.snapshotFactory((entity, request) -> null));
+        assertThrows(IllegalStateException.class, () -> stat.poseModifier(IDENTITY_MODIFIER));
+        assertThrows(IllegalStateException.class, () -> builder().staticRestPose().staticMorph());
+        assertThrows(IllegalStateException.class, () -> builder().skinnedAnimation((entity, request) -> IDLE).staticMorph());
+        assertThrows(IllegalStateException.class, () -> builder().snapshotFactory((entity, request) -> null).staticMorph());
+    }
+
     private static BlendEntityRendererBuilder<Entity> builder() {
         BlendRenderer renderer = new BlendRenderer((snapshot, context) -> {
         });
