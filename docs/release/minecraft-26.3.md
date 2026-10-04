@@ -17,7 +17,8 @@
 bash gradlew -p versions/modern -Pminecraft_version=26.3 --no-daemon build verifyRuntimeJar
 ```
 
-Outputs: `versions/modern/build/26.3/libs/blendlib-fabric-1.0.0-beta.3+26.3.jar` and its sources JAR.
+The 26.3 shader hotfix is released as `1.0.0-beta.4+26.3`.
+Outputs: `versions/modern/build/26.3/libs/blendlib-fabric-1.0.0-beta.4+26.3.jar` and its sources JAR.
 
 ## Evidence
 

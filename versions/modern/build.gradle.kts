@@ -39,7 +39,7 @@ if (fabricMirror.resolve("net/fabricmc/fabric-api/fabric-api/$fabricVersion/fabr
 }
 
 group = "com.liy.blendlib"
-version = "1.0.0-beta.3+$minecraftVersion"
+version = "1.0.0-beta.${if (minecraftVersion == "26.3") 4 else 3}+$minecraftVersion"
 base.archivesName.set("blendlib-fabric")
 layout.buildDirectory.set(layout.projectDirectory.dir("build/$minecraftVersion"))
 val repository = rootDir.resolve("../..").canonicalFile
