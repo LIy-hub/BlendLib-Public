@@ -381,6 +381,18 @@ class X7ResourceIslandBoundaryTest {
             assertEquals(1, actualManifest.split(java.util.regex.Pattern.quote(addition), -1).length - 1, addition);
             actualManifest = actualManifest.replace(addition, "");
         }
+        // Block morphs add these precise methods only; keep the historical ABI and security pins intact.
+        for (String addition : List.of(
+                "  public java.util.Optional<com.liy.blendlib.fabric.client.animation.extract.ClientSkinnedExtractionFrame> extractStaticMorph(com.liy.blendlib.api.BlendModelKey, long, com.liy.blendlib.api.BlendInstanceKey$BlockEntity, long, com.liy.blendlib.core.animation.runtime.MorphFrameOverrides, com.liy.blendlib.fabric.client.animation.extract.SkinnedExtractionRequest);\n    descriptor: (Lcom/liy/blendlib/api/BlendModelKey;JLcom/liy/blendlib/api/BlendInstanceKey$BlockEntity;JLcom/liy/blendlib/core/animation/runtime/MorphFrameOverrides;Lcom/liy/blendlib/fabric/client/animation/extract/SkinnedExtractionRequest;)Ljava/util/Optional;\n\n",
+                "  public com.liy.blendlib.fabric.client.blockentity.BlendBlockEntityRendererBuilder<T> staticMorph();\n    descriptor: ()Lcom/liy/blendlib/fabric/client/blockentity/BlendBlockEntityRendererBuilder;\n\n",
+                "  public com.liy.blendlib.fabric.client.blockentity.BlendBlockEntityRendererBuilder<T> morphControls(com.liy.blendlib.fabric.client.blockentity.BlendBlockEntityMorphControls<? super T>);\n    descriptor: (Lcom/liy/blendlib/fabric/client/blockentity/BlendBlockEntityMorphControls;)Lcom/liy/blendlib/fabric/client/blockentity/BlendBlockEntityRendererBuilder;\n\n")) {
+            assertEquals(1, actualManifest.split(java.util.regex.Pattern.quote(addition), -1).length - 1, addition);
+            actualManifest = actualManifest.replace(addition, "");
+        }
+        String activePlay = "  public boolean hasActivePlayConnection();\n    descriptor: ()Z\n\n";
+        // One on the lifecycle bridge and one on its extraction-runtime facade.
+        assertEquals(2, actualManifest.split(java.util.regex.Pattern.quote(activePlay), -1).length - 1);
+        actualManifest = actualManifest.replace(activePlay, "");
         assertEquals(expectedManifest, actualManifest, "b3660bb javap -protected -s descriptor manifest");
         for (String requiredPin : List.of(
                 "public final class com.liy.blendlib.fabric.client.reload.ClientModelRegistry",
