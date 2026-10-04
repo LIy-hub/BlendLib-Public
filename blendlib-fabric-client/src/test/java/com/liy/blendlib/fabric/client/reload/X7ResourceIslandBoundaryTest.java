@@ -373,6 +373,14 @@ class X7ResourceIslandBoundaryTest {
             assertEquals(1, actualManifest.split(java.util.regex.Pattern.quote(addition), -1).length - 1, addition);
             actualManifest = actualManifest.replace(addition, "");
         }
+        // Animation-free CPU morph adds only these exact descriptors; preserve all historical ABI pins.
+        for (String addition : List.of(
+                "  public static com.liy.blendlib.fabric.client.animation.extract.ClientSkinnedExtractionFrame extractStaticMorph(com.liy.blendlib.fabric.client.reload.LoadedModelHandle, com.liy.blendlib.core.animation.runtime.MorphFrameOverrides, com.liy.blendlib.fabric.client.animation.extract.SkinnedExtractionRequest);\n    descriptor: (Lcom/liy/blendlib/fabric/client/reload/LoadedModelHandle;Lcom/liy/blendlib/core/animation/runtime/MorphFrameOverrides;Lcom/liy/blendlib/fabric/client/animation/extract/SkinnedExtractionRequest;)Lcom/liy/blendlib/fabric/client/animation/extract/ClientSkinnedExtractionFrame;\n\n",
+                "  public java.util.Optional<com.liy.blendlib.fabric.client.animation.extract.ClientSkinnedExtractionFrame> extractStaticMorph(com.liy.blendlib.api.BlendModelKey, long, com.liy.blendlib.api.BlendInstanceKey$Entity, long, com.liy.blendlib.core.animation.runtime.MorphFrameOverrides, com.liy.blendlib.fabric.client.animation.extract.SkinnedExtractionRequest);\n    descriptor: (Lcom/liy/blendlib/api/BlendModelKey;JLcom/liy/blendlib/api/BlendInstanceKey$Entity;JLcom/liy/blendlib/core/animation/runtime/MorphFrameOverrides;Lcom/liy/blendlib/fabric/client/animation/extract/SkinnedExtractionRequest;)Ljava/util/Optional;\n\n",
+                "  public com.liy.blendlib.fabric.client.entity.BlendEntityRendererBuilder<E> staticMorph();\n    descriptor: ()Lcom/liy/blendlib/fabric/client/entity/BlendEntityRendererBuilder;\n\n")) {
+            assertEquals(1, actualManifest.split(java.util.regex.Pattern.quote(addition), -1).length - 1, addition);
+            actualManifest = actualManifest.replace(addition, "");
+        }
         assertEquals(expectedManifest, actualManifest, "b3660bb javap -protected -s descriptor manifest");
         for (String requiredPin : List.of(
                 "public final class com.liy.blendlib.fabric.client.reload.ClientModelRegistry",
