@@ -82,3 +82,28 @@ jobs:
           name: blendlib-public-alpha-${{ github.ref_name }}
           path: build/release/
           if-no-files-found: error
+
+  blender-authoring:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Check strict authoring compiler
+        run: python -B -m unittest discover -s blender-addon/tests -v
+      - name: Install verified official Blender 5.1.2
+        run: |
+          curl --fail --location --retry 3 https://download.blender.org/release/Blender5.1/blender-5.1.2-linux-x64.tar.xz -o "$RUNNER_TEMP/blender.tar.xz"
+          echo 'aaccb355f50183979b698bcce7467103a76261b5fa59f4972295842662a285fb  '"$RUNNER_TEMP/blender.tar.xz" | sha256sum --check --strict
+          tar -xf "$RUNNER_TEMP/blender.tar.xz" -C "$RUNNER_TEMP"
+          echo "$RUNNER_TEMP/blender-5.1.2-linux-x64" >> "$GITHUB_PATH"
+      - name: Verify genuine exporter, saved Text and legacy regressions
+        run: |
+          blender --version
+          blender --background --python-exit-code 1 --python blender-addon/scripts/verify_runtime_authoring.py -- --project-root .
+          blender --background --python-exit-code 1 --python blender-addon/scripts/export_blendlib.py -- --blend test-assets/blender-authoring/source.blend --project-root build/authoring-cli-reopen --namespace blendlib_authoring --model-id actor --profile blendlib:rigid_v1 --collection BlendLibExport --runtime-authoring-text BlendLib.runtime.json --report report.json
+          git diff --exit-code -- test-assets/blender-authoring/exported
+          blender --background --python-exit-code 1 --python blender-addon/scripts/verify_p2_fixtures.py -- --project-root .
+          blender --background --python-exit-code 1 --python blender-addon/scripts/verify_x5_toolchain.py

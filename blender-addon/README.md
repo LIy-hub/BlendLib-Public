@@ -34,3 +34,12 @@ The exporter deliberately filters cameras/lights, rejects physics and unsafe
 resource paths, preserves named material slots, and requests no runtime image
 export from Blender. Its post-export validator checks the strict P2 GLB shape
 before a descriptor is written.
+
+## Opt-in runtime authoring
+
+Enable **Runtime Animation Authoring** and select a Blender Text datablock, or pass
+`--runtime-authoring-text BlendLib.runtime.json` to the strict CLI. The versioned Text
+maps Actions to states and pose-marker visual events, exact node-path sockets and an optional
+separate locomotion-rule resource. Disabled export retains automatic loop states.
+See [authoring guide and working example](../docs/blender-runtime-authoring.md).
+Legacy X5 authoring metadata is not silently reinterpreted.

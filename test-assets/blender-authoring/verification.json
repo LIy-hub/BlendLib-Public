@@ -1,0 +1,17 @@
+{
+  "blender_version": "5.1.2",
+  "build_hash": "ec6e62d40fa9",
+  "two_run_byte_identical": true,
+  "sidebar_operator": true,
+  "invalid_marker_preserves_outputs": true,
+  "default_export_unchanged": true,
+  "stale_sidecar_rejected": true,
+  "sidecar_symlink_preserves_target": true,
+  "real_fractional_fps": true,
+  "legacy_x5_frozen_options": true,
+  "sha256": {
+    "mesh_path": "0c7e26562dd59beae277abce3969196e45d6e177007c2ff10f58bc59102fd0c3",
+    "descriptor_path": "61a04a201e89be4f36f8da5bb6165f60012b1eaec714932f0eeba29a358f9be3",
+    "locomotion_path": "8b735924322e46d74f3d90c0339e4fc4d204ade4febdb5c0a2eba60f12dba816"
+  }
+}

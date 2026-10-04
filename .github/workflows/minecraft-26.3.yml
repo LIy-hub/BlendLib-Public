@@ -2,7 +2,7 @@ name: Minecraft 26.3 verification
 
 on:
   push:
-    branches: ["mc/26.3", "feature/mc26.3-animation-capabilities", "feature/mc26.3-sync-recovery-showcase", "feature/mc26.3-entity-layer-cues", "feature/mc26.3-runtime-inspection", "feature/mc26.3-item-observation", "fix/mc26.3-item-animation-reload", "feat/mc26.3-weighted-procedural-pose", "feat/mc26.3-dynamic-layer-weights", "feat/mc26.3-layer-visual-events", "feat/mc26.3-material-appearance", "feat/mc26.3-nested-attachments", "feat/mc26.3-attachment-showcase", "feat/mc26.3-assembly-culling-envelope", "feat/mc26.3-item-material-appearance", "feat/mc26.3-item-visual-events", "feat/mc26.3-named-texture-skins", "feat/mc26.3-standard-two-bone-ik", "feat/mc26.3-locomotion-rules"]
+    branches: ["mc/26.3", "feature/mc26.3-animation-capabilities", "feature/mc26.3-sync-recovery-showcase", "feature/mc26.3-entity-layer-cues", "feature/mc26.3-runtime-inspection", "feature/mc26.3-item-observation", "fix/mc26.3-item-animation-reload", "feat/mc26.3-weighted-procedural-pose", "feat/mc26.3-dynamic-layer-weights", "feat/mc26.3-layer-visual-events", "feat/mc26.3-material-appearance", "feat/mc26.3-nested-attachments", "feat/mc26.3-attachment-showcase", "feat/mc26.3-assembly-culling-envelope", "feat/mc26.3-item-material-appearance", "feat/mc26.3-item-visual-events", "feat/mc26.3-named-texture-skins", "feat/mc26.3-standard-two-bone-ik", "feat/mc26.3-locomotion-rules", "feat/mc26.3-blender-animation-authoring"]
   workflow_dispatch:
 
 permissions:

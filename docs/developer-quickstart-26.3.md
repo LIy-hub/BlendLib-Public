@@ -232,3 +232,10 @@ implementation for the APIs above:
    a concrete consumer requirement justifies expanding them
 
 No merge, tag, GitHub Release or CurseForge upload is part of this development handoff.
+
+### Author states, events and locomotion in Blender
+
+The [explicit Blender runtime-authoring guide](blender-runtime-authoring.md) shows the minimal
+sidebar/Text workflow and CLI flag. It exports existing strict descriptor states, Action-marker
+visual events and exact node-path sockets, plus a separate versioned locomotion-rule JSON.
+A genuine Blender 5.1+ source/export fixture is included; automatic export remains the default.

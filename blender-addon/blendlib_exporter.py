@@ -76,6 +76,7 @@ class ExportOptions:
     dev_generation: int | None = None
     batch_manifest_path: Path | None = None
     texture_source_roots: tuple[Path, ...] | None = None
+    runtime_authoring_text: str | None = None
 
 
 def parse_blender_arguments(argv: Sequence[str]) -> ExportOptions:
@@ -102,6 +103,7 @@ def parse_blender_arguments(argv: Sequence[str]) -> ExportOptions:
         choices=("blendlib:rigid_v1", "blendlib:skinned_v1"),
     )
     parser.add_argument("--collection")
+    parser.add_argument("--runtime-authoring-text", help="Explicit opt-in Blender Text datablock containing runtime authoring v1 JSON")
     parser.add_argument(
         "--output-resource-root",
         default="src/main/resources",
@@ -172,6 +174,7 @@ def parse_blender_arguments(argv: Sequence[str]) -> ExportOptions:
             else None
         ),
         texture_source_roots=(blend_path.parent.resolve(strict=True), project_root.resolve()),
+        runtime_authoring_text=parsed.runtime_authoring_text,
     )
 
 
@@ -231,6 +234,8 @@ def export_open_blend(options: ExportOptions) -> dict[str, Any]:
     objects, warnings = _collect_export_objects(collection)
     _validate_source_objects(objects, options.profile)
     action_names = _discover_actions(objects)
+    authoring_text = getattr(options, "runtime_authoring_text", None)
+    authoring = _read_runtime_authoring(authoring_text)
     source_bounds = _source_world_bounds(objects)
 
     resource_root = _resolve_under(
@@ -239,22 +244,35 @@ def export_open_blend(options: ExportOptions) -> dict[str, Any]:
     assets_root = resource_root / "assets" / options.namespace
     mesh_path = assets_root / "models3d" / f"{options.model_id}.glb"
     descriptor_path = assets_root / "blend_models" / f"{options.model_id}.json"
+    rules_path = assets_root / "blend_animation_rules" / f"{options.model_id}.json"
+    if authoring is not None:
+        # Check the new resource before staging or writing anything. In particular,
+        # do not follow a rules-directory/file symlink and reject only after hashing.
+        safe_rules_path = _resolve_under(options.project_root,
+            rules_path.relative_to(options.project_root).as_posix(), "locomotion sidecar")
+        if safe_rules_path != rules_path.absolute():
+            raise ExportError("BLENDLIB-AUTHOR-001", "Locomotion sidecar output must not follow symlinks.")
+    if authoring is not None and 'locomotion' not in authoring and rules_path.exists():
+        raise ExportError("BLENDLIB-AUTHOR-001", "An existing locomotion sidecar would remain active. Remove it explicitly before exporting without locomotion.")
     mesh_path.parent.mkdir(parents=True, exist_ok=True)
     descriptor_path.parent.mkdir(parents=True, exist_ok=True)
-
     raw_path = mesh_path.with_suffix(".raw.glb")
     try:
-        _export_raw_glb(collection, raw_path)
+        _export_raw_glb(collection, raw_path, runtime_authoring=authoring is not None)
         raw_gltf, raw_binary = read_glb(raw_path, allowed_roots=(options.project_root,))
         gltf, binary = strip_runtime_images(raw_gltf, raw_binary)
+        if authoring is not None:
+            binary = _retime_runtime_authoring(objects, gltf, binary)
+        authored, locomotion = _compile_runtime_authoring(authoring, objects, gltf, binary)
         write_glb(mesh_path, gltf, binary)
     finally:
         if raw_path.exists():
             raw_path.unlink()
 
     textures = _copy_external_material_textures(objects, assets_root, options)
-    descriptor = _build_descriptor(options, action_names, textures)
-    _write_json(descriptor_path, descriptor)
+    descriptor = _build_descriptor(options, action_names if authoring is None else (), textures)
+    if authored is not None:
+        descriptor.update(authored)
     validation = validate_glb(
         mesh_path,
         profile=options.profile,
@@ -264,6 +282,10 @@ def export_open_blend(options: ExportOptions) -> dict[str, Any]:
         expected_source_node_names=_source_node_names(objects),
     )
     validate_descriptor(descriptor, assets_root, tuple(textures))
+    _write_json(descriptor_path, descriptor)
+    if locomotion is not None:
+        rules_path.parent.mkdir(parents=True, exist_ok=True)
+        _write_json(rules_path, locomotion)
     summary = normalized_structure_summary(gltf, descriptor, validation)
     result = {
         "format": "blendlib-p2-export-report-v1",
@@ -297,7 +319,111 @@ def export_open_blend(options: ExportOptions) -> dict[str, Any]:
             "normalized_structure": sha256_bytes(_canonical_json_bytes(summary)),
         },
     }
+    if authored is not None:
+        result["runtime_authoring"] = {"schema_version": 1, "text": authoring_text}
+        if locomotion is not None:
+            result["locomotion_path"] = str(rules_path)
+            result["sha256"]["locomotion"] = sha256_file(rules_path, maximum_bytes=65536, allowed_roots=(options.project_root,))
     return result
+
+
+def _runtime_authoring_module() -> Any:
+    try:
+        from . import blendlib_runtime_authoring as module
+    except ImportError:
+        import blendlib_runtime_authoring as module
+    return module
+
+
+def _read_runtime_authoring(text_name: str | None) -> dict | None:
+    if text_name is None:
+        return None
+    blender = _require_blender()
+    text = blender.data.texts.get(text_name)
+    if text is None:
+        raise ExportError("BLENDLIB-AUTHOR-001", "Select an existing runtime authoring Text datablock.")
+    try:
+        return _runtime_authoring_module().parse(text.as_string())
+    except (ValueError, OverflowError) as error:
+        raise ExportError("BLENDLIB-AUTHOR-001", str(error)[:300]) from error
+
+
+def _retime_runtime_authoring(objects: Sequence[Any], gltf: dict, binary: bytes) -> bytes:
+    """Correct Blender 5.1 fractional-FPS glTF sampling at this opt-in boundary.
+
+    Blender 5.1 glTF divides frames by fps*fps_base instead of fps/fps_base.
+    Detect that exact exported duration before correcting distinct FLOAT time
+    accessors; exporters already using effective FPS are left alone. Anything
+    else fails the following Action/clip contract validation.
+    """
+    scene = _require_blender().context.scene
+    base = float(scene.render.fps_base)
+    if base == 1.0:
+        return binary
+    factor = base * base
+    expected = {action.name: (action.frame_range[1] - action.frame_range[0]) / (scene.render.fps / base)
+                for action in _discover_action_objects(objects)}
+    corrections = set()
+    untouched = set()
+    for clip in gltf.get("animations", []):
+        indices = {sampler["input"] for sampler in clip.get("samplers", [])}
+        times = [float(row[0]) for index in indices for row in _read_accessor(gltf, binary, index)["values"]]
+        wanted = expected.get(clip.get("name"))
+        if not times or wanted is None or abs(min(times)) > 1e-6:
+            continue
+        if math.isclose(max(times), wanted, abs_tol=1e-5, rel_tol=1e-6):
+            untouched.update(indices)
+        elif math.isclose(max(times) * factor, wanted, abs_tol=1e-5, rel_tol=1e-6):
+            corrections.update(indices)
+    if corrections & untouched:
+        raise ExportError("BLENDLIB-AUTHOR-001", "Shared clip times have inconsistent fractional-FPS ranges.")
+    output = bytearray(binary)
+    for index in corrections:
+        accessor = gltf["accessors"][index]
+        values = _read_accessor(gltf, binary, index)
+        if values["component_type"] != 5126 or values["type"] != "SCALAR":
+            raise ExportError("BLENDLIB-AUTHOR-001", "Animation time correction requires FLOAT SCALAR inputs.")
+        view = gltf["bufferViews"][accessor["bufferView"]]
+        offset = view.get("byteOffset", 0) + accessor.get("byteOffset", 0)
+        stride = view.get("byteStride", 4)
+        for row, value in enumerate(values["values"]):
+            struct.pack_into("<f", output, offset + row * stride, value[0] * factor)
+        for bound in ("min", "max"):
+            if bound in accessor:
+                accessor[bound] = [accessor[bound][0] * factor]
+    return bytes(output)
+
+
+def _compile_runtime_authoring(config: dict | None, objects: Sequence[Any], gltf: dict, binary: bytes) -> tuple[dict | None, dict | None]:
+    if config is None:
+        return None, None
+    blender = _require_blender()
+    actions = {action.name: (float(action.frame_range[0]), float(action.frame_range[1]),
+               [(marker.name, marker.frame) for marker in action.pose_markers])
+               for action in _discover_action_objects(objects)}
+    clips = {}
+    for clip in gltf.get("animations", []):
+        times = [float(row[0]) for sampler in clip.get("samplers", [])
+                 for row in _read_accessor(gltf, binary, sampler["input"])["values"]]
+        if times:
+            clips[clip["name"]] = (min(times), max(times))
+    nodes = gltf.get("nodes", [])
+    roots = gltf.get("scenes", [{}])[gltf.get("scene", 0)].get("nodes", [])
+    paths = set()
+    stack = [(index, nodes[index]["name"]) for index in roots]
+    visited = set()
+    while stack:
+        index, path = stack.pop()
+        if index in visited or path in paths:
+            raise ExportError("BLENDLIB-AUTHOR-001", "Exported node paths must be unique and acyclic.")
+        visited.add(index)
+        paths.add(path)
+        stack.extend((child, path + "/" + nodes[child]["name"]) for child in nodes[index].get("children", []))
+    try:
+        return _runtime_authoring_module().compile_authoring(
+            config, actions, clips, paths, blender.context.scene.render.fps / blender.context.scene.render.fps_base)
+    except (ValueError, OverflowError) as error:
+        raise ExportError("BLENDLIB-AUTHOR-001", str(error)[:300]) from error
 
 
 def _select_collection(name: str | None) -> Any:
@@ -598,7 +724,7 @@ def _find_layer_collection(layer_collection: Any, collection: Any) -> Any | None
     return None
 
 
-def _export_raw_glb(collection: Any, output_path: Path) -> None:
+def _export_raw_glb(collection: Any, output_path: Path, *, runtime_authoring: bool = False) -> None:
     blender = _require_blender()
     layer_collection = _find_layer_collection(blender.context.view_layer.layer_collection, collection)
     if layer_collection is None:
@@ -606,7 +732,9 @@ def _export_raw_glb(collection: Any, output_path: Path) -> None:
             "BLENDLIB-EXPORT-001", f"Collection '{collection.name}' is not linked to the active scene."
         )
     blender.context.view_layer.active_layer_collection = layer_collection
+    timing = {"export_frame_range": False, "export_anim_slide_to_zero": True, "export_negative_frame": "SLIDE"} if runtime_authoring else {}
     result = blender.ops.export_scene.gltf(
+        **timing,
         filepath=str(output_path),
         export_format="GLB",
         use_selection=False,
@@ -1601,13 +1729,16 @@ def register() -> None:
                 scene = context.scene
                 options = ExportOptions(
                     blend_path=Path(blender.data.filepath).resolve(),
-                    project_root=Path(scene.blendlib_project_root).expanduser().resolve(),
+                    project_root=Path(blender.path.abspath(scene.blendlib_project_root)).expanduser().resolve(),
                     namespace=_require_resource_token(scene.blendlib_namespace, "namespace"),
                     model_id=_require_resource_token(scene.blendlib_model_id, "model id"),
                     profile=scene.blendlib_profile,
                     collection_name=scene.blendlib_collection.name if scene.blendlib_collection else None,
                     output_resource_root=scene.blendlib_output_resource_root,
                     report_path=None,
+                    runtime_authoring_text=(scene.blendlib_runtime_authoring_text.name
+                        if scene.blendlib_runtime_authoring_enabled and scene.blendlib_runtime_authoring_text
+                        else "" if scene.blendlib_runtime_authoring_enabled else None),
                 )
                 result = export_open_blend(options)
                 self.report({"INFO"}, f"Exported {result['mesh_path']}")
@@ -1632,6 +1763,10 @@ def register() -> None:
             layout.prop(scene, "blendlib_profile")
             layout.prop(scene, "blendlib_project_root")
             layout.prop(scene, "blendlib_output_resource_root")
+            layout.prop(scene, "blendlib_runtime_authoring_enabled")
+            if scene.blendlib_runtime_authoring_enabled:
+                layout.prop(scene, "blendlib_runtime_authoring_text")
+                layout.label(text="Strict runtime authoring v1 JSON", icon="TEXT")
             layout.operator(BLENDLIB_OT_export_model.bl_idname, icon="EXPORT")
 
     classes = (BLENDLIB_OT_export_model, VIEW3D_PT_blendlib_export)
@@ -1654,6 +1789,11 @@ def register() -> None:
     blender.types.Scene.blendlib_output_resource_root = blender.props.StringProperty(
         name="Output Resource Root", default="src/main/resources"
     )
+    blender.types.Scene.blendlib_runtime_authoring_enabled = blender.props.BoolProperty(
+        name="Runtime Animation Authoring", default=False,
+        description="Explicitly compile selected Text into runtime states, marker events, sockets and optional locomotion rules")
+    blender.types.Scene.blendlib_runtime_authoring_text = blender.props.PointerProperty(
+        name="Runtime Authoring Text", type=blender.types.Text)
     globals()["_REGISTERED_CLASSES"] = classes
     _x5_toolchain().register_blender_ui(blender)
 
@@ -1668,6 +1808,8 @@ def unregister() -> None:
         "blendlib_profile",
         "blendlib_project_root",
         "blendlib_output_resource_root",
+        "blendlib_runtime_authoring_enabled",
+        "blendlib_runtime_authoring_text",
     ):
         if hasattr(blender.types.Scene, property_name):
             delattr(blender.types.Scene, property_name)

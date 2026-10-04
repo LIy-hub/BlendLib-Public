@@ -1,0 +1,56 @@
+{
+  "animation": {
+    "initial_state": "blendlib_authoring:idle",
+    "states": {
+      "blendlib_authoring:attack": {
+        "blend_seconds": 0.1,
+        "clip": "Attack",
+        "events": [
+          {
+            "event": "blendlib_authoring:impact",
+            "time_seconds": 0.25
+          }
+        ],
+        "loop": false,
+        "next": "blendlib_authoring:idle",
+        "speed": 1.0
+      },
+      "blendlib_authoring:idle": {
+        "clip": "Idle",
+        "loop": true,
+        "speed": 1.0
+      },
+      "blendlib_authoring:walk": {
+        "clip": "Walk",
+        "events": [
+          {
+            "event": "blendlib_authoring:footstep",
+            "time_seconds": 0.5
+          }
+        ],
+        "loop": true,
+        "speed": 1.0
+      }
+    }
+  },
+  "extensions": {},
+  "extensions_required": [],
+  "extensions_used": [],
+  "format_version": 1,
+  "materials": {
+    "BodyMaterial": {
+      "base_color": "blendlib_authoring:textures/blendlib/actor__bodymaterial.png",
+      "double_sided": false,
+      "emissive": false,
+      "mode": "opaque"
+    }
+  },
+  "mesh": "blendlib_authoring:models3d/actor.glb",
+  "profile": "blendlib:rigid_v1",
+  "sockets": {
+    "blendlib_authoring:hand": {
+      "node": "Root/Hand"
+    }
+  },
+  "units_per_block": 1.0
+}

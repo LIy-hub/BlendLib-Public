@@ -4866,6 +4866,10 @@ def _publication_record_multiset(
 def _freeze_export_options(options: Any) -> _FrozenLegacyOptions:
     """Copy only approved export inputs before any staging directory exists."""
 
+    if getattr(options, "runtime_authoring_text", None) is not None:
+        raise X5ToolingError("BLENDLIB-AUTHOR-001",
+            "Runtime authoring Text requires the strict Export BlendLib Model button or export_blendlib.py CLI; X5 publication does not consume it.")
+
     try:
         raw_project_root = Path(getattr(options, "project_root")).expanduser()
         _reject_windows_extended_project_root(raw_project_root)

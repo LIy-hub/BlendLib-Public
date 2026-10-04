@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased: explicit Blender runtime authoring
+
+- Add opt-in versioned Blender Text mapping for exact Action states, pose-marker visual events and exact node-path sockets
+- Export validated existing locomotion rules as a separate resource; preserve automatic defaults and legacy X5 authoring-only metadata
+- Validate real clip timing, fractional FPS, aggregate limits and sidecar destinations before publication
+- Add genuine Blender 5.1.2 deterministic fixture, runtime callback/pose acceptance and a pinned official Blender CI job
+
 ## Unreleased: resource-pack locomotion rules
 
 - Add strict versioned optional model sidecars, typed extraction inputs, ordered threshold hysteresis and optional minimum-state intervals
