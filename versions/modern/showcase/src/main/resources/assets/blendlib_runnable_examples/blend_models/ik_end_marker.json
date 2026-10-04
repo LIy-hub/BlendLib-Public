@@ -1,0 +1,17 @@
+{
+  "format_version": 1,
+  "profile": "blendlib:rigid_v1",
+  "mesh": "blendlib_runnable_examples:models3d/ik_end_marker.glb",
+  "units_per_block": 1.0,
+  "materials": {
+    "MechanicalSurface": {
+      "base_color": "blendlib_runnable_examples:textures/mechanical_arm.png",
+      "mode": "opaque",
+      "double_sided": false,
+      "emissive": false
+    }
+  },
+  "extensions": {},
+  "extensions_required": [],
+  "extensions_used": []
+}

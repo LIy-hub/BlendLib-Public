@@ -71,6 +71,60 @@ each client actor. Use `/blendlib_example inspect` to find the actor's ID, then
 and upper controllers. This consumer counts callbacks; it does not play sounds or particles.
 Server gameplay and authoritative cues never depend on those counts.
 
+## Opt-in standard two-bone IK mechanical arm
+
+The existing layered actor remains the default. To use the three-joint mechanical arm instead,
+enable this **client JVM property**, then summon the same registered actor:
+
+```sh
+JAVA_TOOL_OPTIONS="-Dblendlib.examples.twoBoneIk=true" ./gradlew -p versions/modern -Pminecraft_version=26.3 -Prunnable_examples=true runRunnableExamplesClient
+```
+
+```mcfunction
+/summon blendlib_runnable_examples:layered_actor ~ ~ ~3
+```
+
+For a packaged install, put both JARs from the build section in the 26.3 Fabric profile, add
+`-Dblendlib.examples.twoBoneIk=true` to the launcher's Java arguments, and restart. This is
+not `-PtwoBoneIk=true`. Clear the property or set it to `false` and restart to restore the
+original layered actor. Item examples are unaffected. While enabled, the actor renderer uses
+this IK scene instead of its layered/appearance/nested-attachment scene, so those actor-only
+opt-ins and layer inspection do not demonstrate their original behavior at the same time.
+
+Watch for a twelve-second target cycle:
+
+1. The cyan open cage is the moving target in the arm's model space
+2. The small gold diamond is attached to the **actual final extracted end socket**; it should
+   remain at the cage's center while the upper and lower mechanical links bend
+3. The authored idle clip independently rotates and uniformly scales the chain's ancestor
+4. Two summoned actors have separate runtime owners; unloading one must not affect the other
+5. Reload resources with F3+T and check that the arm and both markers resume together
+
+`ExampleTwoBoneIkScene` installs `TwoBoneIkPoseComponent` through ordinary `poseComponents`,
+wrapped by the existing `WeightedPoseComponent` at weight 1. The direct joint chain is
+`ArmShoulder -> ArmElbow -> ArmEnd`; its target/pole callback uses only captured client ticks.
+The target cage and end diamond are separately authored, packaged rigid models. Their immutable
+attachment snapshots use the same captured clock and final `BlendEntitySockets`. The cage's
+model-space target is converted through the inverse captured origin transform and descriptor
+units, so translated/rotated/scaled resource-pack origins do not apply the transform twice. No X3 rig,
+manual analytic-only drawing, new playback engine, terrain sampling or gameplay IK is involved.
+The server actor's gameplay dimensions and existing cues stay independent of these visuals.
+
+Full weight and this reachable trajectory make the socket coincide with the target. Reducing
+weight, masking out a joint or applying a later rotation modifier may move it away. The demo
+preserves the sampled pose and logs one explicit warning per rejected resource generation if a
+resource pack removes, duplicates or reparents the chain names. Other numerical/programming
+errors are not swallowed. Missing marker resources/sockets omit the markers safely.
+
+`verifyRunnableExamples` loads these actual resources from the built example JAR, decodes the
+three-joint rig with the strict loader, invokes `SkinnedAnimationRuntime.extract` with the same
+pipeline, and checks final socket reach over a whole target cycle, animated ancestor rotation
+and scale, a valid resource-pack GLB with translated/rotated/scaled origin and non-unit descriptor
+units, nontrivial renderer root/world transforms, final marker composition, actual CPU
+vertices, two owners, resource reload, unload/disconnect and incompatible-chain diagnostics.
+This is headless integration evidence. Native graphical rendering and the visual checks above
+are explicitly deferred; passing verification is not a claim that a client display was viewed.
+
 ## Demonstrate the animated handheld item
 
 ```mcfunction

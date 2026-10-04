@@ -69,6 +69,7 @@ default; `-Prunnable_examples=true` separately opts the build into the demo mod.
 | `-Dblendlib.examples.namedSkins=true` | `/function blendlib_runnable_examples:named_skins` creates Ember/Frost actors and wands |
 | `-Dblendlib.examples.itemAppearance=true` | `/function blendlib_runnable_examples:item_appearance` gives Orange and Blue bare wands |
 | `-Dblendlib.examples.itemVisualEvents=true` | Hold a wand, run `item attack`, then `/blendlib_example item events` |
+| `-Dblendlib.examples.twoBoneIk=true` | Summon an actor to use the [mechanical-arm scene](../versions/modern/showcase/README.md) with moving target/final socket markers |
 | `-Dblendlib.examples.extendedAttachments=true` | Summon an actor; the extended assembly exercises explicit conservative culling bounds |
 
 For example, in a POSIX shell:
@@ -156,6 +157,7 @@ live example use the demo's real slots/textures instead of inventing assets.
 | --- | --- |
 | Descriptor clips and server-driven animation | [Handbook](developer-handbook.md#synchronization), [synchronized visual events](synchronized-visual-events.md), [recovery](animation-recovery-runnable-examples.md) |
 | Independent entity controllers, masks and tick-based cues | [Layered animation](layered-animation.md), including dynamic weights and per-layer callbacks |
+| Standard three-joint two-bone IK, model-space target/pole, diagnostics | [Two-bone IK](standard-two-bone-ik.md) |
 | Look-at, rotation limits, springs, weighted/masked procedural stages | [Procedural components](procedural-components.md) |
 | Final-pose sockets and real attached models | [Sockets](final-pose-sockets.md), [nested attachments](nested-entity-attachments.md), [explicit culling envelopes](entity-culling-envelope.md) |
 | Per-stack LOOP/ONCE/HOLD, play/pause/resume/seek/speed and callbacks | [Animated items](animated-items.md), including observational status and reload behavior |
@@ -205,13 +207,15 @@ register before reload/bake, and verify fallback, copy identity and reconnect be
 Beta status still means no blanket stable API/ABI guarantee; the older
 [API design rules](api-stability.md) are design intent, not a new Beta compatibility promise.
 
-The cumulative code checkpoint `dbc4bffc90075db02bfe335eac0c0f6c120d8ae0` has passing
+The prior named-skin checkpoint `dbc4bffc90075db02bfe335eac0c0f6c120d8ae0` has passing
 [26.3 build/example verification](https://github.com/LIy-hub/BlendLib-Public/actions/runs/37147435646)
 and [version-matrix CI](https://github.com/LIy-hub/BlendLib-Public/actions/runs/37147435588).
-The [named-skin verification](named-texture-skins-verification.md) describes the latest runtime
-checks; older batch reports establish only their own checkpoint. This entry consolidation
-changes documentation only. The delivery manifest identifies reused JARs separately from its
-new documentation/source commit.
+The current additive feature is [standard two-bone IK](standard-two-bone-ik.md); see its
+[verification summary](standard-two-bone-ik-verification.md). The cumulative delivery manifest
+binds the current source/JARs and exact-commit CI. Older batch reports, including the
+[named-skin verification](named-texture-skins-verification.md), establish only their own
+checkpoint. The earlier developer-entry consolidation changed documentation only; this IK
+branch contains new runtime, consumer and tests, without creating a public release.
 
 Remaining work is acceptance or an explicitly chosen future feature, not a claim of missing
 implementation for the APIs above:

@@ -31,6 +31,11 @@ for this package.
 
 ## Components and ordering
 
+- `TwoBoneIkPoseComponent(root, middle, end, target)` solves a direct three-node chain
+  using one immutable model-space target/pole snapshot. It changes only the root/middle local
+  rotations and supports the current posed ancestors. See [standard two-bone IK](standard-two-bone-ik.md)
+  for clamping, diagnostics, scale limits and the opt-in mechanical-arm consumer.
+
 - `LookAtPoseComponent(node, localForward, weight, target)` aims the joint's local forward axis
   at the target, taking the posed ancestor rotations, scales, and translations into account.
   The shortest rotation preserves existing roll as far as possible; there is no independent

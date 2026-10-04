@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased: standard two-bone IK
+
+- Add a stateless ordinary pose component with immutable model-space target/pole snapshots and optional per-invocation diagnostics
+- Preserve translations/scales/end rotation and existing X3 provenance; support posed ancestors, bounded reach clamping and deterministic singularity handling
+- Reuse existing weighting/masking/lifecycle and add a real opt-in 26.3 mechanical arm with final socket/target verification; native graphics acceptance remains deferred
+
 ## Unreleased: named entity and item texture skins
 
 - Register bounded, model-scoped named slot-to-texture definitions at client startup and prepare immutable per-generation catalogs during reload

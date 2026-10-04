@@ -254,6 +254,7 @@ if (minecraftVersion == "26.3") {
             "**/LayerAnimationVisualEventCursorTest.java",
             "**/AnimationControllerTest.java",
             "**/SkinnedAnimationRuntimeTest.java",
+            "**/SkinnedAnimationRuntimeSourceBoundaryTest.java",
             "**/EntityLayerCueCacheTest.java",
             "**/MaterialAppearanceSubmissionTest.java",
             "**/MaterialAppearanceCaptureTest.java",
@@ -262,6 +263,7 @@ if (minecraftVersion == "26.3") {
             "**/NamedSkinConsumerFixture.java",
             "**/ClientAnimationRigViewTestAccess.java",
             "**/animation/runtime/procedural/*.java",
+            "**/fabric/client/procedural/*.java",
             "**/entity/BlendEntitySocketsTest.java",
             "**/entity/BlendEntityCullingEnvelopeTest.java",
             "**/entity/PublicEntityConsumerCompileFixture.java",
@@ -438,7 +440,7 @@ if (providers.gradleProperty("runnable_examples").orNull == "true") {
                         it.startsWith("com/liy/blendlib/core/") || it.startsWith("com/liy/blendlib/api/") }) {
                     "Example JAR must not embed library implementation or API classes"
                 }
-                listOf("ExampleContent", "LayeredActor", "ExampleClient", "ExampleItemCommands", "ExampleAnimationScene", "ExampleInspectionCommands", "ExampleLayerInspection", "ExampleItemInspection", "ExampleLayerVisualEvents", "ExampleMaterialAppearance", "ExampleItemMaterialAppearance", "ExampleNamedSkins", "ExampleAttachmentScene", "ExampleAttachmentOwners").forEach {
+                listOf("ExampleContent", "LayeredActor", "ExampleClient", "ExampleItemCommands", "ExampleAnimationScene", "ExampleInspectionCommands", "ExampleLayerInspection", "ExampleItemInspection", "ExampleLayerVisualEvents", "ExampleMaterialAppearance", "ExampleItemMaterialAppearance", "ExampleNamedSkins", "ExampleAttachmentScene", "ExampleAttachmentOwners", "ExampleTwoBoneIkScene").forEach {
                     check("com/liy/blendlib/examples/runnable/$it.class" in names) { "Missing example class: $it" }
                 }
                 val metadata = zip.getInputStream(zip.getEntry("fabric.mod.json")).reader().readText()
@@ -460,7 +462,8 @@ if (providers.gradleProperty("runnable_examples").orNull == "true") {
                     }
                 }
                 val slurper = groovy.json.JsonSlurper()
-                listOf("actor", "appearance_actor", "wand", "appearance_wand", "marker").forEach { model ->
+                listOf("actor", "appearance_actor", "wand", "appearance_wand", "marker",
+                        "mechanical_arm", "ik_target_marker", "ik_end_marker").forEach { model ->
                     val path = namespace + "blend_models/$model.json"
                     val descriptor = slurper.parseText(zip.getInputStream(zip.getEntry(path)).reader().readText()) as Map<*, *>
                     val mesh = descriptor["mesh"] as String
@@ -470,11 +473,23 @@ if (providers.gradleProperty("runnable_examples").orNull == "true") {
                         val texture = (value as Map<*, *>)["base_color"] as String
                         check(namespace + texture.substringAfter(':') in names) { "Unresolved example texture: $texture" }
                     }
-                    if (model != "marker") {
+                    if (model == "mechanical_arm") {
+                        val animation = descriptor["animation"] as Map<*, *>
+                        check((animation["states"] as Map<*, *>).containsKey("blendlib_runnable_examples:idle"))
+                        check((descriptor["sockets"] as Map<*, *>).keys.containsAll(listOf(
+                                "blendlib_runnable_examples:ik_end", "blendlib_runnable_examples:ik_origin")))
+                    } else if (model !in setOf("marker", "ik_target_marker", "ik_end_marker")) {
                         val animation = descriptor["animation"] as Map<*, *>
                         val states = animation["states"] as Map<*, *>
                         check(states.keys.containsAll(listOf("idle", "walk", "attack").map { "blendlib_runnable_examples:$it" }))
                         check((descriptor["sockets"] as Map<*, *>).containsKey("blendlib_runnable_examples:tip"))
+                    }
+                }
+                listOf("models3d/mechanical_arm.glb", "models3d/ik_target_marker.glb",
+                        "models3d/ik_end_marker.glb", "textures/mechanical_arm.png").forEach { asset ->
+                    val bytes = zip.getInputStream(zip.getEntry(namespace + asset)).readBytes()
+                    check(bytes.contentEquals(file("showcase/src/main/resources/$namespace$asset").readBytes())) {
+                        "Mechanical-arm asset must match the committed authored resource: $asset"
                     }
                 }
                 listOf("ember", "frost").forEach { skin ->

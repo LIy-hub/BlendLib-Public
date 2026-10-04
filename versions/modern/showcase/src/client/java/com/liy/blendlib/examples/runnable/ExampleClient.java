@@ -32,6 +32,17 @@ public final class ExampleClient implements ClientModInitializer {
         }
         BlendEntityRenderers.register(ExampleContent.ACTOR,
                 context -> {
+                    if (ExampleTwoBoneIkScene.enabled()) {
+                        return BlendEntityRenderer.<LayeredActor>builder(context, ExampleTwoBoneIkScene.MODEL)
+                                .skinnedAnimation((entity, request) -> ExampleTwoBoneIkScene.IDLE)
+                                .poseComponents(ExampleTwoBoneIkScene.procedural())
+                                .attachments((entity, request, sockets) -> ExampleTwoBoneIkScene.attachments(
+                                        BlendLibClientServices.models(), request, sockets,
+                                        net.minecraft.client.renderer.texture.OverlayTexture.NO_OVERLAY))
+                                .cullingEnvelope(ExampleTwoBoneIkScene.ENVELOPE)
+                                .shadowRadius(0.45F)
+                                .build();
+                    }
                     var builder = BlendEntityRenderer.<LayeredActor>builder(context, ExampleContent.APPEARANCE_ACTOR_MODEL)
                         .materialAppearance((entity, request) -> ExampleMaterialAppearance.forName(
                                 appearanceName(entity, namedSkins)))

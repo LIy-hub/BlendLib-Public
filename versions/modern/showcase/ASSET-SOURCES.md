@@ -56,3 +56,25 @@ the repository's Apache-2.0 license; there are no external images, downloads or 
 requirements beyond the existing repository notices. The build consumes the committed files
 and does not run this authoring script. Both actual model definitions reuse these two textures
 in opposite body/accessory combinations; original copied assets and GLB geometry are unchanged.
+
+## Original standard-IK mechanical arm and markers
+
+`tools/generate_mechanical_arm.py` deterministically authors all of these committed resources
+using only Python's standard library, with no downloaded source, Blender dependency or build-time
+generation:
+
+- `models3d/mechanical_arm.glb`: volumetric blue upper link, orange lower link, steel joint
+  housings and end fork, rigidly weighted to exactly three joints. The `ArmMount` ancestor has
+  an authored translated/rotated/uniformly scaled bind transform; its four-second idle clip
+  changes rotation and positive uniform scale. Inverse binds are derived from that actual rig
+- `models3d/ik_target_marker.glb`: twelve narrow box edges forming an open target cage
+- `models3d/ik_end_marker.glb`: a small eight-triangle endpoint diamond
+- Corresponding strict v1 descriptors in `blend_models/`, with the arm's end, origin and mount
+  sockets declared by complete node path
+- `textures/mechanical_arm.png`: original 16×4 opaque RGBA palette atlas with steel, blue,
+  orange and white bands. White marker geometry receives the captured cyan/gold tint
+
+These original assets are covered by the repository's Apache-2.0 scope and existing notices.
+The normal runtime JAR excludes them. The opt-in example build verifies that packaged bytes
+exactly match the committed assets; its headless check loads the same packaged resources.
+Regenerate from the repository root with `python3 versions/modern/showcase/tools/generate_mechanical_arm.py`.
