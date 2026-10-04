@@ -41,7 +41,7 @@ class StaticItemMorphTest {
                 calls.incrementAndGet(); mutable.put(SQUEEZE, (stack.getCount() - 1) / 63F);
                 return new MorphFrameOverrides(mutable);
             });
-            var a = new ItemStack(Items.HONEYCOMB, 1);
+            var a = stack();
             var b = a.copy(); b.setCount(64);
             var renderer = new BlendLibItemSpecialRenderer(BINDING);
             var first = renderer.extractArgument(a);
@@ -71,7 +71,7 @@ class StaticItemMorphTest {
             var renderer = new BlendLibItemSpecialRenderer(BINDING,
                     stack -> { order.add("appearance"); return mutable; },
                     stack -> { order.add("skin"); return Optional.empty(); });
-            var captured = renderer.extractArgument(new ItemStack(Items.HONEYCOMB));
+            var captured = renderer.extractArgument(stack());
             mutable.clear();
             assertEquals(List.of("morph", "skin", "appearance"), order);
             assertEquals(1, firstX(captured.snapshot(123, 456)), 1e-6);
@@ -85,7 +85,7 @@ class StaticItemMorphTest {
     @Test void callbacksChangingLifecycleOrEmptyingStackDiscardExtraction() throws Exception {
         for (String mutation : List.of("reload", "disconnect", "play_init", "retired", "empty")) {
             withServices((models, lifecycle, runtime) -> {
-                var stack = new ItemStack(Items.HONEYCOMB);
+                var stack = stack();
                 CONTROLS.set(s -> new MorphFrameOverrides(Map.of(SQUEEZE, 1F)));
                 var renderer = new BlendLibItemSpecialRenderer(BINDING);
                 var frozen = renderer.extractArgument(stack);
@@ -108,7 +108,7 @@ class StaticItemMorphTest {
                 CONTROLS.set(s -> MorphFrameOverrides.empty());
                 if (!mutation.equals("retired")) {
                     runtime.onPlayInit();
-                    assertEquals(.25, firstX(renderer.extractArgument(new ItemStack(Items.HONEYCOMB)).snapshot(0, 0)), 1e-6);
+                    assertEquals(.25, firstX(renderer.extractArgument(stack()).snapshot(0, 0)), 1e-6);
                 }
             });
         }
@@ -117,7 +117,7 @@ class StaticItemMorphTest {
     @Test void invalidControlsAndRecursionLeaveNoLatchedGuardOrState() throws Exception {
         withServices((models, lifecycle, runtime) -> {
             var renderer = new BlendLibItemSpecialRenderer(BINDING);
-            var stack = new ItemStack(Items.HONEYCOMB);
+            var stack = stack();
             CONTROLS.set(s -> new MorphFrameOverrides(Map.of(BlendResourceId.parse("item_morph:unknown"), 1F)));
             assertThrows(IllegalArgumentException.class, () -> renderer.extractArgument(stack));
             CONTROLS.set(s -> new MorphFrameOverrides(Map.of(SQUEEZE, -1F)));
@@ -168,6 +168,12 @@ class StaticItemMorphTest {
                 ItemAnimationObservationAbiTest.exportedDescriptors(BlendLibItemMorphs.class));
         assertEquals(Set.of("public abstract weights(Lnet/minecraft/world/item/ItemStack;)Lcom/liy/blendlib/core/animation/runtime/MorphFrameOverrides;"),
                 ItemAnimationObservationAbiTest.exportedDescriptors(BlendLibItemMorphControls.class));
+    }
+
+    private static ItemStack stack() {
+        // Real stacks, but no data-pack loading: built-in holder components are not yet bound.
+        return new ItemStack(net.minecraft.core.Holder.direct(Items.HONEYCOMB,
+                net.minecraft.core.component.DataComponents.COMMON_ITEM_COMPONENTS));
     }
 
     private static BlendLibItemBinding binding(String name) {
