@@ -2,6 +2,8 @@ package com.liy.blendlib.examples.runnable;
 
 import com.liy.blendlib.fabric.client.api.BlendLibClientServices;
 import com.liy.blendlib.fabric.client.entity.BlendEntityRenderer;
+import com.liy.blendlib.fabric.client.blockentity.BlendBlockEntityRenderer;
+import com.liy.blendlib.fabric.client.blockentity.BlendBlockEntityRenderers;
 import com.liy.blendlib.fabric.client.entity.BlendEntityRenderers;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientEntityEvents;
@@ -43,6 +45,16 @@ public final class ExampleCpuMorphClient implements ClientModInitializer {
                                 net.minecraft.client.renderer.texture.OverlayTexture.NO_OVERLAY))
                         .cullingEnvelope(ExampleCpuMorphScene.ENVELOPE)
                         .shadowRadius(.45F)
+                        .build());
+        // The same animation-free asset can be hosted at a block-local root, without attachments.
+        BlendBlockEntityRenderers.register(ExampleCpuMorphContent.STATIC_BLOCK_ENTITY, context ->
+                BlendBlockEntityRenderer.<ExampleCpuMorphBlockEntity>builder(context, ExampleCpuMorphBlockControls.MODEL)
+                        .staticMorph()
+                        .morphControls((blockEntity, request) -> {
+                            var position = blockEntity.getBlockPos();
+                            return ExampleCpuMorphBlockControls.capture(position.getX(), position.getY(), position.getZ(),
+                                    request.clientGameTick(), request.partialTick());
+                        })
                         .build());
         ClientEntityEvents.ENTITY_UNLOAD.register((entity, level) -> {
             if (entity instanceof CpuMorphActor actor) OWNERS.remove(actor.controls());

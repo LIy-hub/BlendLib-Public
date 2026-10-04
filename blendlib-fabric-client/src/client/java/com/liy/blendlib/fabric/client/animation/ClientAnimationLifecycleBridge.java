@@ -39,6 +39,11 @@ public final class ClientAnimationLifecycleBridge {
         currentConnectionSession = UUID.randomUUID().toString();
     }
 
+    /** Whether extraction still belongs to an active client play connection. */
+    public boolean hasActivePlayConnection() {
+        return currentConnectionSession != null;
+    }
+
     /**
      * Creates the typed key that client entity bindings for the current play connection use.
      */

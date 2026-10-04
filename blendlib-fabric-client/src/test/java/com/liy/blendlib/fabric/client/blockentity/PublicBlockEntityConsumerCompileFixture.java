@@ -15,6 +15,12 @@ final class PublicBlockEntityConsumerCompileFixture {
         return BlendBlockEntityRenderer.<T>builder(context, modelKey).staticRestPose();
     }
 
+    static <T extends BlockEntity> BlendBlockEntityRendererBuilder<T> configureStaticMorph(
+            BlockEntityRendererProvider.Context context, BlendModelKey modelKey,
+            BlendBlockEntityMorphControls<? super T> controls) {
+        return BlendBlockEntityRenderer.<T>builder(context, modelKey).staticMorph().morphControls(controls);
+    }
+
     static <T extends BlockEntity> BlendBlockEntityRendererBuilder<T> configureSynchronizedSkinned(
             BlockEntityRendererProvider.Context context,
             BlendModelKey modelKey,

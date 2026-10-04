@@ -163,6 +163,22 @@ class BlendBlockEntityAdapterContractsTest {
         }
     }
 
+    @Test
+    void staticMorphChecksTheLiveBlockAndKeepsWorldCallbacksOutOfSubmit() throws IOException {
+        String source = readSource("StaticMorphBlockEntitySnapshotFactory.java");
+        for (String required : List.of("captureExtractionLifecycleRevision()", "hasActivePlayConnection()",
+                "request.instanceKey()", "packedBlockPos()", "dimension()", "blockEntity.isRemoved()",
+                "blockEntity.getLevel() == level", "Minecraft.getInstance().level == level", "level.hasChunkAt(",
+                "level.getBlockEntity(blockEntity.getBlockPos()) == blockEntity", "Transform.IDENTITY")) {
+            assertTrue(source.contains(required), required);
+        }
+        for (String forbidden : List.of("BlendLibClientAnimationSync", "SkinnedAnimationRuntimeInput",
+                "renderer.submit(", "java.nio.file.", "java.io.", "AnimationController")) {
+            assertFalse(source.contains(forbidden), forbidden);
+        }
+        assertTrue(readTestSource("PublicBlockEntityConsumerCompileFixture.java").contains(".staticMorph().morphControls(controls)"));
+    }
+
     private static String readBlockEntitySources() throws IOException {
         Path root = Path.of(
                 System.getProperty("blendlib.projectDir"),

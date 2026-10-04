@@ -165,3 +165,34 @@ recomputed from an intermediate deformed surface.
 See the [runnable consumer](../examples/cpu-morph-profile/README.md) and
 [verification](cpu-morph-profile-verification.md). No network payload, tangent,
 texture-pipeline, main merge, release, or GPU morph extension is included.
+
+## Animation-free block entities
+
+The public block renderer supports the same CPU deformation without animation clips:
+
+```java
+BlendBlockEntityRenderer.<MyBlockEntity>builder(context, modelKey)
+    .staticMorph()
+    .morphControls((block, frame) -> new MorphFrameOverrides(Map.of(
+        BlendResourceId.parse("my_mod:pressure"), currentVisualPressure(block))))
+    .build();
+```
+
+Select exactly one of `staticRestPose`, `staticMorph`, `syncedSkinnedAnimation`, or
+`snapshotFactory`. `morphControls` currently requires `staticMorph`; it is optional,
+and omitted named controls use authored descriptor defaults on every frame. Names,
+finite weights and descriptor ranges are validated as a whole batch. The adapter
+keeps no controller, clock, last-weight cache, gameplay state or synchronization data.
+
+Callbacks execute once during extraction, never in submit. The request exposes the
+typed dimension and packed block position. The adapter verifies the same live block
+object and level, a loaded chunk, and matching dimension/position before and after
+capture. Chunk unload, play connection changes and resource reload fence unfinished
+captures; a replacement at the same position receives fresh controls. Failed/stale
+captures use the existing missing-model snapshot path. Already captured snapshots
+remain immutable and rely on the normal generation-retirement submission safeguards.
+
+The root is block-local identity because Minecraft already translates to the block
+position. Use descriptor bounds large enough for the authored deformation range.
+This block path adds no attachments, sockets callback, packets or gameplay API.
+The optional runnable examples contain `static_cpu_morph_block`; see their README.

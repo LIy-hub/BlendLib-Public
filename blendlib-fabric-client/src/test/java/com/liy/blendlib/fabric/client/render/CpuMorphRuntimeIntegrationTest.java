@@ -70,6 +70,61 @@ class CpuMorphRuntimeIntegrationTest {
         assertEquals(1, firstX(frozen), 1e-6);
     }
 
+    @Test void blockMorphUsesDimensionPositionIdentityAndRetainsNoControlsOrControllers() {
+        publishStatic(2);
+        var a = new BlendInstanceKey.BlockEntity(BlendResourceId.parse("minecraft:overworld"), 17);
+        var b = new BlendInstanceKey.BlockEntity(BlendResourceId.parse("minecraft:the_nether"), 17);
+        var c = new BlendInstanceKey.BlockEntity(a.dimension(), 18);
+        assertNotEquals(a, b);
+        assertNotEquals(a, c);
+        var frozen = blockFrame(a, controls(1, 0)).orElseThrow();
+        assertEquals(1, firstX(frozen), 1e-6);
+        assertEquals(0, firstX(blockFrame(b, controls(0, 0)).orElseThrow()), 1e-6);
+        assertEquals(-1, firstX(blockFrame(c, controls(-1, 0)).orElseThrow()), 1e-6);
+        assertEquals(.25, firstX(blockFrame(a, MorphFrameOverrides.empty()).orElseThrow()), 1e-6);
+        assertEquals(1, firstX(frozen), 1e-6);
+        for (var owner : List.of(a, b, c)) assertTrue(lifecycle.registry().find(owner).isEmpty());
+        assertThrows(IllegalArgumentException.class, () -> blockFrame(a,
+                new MorphFrameOverrides(Map.of(id("absent"), 1F))));
+        assertThrows(IllegalArgumentException.class, () -> blockFrame(a, controls(0, 2)));
+        assertEquals(.25, firstX(blockFrame(a, MorphFrameOverrides.empty()).orElseThrow()), 1e-6);
+    }
+
+    @ParameterizedTest @ValueSource(strings={"unload", "disconnect", "play_init", "reload", "retired"})
+    void blockMorphDiscardsCapturedWorkAcrossLifecycleBoundaries(String action) {
+        publishStatic(2);
+        var owner = new BlendInstanceKey.BlockEntity(BlendResourceId.parse("minecraft:overworld"), 17);
+        long revision = runtime.captureExtractionLifecycleRevision();
+        var frozen = blockFrame(owner, controls(1, 0)).orElseThrow();
+        var request = input(42,0,IDLE).extractionRequest();
+        switch (action) {
+            case "unload" -> runtime.onBlockEntityUnload(owner);
+            case "disconnect" -> runtime.onWorldDisconnect();
+            case "play_init" -> runtime.onPlayInit();
+            case "reload" -> publishStatic(3);
+            case "retired" -> models.close();
+        }
+        assertTrue(runtime.extractStaticMorph(MODEL, 2, owner, revision, controls(0,0), request).isEmpty());
+        assertEquals(1, firstX(frozen), 1e-6);
+        if (action.equals("disconnect")) {
+            assertFalse(runtime.hasActivePlayConnection());
+            assertTrue(blockFrame(owner, MorphFrameOverrides.empty()).isEmpty());
+            runtime.onPlayInit();
+        }
+        if (!action.equals("retired")) {
+            assertTrue(runtime.hasActivePlayConnection());
+            assertEquals(.25, firstX(blockFrame(owner, MorphFrameOverrides.empty()).orElseThrow()), 1e-6);
+            assertTrue(lifecycle.registry().find(owner).isEmpty());
+        }
+    }
+
+    private Optional<com.liy.blendlib.fabric.client.animation.extract.ClientSkinnedExtractionFrame> blockFrame(
+            BlendInstanceKey.BlockEntity owner, MorphFrameOverrides overrides) {
+        long revision = runtime.captureExtractionLifecycleRevision();
+        return runtime.extractStaticMorph(MODEL, models.current().generationId(), owner, revision,
+                overrides, input(42,0,IDLE).extractionRequest());
+    }
+
     private Optional<com.liy.blendlib.fabric.client.animation.extract.ClientSkinnedExtractionFrame> staticFrame(MorphFrameOverrides overrides) {
         long revision = runtime.captureExtractionLifecycleRevision();
         return runtime.extractStaticMorph(MODEL, models.current().generationId(), runtime.entityKey(42), revision,

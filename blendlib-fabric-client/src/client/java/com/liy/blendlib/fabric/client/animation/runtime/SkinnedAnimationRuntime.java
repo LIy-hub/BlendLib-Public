@@ -300,6 +300,7 @@ public final class SkinnedAnimationRuntime {
      */
     public int onBlockEntityUnload(BlendInstanceKey.BlockEntity key) {
         BlendInstanceKey.BlockEntity checkedKey = Objects.requireNonNull(key, "key");
+        locomotionEpoch++; // Fence in-flight static morph callbacks, including stateless owners.
         int removed = lifecycle.onBlockEntityUnload(checkedKey);
         clocks.remove(checkedKey);
         blendSpaceClocks.remove(checkedKey);
@@ -383,6 +384,33 @@ public final class SkinnedAnimationRuntime {
         Objects.requireNonNull(request, "request");
         if (captureExtractionLifecycleRevision() != lifecycleRevision
                 || !activeEntityKey(owner.entityId()).equals(Optional.of(owner))) return Optional.empty();
+        var current = modelRegistry.current();
+        if (current.isRetired() || current.generationId() != generation) return Optional.empty();
+        var found = current.find(model);
+        if (found.isEmpty() || !(found.get() instanceof LoadedModelHandle loaded)) return Optional.empty();
+        return Optional.of(ClientSkinnedExtractionBridge.extractStaticMorph(loaded, overrides, request));
+    }
+
+    /** True only while this extraction runtime owns an active play connection. */
+    public boolean hasActivePlayConnection() {
+        return lifecycle.hasActivePlayConnection();
+    }
+
+    /**
+     * Animation-free block-local CPU morph extraction. Identity is dimension plus packed position;
+     * the adapter additionally checks the live block object before and after controls. No identity,
+     * controls, controller or clock is retained. Unload/reload/disconnect invalidates the revision.
+     */
+    public Optional<ClientSkinnedExtractionFrame> extractStaticMorph(
+            BlendModelKey model, long generation, BlendInstanceKey.BlockEntity owner, long lifecycleRevision,
+            MorphFrameOverrides overrides,
+            com.liy.blendlib.fabric.client.animation.extract.SkinnedExtractionRequest request) {
+        Objects.requireNonNull(model, "model");
+        Objects.requireNonNull(owner, "owner");
+        Objects.requireNonNull(overrides, "overrides");
+        Objects.requireNonNull(request, "request");
+        if (captureExtractionLifecycleRevision() != lifecycleRevision
+                || !hasActivePlayConnection()) return Optional.empty();
         var current = modelRegistry.current();
         if (current.isRetired() || current.generationId() != generation) return Optional.empty();
         var found = current.find(model);

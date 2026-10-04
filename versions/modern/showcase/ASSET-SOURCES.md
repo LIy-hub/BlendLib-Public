@@ -133,3 +133,18 @@ are first-party Apache-2.0 content. Add-on generator code is GPL-3.0-or-later un
 There is no build-time Blender dependency or downloaded asset. The normal runtime JAR
 excludes this namespace, while runnable verification requires exact final export bytes.
 See `examples/cpu-morph-profile/README.md` for commands and acceptance boundaries.
+
+## Animation-free CPU morph block reuse
+
+`static_cpu_morph_block` reuses the already committed `cpu_morph:static_face_actor` descriptor,
+GLB and two `face_actor` textures also used by the animation-free entity. The static GLB is the
+repository-local animation-free derivative of the first-party `face_actor` fixture: shape keys,
+materials, skeleton, inverse binds and authored defaults remain, while animation clips/states
+are absent. This block change does not generate or edit Blender files, GLBs or textures.
+
+The new `blockstates/static_cpu_morph_block.json` points to the empty
+`models/block/static_cpu_morph_block.json` under `assets/blendlib_runnable_examples/`. That
+vanilla model intentionally contributes no geometry; its particle texture references the
+existing CPU morph surface. The registered block-entity renderer supplies the deforming face
+at a block-local root. The control phase is original stateless example Java, with no asset
+download, animation authoring or build-time asset generation.

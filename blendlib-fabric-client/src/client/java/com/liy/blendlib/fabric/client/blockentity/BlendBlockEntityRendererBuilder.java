@@ -14,6 +14,8 @@ public final class BlendBlockEntityRendererBuilder<T extends BlockEntity> {
     private final BlendModelKey modelKey;
     private final BlendRenderer renderer;
     private BlendBlockEntitySnapshotFactory<? super T> snapshotFactory;
+    private boolean staticMorph;
+    private BlendBlockEntityMorphControls<? super T> morphControls;
 
     BlendBlockEntityRendererBuilder(
             BlockEntityRendererProvider.Context context, BlendModelKey modelKey, BlendRenderer renderer) {
@@ -24,7 +26,7 @@ public final class BlendBlockEntityRendererBuilder<T extends BlockEntity> {
 
     /** Supplies extraction-only snapshot construction for this block-entity type. */
     public BlendBlockEntityRendererBuilder<T> snapshotFactory(BlendBlockEntitySnapshotFactory<? super T> snapshotFactory) {
-        if (this.snapshotFactory != null) {
+        if (this.snapshotFactory != null || staticMorph) {
             throw new IllegalStateException("Choose exactly one block-entity snapshot construction path");
         }
         this.snapshotFactory = Objects.requireNonNull(snapshotFactory, "snapshotFactory");
@@ -38,7 +40,7 @@ public final class BlendBlockEntityRendererBuilder<T extends BlockEntity> {
      * the already bound immutable snapshot.</p>
      */
     public BlendBlockEntityRendererBuilder<T> staticRestPose() {
-        if (snapshotFactory != null) {
+        if (snapshotFactory != null || staticMorph) {
             throw new IllegalStateException("Choose either staticRestPose or a custom snapshotFactory, not both");
         }
         snapshotFactory = (blockEntity, request) -> StaticRestPoseBlockEntitySnapshotFactory.create(
@@ -54,7 +56,7 @@ public final class BlendBlockEntityRendererBuilder<T extends BlockEntity> {
      * not a model object, packet, or controller reference.</p>
      */
     public BlendBlockEntityRendererBuilder<T> syncedSkinnedAnimation(BlendAnimationKey fallbackAnimation) {
-        if (snapshotFactory != null) {
+        if (snapshotFactory != null || staticMorph) {
             throw new IllegalStateException("Choose either syncedSkinnedAnimation, staticRestPose, or a custom snapshotFactory");
         }
         snapshotFactory = new SyncedSkinnedBlockEntitySnapshotFactory<>(
@@ -62,8 +64,33 @@ public final class BlendBlockEntityRendererBuilder<T extends BlockEntity> {
         return this;
     }
 
+    /**
+     * Selects CPU morph deformation in the authored rest pose, without clips or animation states.
+     * Omitted controls use descriptor defaults. Select this path before calling morphControls.
+     */
+    public BlendBlockEntityRendererBuilder<T> staticMorph() {
+        if (snapshotFactory != null || staticMorph) {
+            throw new IllegalStateException("Choose exactly one block-entity snapshot construction path");
+        }
+        staticMorph = true;
+        return this;
+    }
+
+    /**
+     * Captures one immutable named morph-control batch per extraction. This presentation-only
+     * callback never runs during submit; it must not retain mutable world objects in its result.
+     * Unknown names and out-of-range values reject the whole batch without retaining any state.
+     */
+    public BlendBlockEntityRendererBuilder<T> morphControls(BlendBlockEntityMorphControls<? super T> controls) {
+        if (!staticMorph) throw new IllegalStateException("morphControls requires staticMorph");
+        this.morphControls = Objects.requireNonNull(controls, "controls");
+        return this;
+    }
+
     /** Builds the adapter after an extraction-only snapshot construction path was selected. */
     public BlendBlockEntityRenderer<T> build() {
+        if (staticMorph) return new BlendBlockEntityRenderer<>(context, modelKey, renderer,
+                new StaticMorphBlockEntitySnapshotFactory<>(modelKey, morphControls));
         if (snapshotFactory == null) {
             throw new IllegalStateException("A BlendBlockEntityRenderer requires an extraction-only snapshotFactory");
         }

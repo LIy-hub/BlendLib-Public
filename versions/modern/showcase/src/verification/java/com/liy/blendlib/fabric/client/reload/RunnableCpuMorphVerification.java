@@ -57,6 +57,7 @@ public final class RunnableCpuMorphVerification {
         require(X7GenerationResourceBridge.authoritativeInventory(h.models.current()).keysInDeterministicOrder()
                 .stream().noneMatch(key -> key.modelId().equals(MODEL.value())), "GPU inventory excludes CPU morph generations");
         verifyStaticMorph(h, prepared);
+        verifyStaticMorphBlock();
         int reads = resources.reads;
         var a = h.controls(new ExampleCpuMorphControls(), 42);
         var b = h.controls(new ExampleCpuMorphControls(), 43);
@@ -192,6 +193,98 @@ public final class RunnableCpuMorphVerification {
         h.runtime.onEntityUnload(91);
         require(h.runtime.extractStaticMorph(key, model.generationId(), owner, revision,
                 MorphFrameOverrides.empty(), request).isEmpty(), "unload rejects a previously captured static callback");
+    }
+
+    private static void verifyStaticMorphBlock() {
+        var h = new Harness();
+        var resources = new PackagedResources();
+        var shared = new PreparableReloadListener.SharedState(resources);
+        var prepared = h.reload.prepare(shared);
+        h.reload.apply(prepared, shared);
+        var key = ExampleCpuMorphBlockControls.MODEL;
+        var model = h.lookup.resolve(key);
+        var asset = prepared.loadedAssets().get(key);
+        require(asset != null && asset.animationDefinition() == null && asset.clips().isEmpty(),
+                "deforming block reuses the actual animation-free packaged asset");
+        var blockState = packagedJson("blockstates/static_cpu_morph_block.json");
+        require(blockState.getAsJsonObject("variants").getAsJsonObject("").get("model").getAsString()
+                .equals("blendlib_runnable_examples:block/static_cpu_morph_block"), "packaged blockstate resolves its model");
+        require(packagedJson("models/block/static_cpu_morph_block.json").getAsJsonArray("elements").isEmpty(),
+                "vanilla block model is empty, leaving only the BlendLib block-entity visual");
+        var a = BlendInstanceKey.blockEntity(BlendResourceId.parse("minecraft:overworld"), net.minecraft.core.BlockPos.asLong(0, 64, 0));
+        var b = BlendInstanceKey.blockEntity(BlendResourceId.parse("minecraft:overworld"), net.minecraft.core.BlockPos.asLong(2, 64, 0));
+        var request = new SkinnedExtractionRequest(Transform.IDENTITY, 0xF000F0, 0, 0xFFFFFFFF,
+                RenderVisibility.VISIBLE, new CullingMetadata(model.renderHandle().bounds(), true));
+        long revision = h.runtime.captureExtractionLifecycleRevision();
+        int reads = resources.reads;
+        var controlsA = ExampleCpuMorphBlockControls.capture(0, 64, 0, 0, 0);
+        var controlsB = ExampleCpuMorphBlockControls.capture(2, 64, 0, 0, 0);
+        require(!controlsA.values().equals(controlsB.values()), "distinct block positions vary their presentation phase");
+        require(!controlsA.values().containsKey(BREATH), "block controls preserve omitted authored Breath default");
+        for (int coordinate : new int[]{Integer.MIN_VALUE, -1, 0, 1, Integer.MAX_VALUE}) {
+            for (long tick : new long[]{0, 1, 39, 40, 79, 80, Long.MAX_VALUE}) {
+                var batch = ExampleCpuMorphBlockControls.capture(coordinate, 64, -coordinate, tick, .5F);
+                batch.validate(asset.morphBindings());
+                require(batch.values().values().stream().allMatch(value -> Float.isFinite(value) && value >= 0 && value <= 1),
+                        "block presentation controls stay bounded even at extreme coordinates/world times");
+            }
+        }
+        var frameA = h.runtime.extractStaticMorph(key, model.generationId(), a, revision, controlsA, request).orElseThrow();
+        var frameB = h.runtime.extractStaticMorph(key, model.generationId(), b, revision, controlsB, request).orElseThrow();
+        var captured = frameA.renderSnapshot();
+        var retained = RunnableAttachmentRenderVerification.positions(captured);
+        require(!retained.equals(RunnableAttachmentRenderVerification.positions(frameB.renderSnapshot())),
+                "position-varied block controls deform the actual packaged CPU vertices");
+        var later = h.runtime.extractStaticMorph(key, model.generationId(), a, revision,
+                ExampleCpuMorphBlockControls.capture(0, 64, 0, 20, .5F), request).orElseThrow();
+        require(!retained.equals(RunnableAttachmentRenderVerification.positions(later.renderSnapshot())),
+                "changing frame time changes block geometry without a clip or controller");
+        require(retained.equals(RunnableAttachmentRenderVerification.positions(captured))
+                && controlsA.values().equals(ExampleCpuMorphBlockControls.capture(0, 64, 0, 0, 0).values()),
+                "other positions and later controls cannot mutate an old batch or geometry");
+        require(captured.rootTransform().equals(Transform.IDENTITY) && frameB.renderSnapshot().rootTransform().equals(Transform.IDENTITY),
+                "both block snapshots keep local identity, with no duplicate world translation");
+        require(captured.attachments().isEmpty() && h.lifecycle.registry().find(a).isEmpty() && h.lifecycle.registry().find(b).isEmpty(),
+                "the block creates no attachments or persistent animation controllers");
+        RunnableCpuMorphRenderVerification.verify(captured);
+        require(resources.reads == reads, "block control math, extraction and CPU submission perform no resource reads");
+
+        h.runtime.onBlockEntityUnload(a);
+        require(h.runtime.extractStaticMorph(key, model.generationId(), a, revision, controlsA, request).isEmpty(),
+                "unload invalidates an already captured block callback");
+        long replacedRevision = h.runtime.captureExtractionLifecycleRevision();
+        var replacement = h.runtime.extractStaticMorph(key, model.generationId(), a, replacedRevision,
+                ExampleCpuMorphBlockControls.capture(0, 64, 0, 0, 0), request).orElseThrow();
+        require(retained.equals(RunnableAttachmentRenderVerification.positions(replacement.renderSnapshot())),
+                "fresh same-position block has no retained controls or animation state to inherit");
+        var reloaded = h.reload.prepare(shared);
+        h.reload.apply(reloaded, shared);
+        require(h.runtime.extractStaticMorph(key, model.generationId(), a, replacedRevision, controlsA, request).isEmpty(),
+                "reload invalidates stale block generation and callback");
+        var freshModel = h.lookup.resolve(key);
+        long freshRevision = h.runtime.captureExtractionLifecycleRevision();
+        var freshRequest = new SkinnedExtractionRequest(Transform.IDENTITY, 0xF000F0, 0, 0xFFFFFFFF,
+                RenderVisibility.VISIBLE, new CullingMetadata(freshModel.renderHandle().bounds(), true));
+        var fresh = h.runtime.extractStaticMorph(key, freshModel.generationId(), a, freshRevision, controlsB, freshRequest).orElseThrow();
+        require(fresh.renderSnapshot().generation() != captured.generation(), "block rebinds to the reloaded model");
+        h.runtime.onWorldDisconnect();
+        require(h.runtime.extractStaticMorph(key, freshModel.generationId(), a, freshRevision, controlsA, freshRequest).isEmpty()
+                && h.runtime.extractStaticMorph(key, freshModel.generationId(), a, h.runtime.captureExtractionLifecycleRevision(),
+                        controlsA, freshRequest).isEmpty(), "disconnected block capture fails for old and current revisions");
+        h.runtime.onPlayInit();
+        require(h.runtime.extractStaticMorph(key, freshModel.generationId(), a, h.runtime.captureExtractionLifecycleRevision(),
+                        controlsA, freshRequest).isPresent(), "reconnect accepts fresh stateless block extraction");
+        require(retained.equals(RunnableAttachmentRenderVerification.positions(captured)),
+                "reload, unload and reconnect cannot mutate a retained block snapshot");
+        System.out.println("Verified packaged animation-free CPU morph block: real position/time deformation, block-local roots, "
+                + "no controls/controllers/attachments retained, immutable CPU captures, reload/unload/replacement/reconnect; native graphics remains unverified");
+    }
+
+    private static com.google.gson.JsonObject packagedJson(String file) {
+        try (var input = RunnableCpuMorphVerification.class.getResourceAsStream("/assets/blendlib_runnable_examples/" + file)) {
+            if (input == null) throw new AssertionError("missing packaged block resource: " + file);
+            return com.google.gson.JsonParser.parseReader(new InputStreamReader(input, java.nio.charset.StandardCharsets.UTF_8)).getAsJsonObject();
+        } catch (IOException e) { throw new AssertionError(e); }
     }
 
     private static void verifyInvalidEdits(Harness h, ExampleCpuMorphControls controls) {

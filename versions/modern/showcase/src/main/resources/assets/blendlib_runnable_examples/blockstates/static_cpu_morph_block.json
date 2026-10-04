@@ -1,0 +1,5 @@
+{
+  "variants": {
+    "": { "model": "blendlib_runnable_examples:block/static_cpu_morph_block" }
+  }
+}

@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased: animation-free block-entity morph controls
+
+- Add block renderer `staticMorph()` and named `morphControls(...)` callbacks using immutable CPU morph snapshots
+- Fence live dimension/position/object ownership, chunk unload, resource reload and play disconnect/reconnect without retaining per-block controllers or weights
+- Add an optional deforming decorative block, focused lifecycle/builder tests, and dedicated `block-entity-morphs` preview identity
+- Keep animation, static rest-pose and custom snapshot paths unchanged; defer native graphics acceptance, attachments, networking and gameplay
+
+
 ## Unreleased: static morph socket accessories
 
 - Enable immutable socket observations and attachment capture on animation-free `staticMorph()` actors, retaining fixed bone-rest socket semantics

@@ -481,7 +481,7 @@ if (providers.gradleProperty("runnable_examples").orNull == "true") {
                         it.startsWith("com/liy/blendlib/core/") || it.startsWith("com/liy/blendlib/api/") }) {
                     "Example JAR must not embed library implementation or API classes"
                 }
-                listOf("ExampleContent", "LayeredActor", "ExampleClient", "ExampleItemCommands", "ExampleAnimationScene", "ExampleInspectionCommands", "ExampleLayerInspection", "ExampleItemInspection", "ExampleLayerVisualEvents", "ExampleMaterialAppearance", "ExampleItemMaterialAppearance", "ExampleNamedSkins", "ExampleAttachmentScene", "ExampleAttachmentOwners", "ExampleTwoBoneIkScene", "ExampleLocomotionScene", "ExampleBlendSpaceScene", "ExampleBlendSpaceMotion", "ExampleDirectionalScene", "ExampleDirectionalMotion", "ExampleNativeCubicContent", "ExampleNativeCubicClient", "CpuMorphActor", "StaticCpuMorphActor", "ExampleCpuMorphContent", "ExampleCpuMorphControls", "ExampleCpuMorphOwners", "ExampleCpuMorphClient", "ExampleCpuMorphScene", "ExampleCpuMorphCommands").forEach {
+                listOf("ExampleContent", "LayeredActor", "ExampleClient", "ExampleItemCommands", "ExampleAnimationScene", "ExampleInspectionCommands", "ExampleLayerInspection", "ExampleItemInspection", "ExampleLayerVisualEvents", "ExampleMaterialAppearance", "ExampleItemMaterialAppearance", "ExampleNamedSkins", "ExampleAttachmentScene", "ExampleAttachmentOwners", "ExampleTwoBoneIkScene", "ExampleLocomotionScene", "ExampleBlendSpaceScene", "ExampleBlendSpaceMotion", "ExampleDirectionalScene", "ExampleDirectionalMotion", "ExampleNativeCubicContent", "ExampleNativeCubicClient", "CpuMorphActor", "StaticCpuMorphActor", "ExampleCpuMorphContent", "ExampleCpuMorphControls", "ExampleCpuMorphOwners", "ExampleCpuMorphBlock", "ExampleCpuMorphBlockEntity", "ExampleCpuMorphBlockControls", "ExampleCpuMorphClient", "ExampleCpuMorphScene", "ExampleCpuMorphCommands").forEach {
                     check("com/liy/blendlib/examples/runnable/$it.class" in names) { "Missing example class: $it" }
                 }
                 val metadata = zip.getInputStream(zip.getEntry("fabric.mod.json")).reader().readText()
@@ -489,7 +489,7 @@ if (providers.gradleProperty("runnable_examples").orNull == "true") {
                 check(metadata.contains("\"minecraft\": \"26.3\""))
                 check(metadata.contains("\"blendlib\": \"${project.version}\""))
                 check(!metadata.contains("\"mixins\""))
-                listOf("ExampleContent", "LayeredActor", "ExampleLayerVisualEvents", "ExampleBlendSpaceMotion", "ExampleDirectionalMotion", "ExampleNativeCubicContent", "CpuMorphActor", "StaticCpuMorphActor", "ExampleCpuMorphContent", "ExampleCpuMorphControls", "ExampleCpuMorphOwners").forEach {
+                listOf("ExampleContent", "LayeredActor", "ExampleLayerVisualEvents", "ExampleBlendSpaceMotion", "ExampleDirectionalMotion", "ExampleNativeCubicContent", "CpuMorphActor", "StaticCpuMorphActor", "ExampleCpuMorphContent", "ExampleCpuMorphControls", "ExampleCpuMorphOwners", "ExampleCpuMorphBlock", "ExampleCpuMorphBlockEntity", "ExampleCpuMorphBlockControls").forEach {
                     val bytes = zip.getInputStream(zip.getEntry("com/liy/blendlib/examples/runnable/$it.class")).readBytes()
                     check(!bytes.toString(Charsets.ISO_8859_1).contains("net/minecraft/client/")) {
                         "Common example entrypoint/entity must remain server-safe: $it"

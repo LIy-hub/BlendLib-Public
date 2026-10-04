@@ -3,7 +3,7 @@
   "id": "blendlib_runnable_examples",
   "version": "${version}",
   "name": "BlendLib Runnable Examples (26.3)",
-  "description": "Opt-in layered entity, procedural pose, final socket attachment, and animated item consumers.",
+  "description": "Opt-in layered entity, procedural pose, final socket attachment, animated item, and animation-free deforming block consumers.",
   "license": "Apache-2.0",
   "environment": "*",
   "entrypoints": {

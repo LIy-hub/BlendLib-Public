@@ -935,3 +935,64 @@ Blink/Smile/Breath fixture with native cubic nod. Build this feature preview wit
 to find IDs for the client-local control/clip/reset commands. The existing actors and scene
 switches remain unchanged. See the complete [CPU morph walkthrough](../../../examples/cpu-morph-profile/README.md).
 Native Minecraft visual acceptance remains deferred.
+
+## Animation-free deforming block
+
+The separate `blendlib_runnable_examples:static_cpu_morph_block` is a decorative block-entity
+host for `cpu_morph:static_face_actor`. That actual packaged GLB has **no animation clips**, and
+its descriptor has **no animation states**. The client uses the public
+`BlendBlockEntityRenderer.builder(...).staticMorph().morphControls(...)` path. No animation
+selection, fake clip, ticker, mutable control owner, attachment, or custom packet is needed.
+
+Build and launch the matching preview pair with Java 25:
+
+```sh
+./gradlew -p versions/modern -Pminecraft_version=26.3 -Prunnable_examples=true -Pblendlib_preview=block-entity-morphs verifyRunnableExamples
+./gradlew -p versions/modern -Pminecraft_version=26.3 -Prunnable_examples=true -Pblendlib_preview=block-entity-morphs runRunnableExamplesClient
+```
+
+Windows: use `gradlew.bat`. For a packaged install, put both
+`blendlib-fabric-1.0.0-beta.4+26.3-block-entity-morphs.jar` and
+`blendlib-runnable-examples-1.0.0-beta.4+26.3-block-entity-morphs.jar` in the same Minecraft 26.3
+Fabric Loader 0.19.5 / Fabric API 0.161.0+26.3 profile. The normal runtime JAR contains no example
+blocks. No JVM scene switch is required. Install the example on the server too for multiplayer.
+
+In a new Creative test world with commands enabled, stay still while placing two blocks on a
+clear, flat area (these commands replace any block at their targets):
+
+```mcfunction
+/setblock ~ ~ ~3 blendlib_runnable_examples:static_cpu_morph_block
+/setblock ~2 ~ ~3 blendlib_runnable_examples:static_cpu_morph_block
+```
+
+Watch both for at least eight seconds. Each face briefly blinks and continuously changes its
+smile on a four-second cycle. Position offsets vary the phase, so neighboring blocks do not
+share a mutable control state. Breath is omitted from each fresh immutable override batch and
+retains its authored nonzero default. All motion is CPU shape-key deformation on a fixed bone
+rest pose, driven only by client presentation time and block position. Collision remains the
+ordinary fixed vanilla cube; the face fixture is technical art and can extend beyond that cube.
+The empty vanilla model leaves the BlendLib visual unobscured, and the block does not occlude
+neighboring faces. No block item or gameplay interaction is added; use `/setblock` for this demo.
+
+The captured root is **block-local identity**. Minecraft already positions the block-entity
+render pose at its world location; the example does not apply that translation a second time.
+Changing a block's world position changes its control phase only. There are no entity sockets
+or accessories in this block example.
+
+Manual graphics acceptance: check both blocks near the origin and far from it, press F3+T,
+leave/re-enter the chunk, remove/replace one block at the same position, and disconnect/rejoin.
+Fresh extraction must keep deforming without borrowing another block's frame. Remove the two
+blocks from the same player position used to place them:
+
+```mcfunction
+/setblock ~ ~ ~3 minecraft:air
+/setblock ~2 ~ ~3 minecraft:air
+```
+
+`verifyRunnableExamples` compiles the real public builder consumer, checks server-safe common
+classes and the packaged block resources, loads the animation-free GLB through production
+reload, and evaluates the actual shared position/time control function against real CPU
+vertices. It checks bounded controls, omitted defaults, independent frames, immutable retained
+geometry, block-local identity, no controller or attachment retention, zero resource reads
+during extraction/submission, stale callbacks, reload, unload/replacement and reconnect.
+These are headless checks; native Minecraft visual acceptance remains deferred.
