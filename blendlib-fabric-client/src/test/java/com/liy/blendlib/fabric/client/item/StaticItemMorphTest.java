@@ -50,7 +50,8 @@ class StaticItemMorphTest {
             a.setCount(32); b.setCount(1); mutable.clear();
             assertEquals(0, firstX(first.snapshot(5, 6)), 1e-6);
             assertEquals(1, firstX(second.snapshot(7, 8)), 1e-6);
-            assertSame(first.snapshot(1, 2).skinnedRenderSnapshot(), first.snapshot(5, 6).skinnedRenderSnapshot());
+            assertSame(StaticItemMorphRenderTestAccess.payload(first.snapshot(1, 2)),
+                    StaticItemMorphRenderTestAccess.payload(first.snapshot(5, 6)));
             assertEquals(2, calls.get());
             CONTROLS.set(stack -> MorphFrameOverrides.empty());
             assertEquals(.25, firstX(renderer.extractArgument(a).snapshot(0, 0)), 1e-6);
@@ -173,9 +174,7 @@ class StaticItemMorphTest {
                 Identifier.withDefaultNamespace("item/slime_ball"));
     }
     private static float firstX(ModelRenderSnapshot frame) {
-        var out = new ArrayList<Float>();
-        frame.skinnedRenderSnapshot().meshes().getFirst().emit((x,y,z,nx,ny,nz,u,v) -> out.add(x));
-        return out.getFirst();
+        return StaticItemMorphRenderTestAccess.firstX(frame);
     }
     private static ModelRegistryGeneration generation(long id) {
         var geometry = new MeshPrimitive("Skin", new float[]{0,0,0,1,0,0,0,1,0}, new float[]{0,0,1,0,0,1,0,0,1},

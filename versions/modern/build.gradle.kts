@@ -293,6 +293,7 @@ if (minecraftVersion == "26.3") {
             "**/item/ItemAnimation*Test.java",
             "**/item/BlendLibItemAdapterContractsTest.java",
             "**/item/StaticItemMorphTest.java",
+            "**/StaticItemMorphRenderTestAccess.java",
             "**/item/consumer/*.java",
         )
     }
