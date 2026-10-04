@@ -72,15 +72,25 @@ Empty/omitted controls return to defaults on the next extraction. Reload, unload
 or disconnect during the callback discards the frame. Captured meshes remain
 immutable and CPU-only, including all-zero weights. Material appearance, skins,
 yaw and conservative model culling use the ordinary builder path. Animation-only
-features (layers, events, procedural rotations and attachments) still require the
-animated path.
+features (layers, events and procedural rotations) still require the animated path.
+
+After `.staticMorph()`, `.sockets(...)` and `.attachments(...)` capture the same
+immutable, generation-bound socket/child frames as animated actors. Sockets use
+fixed authored bone rest transforms: they do **not** follow displaced morph surface
+vertices. Root yaw, units and world origin are applied during extraction. Socket
+observers run before the attachment provider, once per extraction; submission only
+uses the captured data. Reload, disconnect, unload or removal in either callback
+aborts that frame and prevents later callbacks from running. Stale-generation child
+snapshots are omitted by the existing attachment composition diagnostics. Include a
+conservative `.cullingEnvelope(...)` when accessories extend beyond the body bounds.
 
 The runnable consumer includes `/summon blendlib_runnable_examples:static_cpu_morph_actor`.
 Its separate `static_face_actor.glb` has no animations and its descriptor has no
 animation states. The extraction callback drives named blink/smile values from
 client time; the body remains in its authored rest pose and omitted breath uses
 its nonzero default. This is a visual demonstration, not gameplay or synchronized
-state. Native graphics acceptance remains deferred.
+state. A gold marker accessory stays on its authored face socket while blink/smile
+change the surface. Native graphics acceptance remains deferred.
 
 On the animated path, An empty batch resumes sampled values next frame. The complete batch is validated
 against the current generation before clocks, controller commands or cue capture

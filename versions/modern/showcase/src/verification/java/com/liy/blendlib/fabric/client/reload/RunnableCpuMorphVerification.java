@@ -163,10 +163,24 @@ public final class RunnableCpuMorphVerification {
                 RenderVisibility.VISIBLE, new CullingMetadata(model.renderHandle().bounds(), true));
         long revision = h.runtime.captureExtractionLifecycleRevision();
         var owner = h.runtime.entityKey(91);
-        var rest = h.runtime.extractStaticMorph(key, model.generationId(), owner, revision,
-                MorphFrameOverrides.empty(), request).orElseThrow().renderSnapshot();
-        var manual = h.runtime.extractStaticMorph(key, model.generationId(), owner, revision,
-                new MorphFrameOverrides(Map.of(BLINK, 1F, SMILE, 1F)), request).orElseThrow().renderSnapshot();
+        var restFrame = h.runtime.extractStaticMorph(key, model.generationId(), owner, revision,
+                MorphFrameOverrides.empty(), request).orElseThrow();
+        var manualFrame = h.runtime.extractStaticMorph(key, model.generationId(), owner, revision,
+                new MorphFrameOverrides(Map.of(BLINK, 1F, SMILE, 1F)), request).orElseThrow();
+        var rest = restFrame.renderSnapshot();
+        var manual = manualFrame.renderSnapshot();
+        var entityRequest = new BlendEntitySnapshotRequest(key, 0, 0xF000F0, 0, 2, 3, 4, 0, true, 0);
+        var restSockets = BlendEntitySockets.capture(entityRequest, restFrame);
+        var manualSockets = BlendEntitySockets.capture(entityRequest, manualFrame);
+        require(restSockets.equals(manualSockets), "static morph sockets remain on fixed bone rest pose");
+        var accessories = ExampleCpuMorphScene.attachments(h.lookup, entityRequest, manualSockets, 0);
+        require(accessories.size() == 1, "animation-free actor captures actual visible face marker");
+        var composition = BlendEntityAttachmentComposition.capture(manual.withAttachments(accessories));
+        require(composition.attachments().size() == 1 && composition.diagnostics().isEmpty(),
+                "static marker uses same-generation immutable attachment composition");
+        require(ExampleCpuMorphScene.attachments(h.lookup, entityRequest,
+                new BlendEntitySockets(manualSockets.generation() + 1, manualSockets.sockets()), 0).isEmpty(),
+                "static marker rejects generation mismatch");
         require(!RunnableAttachmentRenderVerification.positions(rest).equals(RunnableAttachmentRenderVerification.positions(manual)),
                 "animation-free blink and smile deform actual packaged geometry");
         var reset = h.runtime.extractStaticMorph(key, model.generationId(), owner, revision,

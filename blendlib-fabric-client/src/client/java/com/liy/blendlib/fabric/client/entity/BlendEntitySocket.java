@@ -3,7 +3,7 @@ package com.liy.blendlib.fabric.client.entity;
 import java.util.Objects;
 
 /**
- * One socket captured from the final modified animation pose.
+ * One socket captured from the final modified animation pose or the static-morph bone rest pose.
  * Model space uses authored asset units; entity and world space use blocks and include the selected render root.
  * Entity-space scale includes unit conversion; attachment placement removes only that conversion.
  */

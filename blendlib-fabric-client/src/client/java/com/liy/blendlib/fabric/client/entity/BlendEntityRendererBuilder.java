@@ -315,14 +315,18 @@ public final class BlendEntityRendererBuilder<E extends Entity> {
         return this;
     }
 
-    /** Observes this extraction's complete post-animation socket frame. */
+    /** Observes this extraction's sockets: final animated pose or static-morph bone rest pose. */
     public BlendEntityRendererBuilder<E> sockets(BlendEntitySocketHandler<? super E> handler) {
-        requireAnimated(); this.socketHandler = Objects.requireNonNull(handler, "handler"); return this;
+        if (!staticMorph) requireAnimated();
+        this.socketHandler = Objects.requireNonNull(handler, "handler");
+        return this;
     }
 
     /** Captures child snapshots at final-pose sockets; submit never calls the provider. */
     public BlendEntityRendererBuilder<E> attachments(BlendEntityAttachmentProvider<? super E> provider) {
-        requireAnimated(); this.attachmentProvider = Objects.requireNonNull(provider, "provider"); return this;
+        if (!staticMorph) requireAnimated();
+        this.attachmentProvider = Objects.requireNonNull(provider, "provider");
+        return this;
     }
 
     /**
@@ -384,7 +388,7 @@ public final class BlendEntityRendererBuilder<E extends Entity> {
 
     /** Builds the renderer after all extraction data has been specified. */
     public BlendEntityRenderer<E> build() {
-        if (staticMorph) snapshotFactory = new StaticMorphEntitySnapshotFactory<>(modelKey, morphControls);
+        if (staticMorph) snapshotFactory = new StaticMorphEntitySnapshotFactory<>(modelKey, morphControls, socketHandler, attachmentProvider);
         if (snapshotFactory == null && skinnedAnimationStateSelector != null) {
             snapshotFactory = new SkinnedAnimationEntitySnapshotFactory<>(
                     modelKey,

@@ -135,6 +135,43 @@ class BlendEntityPoseModifierBuilderTest {
         assertThrows(IllegalStateException.class, () -> builder().snapshotFactory((entity, request) -> null).staticMorph());
     }
 
+    @Test
+    void staticMorphAcceptsSocketAndAttachmentCallbacksAndRejectsNull() {
+        BlendEntitySocketHandler<Entity> sockets = (entity, request, captured) -> { };
+        BlendEntityAttachmentProvider<Entity> attachments = (entity, request, captured) -> List.of();
+        var stat = builder().staticMorph();
+        assertSame(stat, stat.sockets(sockets));
+        assertSame(stat, stat.attachments(attachments));
+        assertThrows(NullPointerException.class, () -> stat.sockets(null));
+        assertThrows(NullPointerException.class, () -> stat.attachments(null));
+        assertThrows(IllegalStateException.class, stat::staticRestPose);
+        assertThrows(IllegalStateException.class, stat::staticMorph);
+        assertThrows(IllegalStateException.class, () -> stat.skinnedAnimation((entity, request) -> IDLE));
+        assertThrows(IllegalStateException.class, () -> stat.synchronizedSkinnedAnimation((entity, request) -> IDLE));
+        assertThrows(IllegalStateException.class, () -> stat.snapshotFactory((entity, request) -> null));
+        assertThrows(IllegalStateException.class, () -> stat.poseModifier(IDENTITY_MODIFIER));
+        assertThrows(IllegalStateException.class, () -> stat.rootRotation(IDENTITY_ROOT));
+    }
+
+    @Test
+    void accessoriesStillRequireAnAnimatedOrStaticMorphPathAndPreserveAnimatedConfiguration() {
+        BlendEntitySocketHandler<Entity> sockets = (entity, request, captured) -> { };
+        BlendEntityAttachmentProvider<Entity> attachments = (entity, request, captured) -> List.of();
+        for (var unsupported : List.of(builder(), builder().staticRestPose(),
+                builder().snapshotFactory((entity, request) -> null))) {
+            assertThrows(IllegalStateException.class, () -> unsupported.sockets(sockets));
+            assertThrows(IllegalStateException.class, () -> unsupported.attachments(attachments));
+        }
+        for (var animated : List.of(builder().skinnedAnimation((entity, request) -> IDLE),
+                builder().synchronizedSkinnedAnimation((entity, request) -> IDLE))) {
+            assertSame(animated, animated.sockets(sockets));
+            assertSame(animated, animated.attachments(attachments));
+            assertThrows(NullPointerException.class, () -> animated.sockets(null));
+            assertThrows(NullPointerException.class, () -> animated.attachments(null));
+            assertThrows(IllegalStateException.class, animated::staticMorph);
+        }
+    }
+
     private static BlendEntityRendererBuilder<Entity> builder() {
         BlendRenderer renderer = new BlendRenderer((snapshot, context) -> {
         });

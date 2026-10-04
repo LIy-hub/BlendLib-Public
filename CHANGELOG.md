@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased: static morph socket accessories
+
+- Enable immutable socket observations and attachment capture on animation-free `staticMorph()` actors, retaining fixed bone-rest socket semantics
+- Fence callback capture against reload, unload, removal and disconnect; reuse generation-safe attachment composition
+- Add a visible gold face accessory and conservative assembly culling to the static runnable actor
+- Build dedicated `static-morph-accessories` preview runtime, examples and sources with matching dependency identity
+
 ## Unreleased: animation-free CPU morph entities
 
 - Added `staticMorph()` to the normal entity renderer builder, with per-frame named controls and authored default reset semantics, without animation clips or controllers

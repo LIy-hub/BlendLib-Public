@@ -32,6 +32,10 @@ class CpuMorphRuntimeIntegrationTest {
         assertEquals(.25, firstX(defaults), 1e-6);
         var overridden = staticFrame(controls(1, 0)).orElseThrow();
         assertEquals(1, firstX(overridden), 1e-6);
+        assertFalse(defaults.socketTransforms().isEmpty());
+        assertEquals(defaults.socketTransforms(), overridden.socketTransforms(),
+                "Morph vertices change without moving authored bone-rest sockets");
+        assertThrows(UnsupportedOperationException.class, () -> defaults.socketTransforms().clear());
         assertEquals(.25, firstX(staticFrame(MorphFrameOverrides.empty()).orElseThrow()), 1e-6);
         assertEquals(.25, firstX(defaults), 1e-6);
         assertTrue(lifecycle.registry().find(runtime.entityKey(42)).isEmpty());

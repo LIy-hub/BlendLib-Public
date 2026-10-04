@@ -38,6 +38,10 @@ public final class ExampleCpuMorphClient implements ClientModInitializer {
                                     com.liy.blendlib.api.BlendResourceId.parse("cpu_morph:blink"), blink,
                                     com.liy.blendlib.api.BlendResourceId.parse("cpu_morph:smile"), smile));
                         })
+                        .attachments((entity, request, sockets) -> ExampleCpuMorphScene.attachments(
+                                BlendLibClientServices.models(), request, sockets,
+                                net.minecraft.client.renderer.texture.OverlayTexture.NO_OVERLAY))
+                        .cullingEnvelope(ExampleCpuMorphScene.ENVELOPE)
                         .shadowRadius(.45F)
                         .build());
         ClientEntityEvents.ENTITY_UNLOAD.register((entity, level) -> {
