@@ -1,6 +1,6 @@
 # SPDX-FileCopyrightText: 2026 BlendLib local project
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Explicit transient state/event draft UI. Only Apply writes a Text datablock."""
+"""Explicit transient runtime authoring draft UI. Only Apply writes a Text datablock."""
 import json
 try:
     from . import blendlib_authoring_editor as editor
@@ -17,6 +17,7 @@ _UNDO_HANDLER = None
 _STATE_ITEMS = []
 _SOCKET_ITEMS = []
 _NODE_ITEMS = {}
+_LOOP_ITEMS = {}
 
 
 def _source(scene, exporter):
@@ -40,6 +41,7 @@ def _reset_draft(draft):
     draft.source_invalidated = False
     draft.events.clear()
     draft.nodes.clear()
+    draft.rules.clear()
 
 
 def register(blender, exporter):
@@ -83,6 +85,20 @@ def register(blender, exporter):
              else 'Object: ' + row.name, row.path) for row in self.nodes]
         return _NODE_ITEMS[key]
 
+    def loop_items(self, context):
+        # Read the loaded snapshot, never silently retarget a draft after Text edits.
+        result = [('/', 'Choose continuous loop state', '')]
+        if context:
+            try:
+                config = editor.authoring.parse(context.scene.blendlib_authoring_draft.source_content)
+                result += [(key, key, 'Authored loop without next')
+                           for key, state in config['animation']['states'].items()
+                           if state.get('loop') is True and 'next' not in state]
+            except (ValueError, KeyError, TypeError, AttributeError):
+                pass
+        _LOOP_ITEMS[self.as_pointer()] = result
+        return result
+
     def action_poll(self, action):
         try:
             return action in _source(blender.context.scene, exporter)[0]
@@ -99,7 +115,28 @@ def register(blender, exporter):
         name: props.StringProperty(options=transient)
         owner: props.StringProperty(options=transient)
 
+    class BLENDLIB_PG_authoring_condition(blender.types.PropertyGroup):
+        input_name: props.StringProperty(name='Input Name', options=transient)
+        kind: props.EnumProperty(name='Condition Type', items=[
+            ('BOOL', 'Boolean', 'Exact true / false match'),
+            ('MIN', 'Number >=', 'Enter at or above enter; stay at or above exit'),
+            ('MAX', 'Number <=', 'Enter at or below enter; stay at or below exit')], options=transient)
+        equals: props.BoolProperty(name='Equals', default=True, options=transient)
+        enter: props.StringProperty(name='Enter Threshold', default='0', options=transient,
+            description='Finite JSON number; text preserves double precision')
+        exit: props.StringProperty(name='Exit Threshold', default='0', options=transient,
+            description='Finite JSON number; >= requires exit <= enter; <= requires enter <= exit')
+
+    class BLENDLIB_PG_authoring_rule(blender.types.PropertyGroup):
+        animation: props.EnumProperty(name='Target Loop', items=loop_items, options=transient)
+        conditions: props.CollectionProperty(type=BLENDLIB_PG_authoring_condition, options=transient)
+        condition_index: props.IntProperty(default=0, options=transient)
+
     class BLENDLIB_PG_authoring_draft(blender.types.PropertyGroup):
+        default_loop: props.EnumProperty(name='Default Loop', items=loop_items, options=transient)
+        minimum_interval: props.IntProperty(name='Minimum Interval (ticks)', default=0, min=0, max=200, options=transient)
+        rules: props.CollectionProperty(type=BLENDLIB_PG_authoring_rule, options=transient)
+        rule_index: props.IntProperty(default=0, options=transient)
         active: props.BoolProperty(default=False, options=transient)
         kind: props.StringProperty(default='STATE', options=transient)
         mode: props.StringProperty(options=transient)
@@ -203,6 +240,89 @@ def register(blender, exporter):
                 self.report({'ERROR'}, str(error)[:300])
                 return {'CANCELLED'}
 
+    class BLENDLIB_OT_authoring_rules_begin(blender.types.Operator):
+        bl_idname = 'blendlib.authoring_rules_begin'
+        bl_label = 'Load / Add Locomotion Rules'
+        bl_description = 'Load existing rules or start an empty draft; only Apply writes Text'
+
+        def execute(self, context):
+            scene, draft = context.scene, context.scene.blendlib_authoring_draft
+            if draft.active:
+                self.report({'ERROR'}, 'Apply or discard the current draft first')
+                return {'CANCELLED'}
+            try:
+                text = scene.blendlib_runtime_authoring_text
+                if text is None or text.library is not None:
+                    raise ValueError('Select a local editable Text datablock')
+                content = text.as_string()
+                _, facts, fps = _source(scene, exporter)
+                config = editor.load(content, facts, fps)
+                rules = config.get('locomotion', {})
+                draft.source, draft.source_content = text, content
+                draft.kind, draft.mode = 'RULES', 'RULES'
+                draft.source_signature, draft.source_invalidated = '', False
+                draft.key = draft.loaded_key = ''
+                draft.events.clear()
+                draft.nodes.clear()
+                draft.rules.clear()
+                draft.default_loop = rules.get('default', '/')
+                draft.minimum_interval = rules.get('minimum_interval_ticks', 0)
+                for raw in rules.get('rules', []):
+                    rule = draft.rules.add()
+                    rule.animation = raw['animation']
+                    for condition in raw['conditions']:
+                        row = rule.conditions.add()
+                        row.input_name = condition['input']
+                        row.kind = 'BOOL' if 'equals' in condition else 'MIN' if 'enter_min' in condition else 'MAX'
+                        if row.kind == 'BOOL':
+                            row.equals = condition['equals']
+                        else:
+                            row.enter = json.dumps(condition['enter_' + row.kind.lower()])
+                            row.exit = json.dumps(condition['exit_' + row.kind.lower()])
+                    rule.condition_index = 0
+                draft.rule_index = 0
+                draft.active = True
+                return {'FINISHED'}
+            except (ValueError, KeyError, TypeError, OverflowError, exporter.ExportError) as error:
+                self.report({'ERROR'}, str(error)[:300])
+                return {'CANCELLED'}
+
+    class BLENDLIB_OT_authoring_rules_row(blender.types.Operator):
+        bl_idname = 'blendlib.authoring_rules_row'
+        bl_label = 'Edit Locomotion Draft'
+        target: props.EnumProperty(items=[('RULE', 'Rule', ''), ('CONDITION', 'Condition', '')])
+        operation: props.EnumProperty(items=[('ADD', 'Add', ''), ('REMOVE', 'Remove', ''), ('UP', 'Up', ''), ('DOWN', 'Down', '')])
+
+        def execute(self, context):
+            draft = context.scene.blendlib_authoring_draft
+            if not draft.active or draft.kind != 'RULES':
+                return {'CANCELLED'}
+            owner, name, index_name, limit = draft, 'rules', 'rule_index', 32
+            if self.target == 'CONDITION':
+                if not 0 <= draft.rule_index < len(draft.rules):
+                    return {'CANCELLED'}
+                owner, name, index_name, limit = draft.rules[draft.rule_index], 'conditions', 'condition_index', 8
+            rows, index = getattr(owner, name), getattr(owner, index_name)
+            size = len(rows)
+            if self.operation == 'ADD':
+                if size >= limit:
+                    self.report({'ERROR'}, 'At most ' + str(limit) + ' ' + name + ' are supported')
+                    return {'CANCELLED'}
+                row = rows.add()
+                if self.target == 'RULE':
+                    row.animation = '/'
+                setattr(owner, index_name, size)
+            elif 0 <= index < size:
+                if self.operation == 'REMOVE':
+                    rows.remove(index)
+                    setattr(owner, index_name, max(0, min(index, size - 2)))
+                else:
+                    target = index + (-1 if self.operation == 'UP' else 1)
+                    if 0 <= target < size:
+                        rows.move(index, target)
+                        setattr(owner, index_name, target)
+            return {'FINISHED'}
+
     class BLENDLIB_OT_authoring_discard(blender.types.Operator):
         bl_idname = 'blendlib.authoring_discard'
         bl_label = 'Discard Draft'
@@ -274,6 +394,12 @@ def register(blender, exporter):
                         raise ValueError('Export source identity or node paths changed; discard and reload the draft')
                     replacement = editor.apply_socket(content, mode=draft.mode, key=draft.key,
                         node=draft.socket_node, node_paths={row['path'] for row in rows}, actions=facts, fps=fps)
+                elif draft.kind == 'RULES':
+                    replacement = editor.apply_locomotion(content, default=draft.default_loop,
+                        interval=draft.minimum_interval, rules=[{'animation': rule.animation,
+                            'conditions': [editor.condition(kind=row.kind, input_name=row.input_name,
+                                equals=row.equals, enter=row.enter, exit=row.exit) for row in rule.conditions]}
+                            for rule in draft.rules], actions=facts, fps=fps)
                 elif draft.kind == 'STATE':
                     replacement = editor.apply(content, mode=draft.mode, key=draft.key,
                         clip=draft.action.name if draft.action else '', loop=draft.loop,
@@ -299,8 +425,52 @@ def register(blender, exporter):
             layout.label(text=item.marker or '(choose Action marker)')
             layout.label(text=item.event or '(event key)')
 
+    class BLENDLIB_UL_authoring_rules(blender.types.UIList):
+        def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
+            layout.label(text=str(index + 1) + '. ' + (item.animation if item.animation != '/' else '(choose loop)'))
+            layout.label(text=str(len(item.conditions)) + ' conditions')
+
+    class BLENDLIB_UL_authoring_conditions(blender.types.UIList):
+        def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
+            label = ('== ' + str(item.equals)) if item.kind == 'BOOL' else ('>= ' if item.kind == 'MIN' else '<= ') + item.enter
+            layout.label(text=(item.input_name or '(input name)') + ' ' + label)
+
+    def draw_row_controls(layout, target):
+        row = layout.row(align=True)
+        for operation, icon in [('ADD', 'ADD'), ('REMOVE', 'REMOVE'), ('UP', 'TRIA_UP'), ('DOWN', 'TRIA_DOWN')]:
+            op = row.operator('blendlib.authoring_rules_row', text='', icon=icon)
+            op.target, op.operation = target, operation
+
+    def draw_rules(layout, draft):
+        layout.prop(draft, 'default_loop')
+        layout.prop(draft, 'minimum_interval')
+        layout.label(text='Priority: first matching rule wins (top to bottom)')
+        layout.template_list('BLENDLIB_UL_authoring_rules', '', draft, 'rules', draft, 'rule_index', rows=3)
+        draw_row_controls(layout, 'RULE')
+        if 0 <= draft.rule_index < len(draft.rules):
+            rule = draft.rules[draft.rule_index]
+            layout.prop(rule, 'animation')
+            layout.label(text='All conditions must match; empty = unconditional')
+            layout.template_list('BLENDLIB_UL_authoring_conditions', '', rule, 'conditions', rule, 'condition_index', rows=3)
+            draw_row_controls(layout, 'CONDITION')
+            if 0 <= rule.condition_index < len(rule.conditions):
+                row = rule.conditions[rule.condition_index]
+                layout.prop(row, 'input_name')
+                layout.prop(row, 'kind')
+                if row.kind == 'BOOL':
+                    layout.prop(row, 'equals')
+                else:
+                    layout.prop(row, 'enter')
+                    layout.prop(row, 'exit')
+                    layout.label(text='Exit <= Enter' if row.kind == 'MIN' else 'Enter <= Exit')
+        layout.label(text='Use one consistent type per input name')
+        layout.label(text='No matching rule: default loop')
+        row = layout.row(align=True)
+        row.operator('blendlib.authoring_apply', text='Apply Rules to Text')
+        row.operator('blendlib.authoring_discard', text='Discard')
+
     class VIEW3D_PT_blendlib_authoring(blender.types.Panel):
-        bl_label = 'Runtime State / Event / Socket Editor'
+        bl_label = 'Runtime Authoring Editor'
         bl_idname = 'VIEW3D_PT_blendlib_authoring'
         bl_space_type = 'VIEW_3D'
         bl_region_type = 'UI'
@@ -326,8 +496,12 @@ def register(blender, exporter):
                     row.operator('blendlib.authoring_socket_begin', text='Load Socket').mode = 'EDIT'
                     row.operator('blendlib.authoring_socket_begin', text='Add Socket').mode = 'ADD'
                     layout.label(text='Socket nodes are discovered by a temporary export')
+                    layout.operator('blendlib.authoring_rules_begin', text='Load / Add Locomotion Rules')
                 return
             layout.label(text='New Text draft' if draft.mode == 'CREATE' else 'Draft for ' + (draft.source.name if draft.source else '(missing Text)'))
+            if draft.kind == 'RULES':
+                draw_rules(layout, draft)
+                return
             key_row = layout.row()
             key_row.enabled = draft.mode != 'EDIT'
             key_row.prop(draft, 'key')
@@ -361,15 +535,16 @@ def register(blender, exporter):
                 else:
                     layout.prop(event, 'marker')
                 layout.prop(event, 'event')
-            layout.label(text='Next/blend and rules stay in Text')
+            layout.label(text='Next/blend stay in Text; rules have their own draft')
             row = layout.row(align=True)
             row.operator('blendlib.authoring_apply', text='Create New Text' if draft.mode == 'CREATE' else 'Apply to Selected Text')
             row.operator('blendlib.authoring_discard', text='Discard')
 
-    _CLASSES = (BLENDLIB_PG_authoring_event, BLENDLIB_PG_authoring_node, BLENDLIB_PG_authoring_draft,
+    _CLASSES = (BLENDLIB_PG_authoring_event, BLENDLIB_PG_authoring_node,
+                BLENDLIB_PG_authoring_condition, BLENDLIB_PG_authoring_rule, BLENDLIB_PG_authoring_draft,
                 BLENDLIB_OT_authoring_begin, BLENDLIB_OT_authoring_socket_begin, BLENDLIB_OT_authoring_discard,
-                BLENDLIB_OT_authoring_event, BLENDLIB_OT_authoring_apply,
-                BLENDLIB_UL_authoring_events, VIEW3D_PT_blendlib_authoring)
+                BLENDLIB_OT_authoring_event, BLENDLIB_OT_authoring_rules_begin, BLENDLIB_OT_authoring_rules_row, BLENDLIB_OT_authoring_apply,
+                BLENDLIB_UL_authoring_events, BLENDLIB_UL_authoring_rules, BLENDLIB_UL_authoring_conditions, VIEW3D_PT_blendlib_authoring)
     for cls in _CLASSES:
         blender.utils.register_class(cls)
     blender.types.Scene.blendlib_authoring_state = props.EnumProperty(name='State', items=state_items, options=transient)
@@ -438,3 +613,4 @@ def unregister(blender):
     _STATE_ITEMS = []
     _SOCKET_ITEMS = []
     _NODE_ITEMS.clear()
+    _LOOP_ITEMS.clear()

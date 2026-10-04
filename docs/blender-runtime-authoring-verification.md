@@ -134,3 +134,35 @@ runtime-JAR/runnable-consumer verification, root client 815/core 346, and valida
 add-on packaging. Root aggregate still has its single inherited Showcase POSIX
 symlink-policy failure (82 tests, one failed, one skipped). No native rendered
 sidebar/Minecraft graphics claim, new runtime/schema behavior, release or merge.
+
+## Structured locomotion rule editor checkpoint
+
+Eight additional pure editor test methods (33 total) and genuine Blender 5.1.2
+`verify_rules_editor.py` cover default-loop selection, ordered rules, typed
+boolean/minimum/maximum conditions, inclusive enter/exit thresholds, precision,
+minimum interval, preservation and failed/repeated/interrupted drafts. The fixture
+is constructed through real state/event/rule operators, with a distinct one-second
+Idle/Walk/Run clip each. Non-loop Attack, next/blend, marker events and a Hand socket
+remain unchanged by rule edits. No rule preset JSON is used to author the fixture.
+
+`BlenderRuleAuthoringLocomotionAcceptanceTest` contributes five actual-export Java
+cases, passing on official 26.3 and root 26.1.2: strict typed ordered fields, sampled
+poses, inclusive entry/exit min/max bounds, priority, four-tick interval, invalid
+input retention and independent descriptor/rule reload retiring playback history.
+Repeated export, reopen and a fresh CLI process produce identical golden bytes.
+The packaged add-on ZIP also passes real register/load/apply/restart checks.
+
+Independent critical review found no actionable defects after isolated real-Blender
+acceptance, 300 randomized RNA rule reorders preserving nested conditions, 32-rule/
+8-condition guards, canonical-Text reorder and deleted/recreated-Text conflicts,
+empty rules, signed thresholds and missing eligible-loop probes. Review and local
+verification are headless operators; interactive sidebar rendering is not claimed.
+
+Final local gates: 33 Python methods; 361 official 26.3 Java tests plus full build,
+runtime JAR and runnable-consumer checks; root client 820/core 346; state/event,
+socket/discovery, strict exporter, P2 and X5 registration regressions; validated
+add-on packaging. Root aggregate retains the inherited Showcase POSIX symlink
+case (82 tests, one failure, one skipped). The existing local selector-provider
+shim/quiet JVM setup remains test-only. CI runs the new genuine Blender script and
+asserts its committed export bytes. There is no Java production/runtime API/schema
+change, new Minecraft graphics run, main merge, release/tag or security change.

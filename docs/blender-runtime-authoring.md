@@ -9,7 +9,7 @@ its state/marker/socket metadata is not imported or reinterpreted.
 
 1. Save the `.blend`, use a single export-root collection and attach each Action to an object
    or an NLA strip. Unattached/fake-user-only Actions are not runtime clips.
-2. Open **Runtime State / Event / Socket Editor** under the export panel. **Start New Text**
+2. Open **Runtime Authoring Editor** under the export panel. **Start New Text**
    prepares a first-state draft. Choose a namespaced state key and attached Action, then
    **Create New Text**. This creates a uniquely named `BlendLib.runtime.json` without
    overwriting any existing Text or enabling export. Alternatively create a Text in Blender's
@@ -21,7 +21,7 @@ its state/marker/socket metadata is not imported or reinterpreted.
    replaced when authoring validation fails. This does not promise transactional filesystem
    recovery for I/O failures. Uncheck the toggle to retain historical automatic loop states.
 
-There is no automatic Text-name discovery or hidden migration. The state/event/socket editor is a small
+There is no automatic Text-name discovery or hidden migration. The state/event/socket/rule editor is a small
 front end for the same strict Text, not a second asset or export format.
 The Text is stored in the `.blend`; it is not a runtime resource. Selecting an absent Text fails.
 CLI uses only its explicit flag, regardless of saved sidebar settings:
@@ -54,7 +54,7 @@ new flag to X5 is rejected explicitly rather than silently discarded.
   existing initial state, including when editing that initial state itself. A new Text's first
   state is its initial state. The draft shows both the Action and state key before creation.
 - Existing `next`, `blend_seconds`, other states, sockets and locomotion remain in the Text.
-  Edit next/blend and locomotion in the Text Editor; sockets have their own draft below. Apply may reformat JSON whitespace, but
+  Edit next/blend in the Text Editor; sockets and locomotion have their own drafts below. Apply may reformat JSON whitespace, but
   preserves all untouched values (including double-precision numbers and absent fields).
   Unknown fields fail the same strict validation; they are never silently discarded.
 - Speed accepts a JSON number such as `1` or `1.25` in (0,64]. Text input preserves precision
@@ -92,7 +92,7 @@ new flag to X5 is rejected explicitly rather than silently discarded.
    compiler. It preserves every other socket, animation, event and locomotion value.
    The editor neither creates helpers nor changes object/bone transforms.
 
-State and socket editing share one working draft. Apply or Discard before switching.
+State, socket and locomotion editing share one working draft. Apply or Discard before switching.
 Text selection/content changes, replaced same-name source objects/bones, collection
 changes and exported path changes fail Apply without rewriting the Text. Entering
 Armature Edit Mode or undo/redo invalidates an open socket draft, even if the
@@ -204,3 +204,42 @@ Discovery requires Object Mode and exits early if any source is in NLA Tweak Mod
 leave tweak mode deliberately first. Both successful and interrupted discovery
 restore source Actions, slots, unkeyed pose channels, NLA flags, scene frames and
 window/view-layer context. All temporary files are removed after the pass.
+
+## Locomotion rule editor
+
+Choose **Load / Add Locomotion Rules** in **Runtime Authoring Editor**. It loads
+existing rules or starts an empty draft if the Text has no locomotion section.
+Choose **Default Loop** explicitly. Target choices include only authored loop
+states without `next`; the editor never substitutes a different state. Create
+Idle, Walk and Run first using the state editor if they do not yet exist.
+
+- Add a rule, choose its **Target Loop**, then add its conditions. All conditions
+  must match; a rule with no conditions is unconditional. Rule order is priority:
+  the first matching row wins. Use the arrows deliberately to put Run above Walk.
+  Removing a row only removes that draft row until Apply. There is no implicit
+  sorting, deduplication, section removal or sidecar deletion.
+- Choose **Boolean**, **Number >=** or **Number <=** per condition. Boolean has an
+  exact **Equals** checkbox. Numeric conditions have separate **Enter Threshold**
+  and **Exit Threshold** JSON-number text fields (write `0.1`, not `.1`). `>=`
+  requires Exit <= Enter; `<=` requires Enter <= Exit. Comparisons include the
+  boundary. These distinct shapes cannot emit mixed min/max or boolean bounds.
+- Use the same type everywhere an input name appears. Input names are ASCII
+  identifiers and are supplied by your existing client integration, not inferred
+  from Blender. **Minimum Interval (ticks)** is 0..200; it holds accepted state
+  changes for that many ticks. Existing runtime input/evaluation behavior is
+  unchanged. An absent interval stays absent on a no-op zero-valued edit.
+- **Apply Rules to Text** validates the whole config through the common strict
+  compiler. It preserves all states, events, sockets, advanced fields and numeric
+  precision. Invalid values leave both the Text and recoverable draft intact.
+  Repeated Load and cross-editor switching require Apply or Discard first.
+- **Discard** never changes the Text. Text identity/content guards and save/reload
+  behavior are shared with the state editor. Export uses only applied Text even
+  while an invalid draft is open. This editor does not turn export on or remove an
+  optional sidecar. Remove the section/old resource explicitly when desired.
+
+The [idle/walk/run fixture](../test-assets/blender-rules/README.md) was authored
+with these genuine Blender operators and consumed by Java runtime tests. Rebuild:
+
+```sh
+blender --background --python-exit-code 1 --python blender-addon/scripts/verify_rules_editor.py -- --project-root .
+```

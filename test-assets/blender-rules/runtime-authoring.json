@@ -1,0 +1,93 @@
+{
+  "schema_version": 1,
+  "animation": {
+    "initial_state": "blendlib_rules:idle",
+    "states": {
+      "blendlib_rules:idle": {
+        "clip": "Idle",
+        "loop": true,
+        "speed": 1
+      },
+      "blendlib_rules:walk": {
+        "clip": "Walk",
+        "loop": true,
+        "speed": 1,
+        "events": [
+          {
+            "marker": "Footstep",
+            "event": "blendlib_rules:footstep"
+          }
+        ]
+      },
+      "blendlib_rules:run": {
+        "clip": "Run",
+        "loop": true,
+        "speed": 1,
+        "events": [
+          {
+            "marker": "Footstep",
+            "event": "blendlib_rules:footstep"
+          }
+        ]
+      },
+      "blendlib_rules:attack": {
+        "clip": "Attack",
+        "loop": false,
+        "speed": 1,
+        "events": [
+          {
+            "marker": "Impact",
+            "event": "blendlib_rules:impact"
+          }
+        ],
+        "next": "blendlib_rules:idle",
+        "blend_seconds": 0.123456789123456
+      }
+    }
+  },
+  "sockets": {
+    "blendlib_rules:hand": {
+      "node": "Root/Hand"
+    }
+  },
+  "locomotion": {
+    "schema_version": 1,
+    "default": "blendlib_rules:idle",
+    "rules": [
+      {
+        "animation": "blendlib_rules:run",
+        "conditions": [
+          {
+            "input": "grounded",
+            "equals": true
+          },
+          {
+            "input": "speed",
+            "enter_min": 2.0,
+            "exit_min": 1.5
+          },
+          {
+            "input": "slope",
+            "enter_max": 0.5,
+            "exit_max": 0.75
+          }
+        ]
+      },
+      {
+        "animation": "blendlib_rules:walk",
+        "conditions": [
+          {
+            "input": "grounded",
+            "equals": true
+          },
+          {
+            "input": "speed",
+            "enter_min": 0.1,
+            "exit_min": 0.05
+          }
+        ]
+      }
+    ],
+    "minimum_interval_ticks": 4
+  }
+}

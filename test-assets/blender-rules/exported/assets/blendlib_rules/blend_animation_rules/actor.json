@@ -1,0 +1,40 @@
+{
+  "default": "blendlib_rules:idle",
+  "minimum_interval_ticks": 4,
+  "rules": [
+    {
+      "animation": "blendlib_rules:run",
+      "conditions": [
+        {
+          "equals": true,
+          "input": "grounded"
+        },
+        {
+          "enter_min": 2.0,
+          "exit_min": 1.5,
+          "input": "speed"
+        },
+        {
+          "enter_max": 0.5,
+          "exit_max": 0.75,
+          "input": "slope"
+        }
+      ]
+    },
+    {
+      "animation": "blendlib_rules:walk",
+      "conditions": [
+        {
+          "equals": true,
+          "input": "grounded"
+        },
+        {
+          "enter_min": 0.1,
+          "exit_min": 0.05,
+          "input": "speed"
+        }
+      ]
+    }
+  ],
+  "schema_version": 1
+}

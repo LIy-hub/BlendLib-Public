@@ -1,0 +1,21 @@
+{
+  "blender_version": "5.1.2",
+  "build_hash": "ec6e62d40fa9",
+  "real_state_event_rule_operators": true,
+  "explicit_priority_reorder": true,
+  "typed_min_max_hysteresis_validation": true,
+  "lossless_precise_numbers_absent_interval": true,
+  "default_has_no_implicit_fallback": true,
+  "text_identity_content_and_cross_editor_guards": true,
+  "failed_apply_retains_recoverable_draft": true,
+  "unrelated_fields_preserved": true,
+  "save_reload_restart_clears_draft": true,
+  "export_ignores_unapplied_draft": true,
+  "two_run_and_reload_byte_identical": true,
+  "exported_sha256": {
+    "assets/blendlib_rules/blend_animation_rules/actor.json": "801b7076d57b692b750c1512d812e2358593d225d7fe815aa464db327ee33314",
+    "assets/blendlib_rules/models3d/actor.glb": "1e9fd4608ec62652527fc045f97344b28d8ce648770cadef4ed9903800545060",
+    "assets/blendlib_rules/blend_models/actor.json": "bba38fe9785510ff7d784a85c207e581ed2d4a9f60b5951dd130b338603df199",
+    "assets/blendlib_rules/textures/blendlib/actor__bodymaterial.png": "e54ecb84259db45e5619b7e88b948d4e09176aec0e01f281a57dc5d6f2d68d07"
+  }
+}

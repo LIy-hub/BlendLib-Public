@@ -109,5 +109,7 @@ jobs:
           blender --background --python-exit-code 1 --python blender-addon/scripts/verify_socket_editor.py -- --project-root .
           git diff --exit-code -- test-assets/blender-sockets/exported
           blender --background --python-exit-code 1 --python blender-addon/scripts/verify_socket_discovery_state.py -- --project-root .
+          blender --background --python-exit-code 1 --python blender-addon/scripts/verify_rules_editor.py -- --project-root .
+          git diff --exit-code -- test-assets/blender-rules/exported
           blender --background --python-exit-code 1 --python blender-addon/scripts/verify_p2_fixtures.py -- --project-root .
           blender --background --python-exit-code 1 --python blender-addon/scripts/verify_x5_toolchain.py

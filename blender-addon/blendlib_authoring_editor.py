@@ -72,3 +72,36 @@ def apply_socket(text: str, *, mode: str, key: str, node: str,
     result = json.dumps(config, ensure_ascii=False, indent=2, allow_nan=False) + '\n'
     authoring.parse(result)
     return result
+
+
+def condition(*, kind: str, input_name: str, equals: bool, enter: str, exit: str) -> dict:
+    """Map one explicitly typed UI row to an existing strict condition shape."""
+    if kind == 'BOOL':
+        return {'input': input_name, 'equals': equals}
+    if kind not in {'MIN', 'MAX'}:
+        raise ValueError('Choose Boolean, Number >= or Number <= for each condition')
+    try:
+        numbers = [json.loads(token) for token in (enter, exit)]
+    except (ValueError, RecursionError) as error:
+        raise ValueError('Enter and exit thresholds must be finite JSON numbers') from error
+    suffix = kind.lower()
+    return {'input': input_name, 'enter_' + suffix: numbers[0], 'exit_' + suffix: numbers[1]}
+
+
+def apply_locomotion(text: str, *, default: str, interval: int, rules: list,
+                     actions: dict, fps: float) -> str:
+    """Patch only locomotion, preserving source numeric tokens and optional absence."""
+    config = load(text, actions, fps)
+    prior = config.get('locomotion', {})
+    locomotion = {'schema_version': 1, 'default': default, 'rules': copy.deepcopy(rules)}
+    # Zero is the existing runtime default; no-op editing must not add an absent key.
+    if 'minimum_interval_ticks' in prior or interval != 0:
+        locomotion['minimum_interval_ticks'] = interval
+    # Validate even an omitted zero (e.g. False compares equal to 0 in Python).
+    if type(interval) is not int or not 0 <= interval <= 200:
+        raise ValueError('minimum_interval_ticks must be integer 0..200')
+    config['locomotion'] = locomotion
+    authoring.validate_source(copy.deepcopy(config), actions, fps)
+    result = json.dumps(config, ensure_ascii=False, indent=2, allow_nan=False) + '\n'
+    authoring.parse(result)
+    return result

@@ -55,3 +55,9 @@ only the selected canonical Text socket. Scene identity/path or Text conflicts
 fail without writing. For offsets/orientation, create and transform an ordinary
 exported Empty first, then select it; strict-v1 sockets remain node-only.
 See [socket workflow](../docs/blender-runtime-authoring.md#socket-editor-and-local-offsets).
+
+Structured locomotion authoring is available through **Load / Add Locomotion Rules**
+in **Runtime Authoring Editor**. Pick a default loop, order rule priorities, add
+Boolean or numeric min/max enter/exit conditions and explicitly Apply to canonical
+Text. See [the workflow](../docs/blender-runtime-authoring.md#locomotion-rule-editor)
+and [idle/walk/run fixture](../test-assets/blender-rules/README.md).
