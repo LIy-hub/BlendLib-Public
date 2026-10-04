@@ -5,6 +5,10 @@ It compiles against the actual 26.3 port. Normal builds and the normal BlendLib 
 example entity, item, commands, resources, or entrypoints. Enabling the property adds the consumer
 source sets and launch profile; it does not put the consumer classes into the library JAR.
 
+Preview packages built with `-Pblendlib_preview=blendspace-preview` add
+`-blendspace-preview` to the library/example version and JAR names. They are development
+builds, distinct from the published beta.4 release. Install one matching pair only.
+
 ## Build and run
 
 From the repository root, with Java 25 installed:
@@ -22,8 +26,8 @@ that yourself. This example is a development demo, not a benchmark or a gameplay
 
 The verification command builds both separate files under `versions/modern/build/26.3/libs/`:
 
-- `blendlib-fabric-1.0.0-beta.3+26.3.jar`
-- `blendlib-runnable-examples-1.0.0-beta.3+26.3.jar`
+- `blendlib-fabric-1.0.0-beta.4+26.3.jar`
+- `blendlib-runnable-examples-1.0.0-beta.4+26.3.jar`
 
 For a packaged install, put both JARs alongside Fabric API 0.161.0+26.3 in a Minecraft 26.3
 Fabric Loader 0.19.5 profile. Install the example on the server too if using multiplayer; its
@@ -143,6 +147,97 @@ for idle/walk/run, increasing playheads under unchanged rules, hold/hysteresis, 
 cues and owners, no extraction resource reads, immutable retained geometry, missing/invalid-rule
 fallback and recovery, reload, unload, explicit retirement and disconnect/reconnect. This is
 headless integration evidence, not a GPU/display check.
+
+## Opt-in synchronized continuous 1D blendspace
+
+This is a separate consumer from the discrete locomotion-rules example above. Enable the
+**client JVM property** and summon an actor with its own smooth-movement tag on an open floor:
+
+```sh
+JAVA_TOOL_OPTIONS="-Dblendlib.examples.blendspace1d=true" ./gradlew -p versions/modern -Pminecraft_version=26.3 -Prunnable_examples=true runRunnableExamplesClient
+```
+
+```mcfunction
+/summon blendlib_runnable_examples:layered_actor ~ ~ ~3 {Tags:["blendlib_blendspace"]}
+```
+
+For a packaged install, use both example/library JARs and add
+`-Dblendlib.examples.blendspace1d=true` to the launcher's Java arguments, then restart. This is
+not a Gradle `-P` property. The server needs the example mod, but no matching JVM property.
+The property alone changes animation; the tag separately enables movement. Without the tag,
+the actor remains stationary and samples the idle endpoint. Remove the movement tag with:
+
+```mcfunction
+/tag @e[type=blendlib_runnable_examples:layered_actor,tag=blendlib_blendspace] remove blendlib_blendspace
+```
+
+A tagged actor repeats a sixteen-second out-and-back path. Each leg rests for one second,
+accelerates smoothly for two, cruises at 0.14 blocks/tick for two, decelerates smoothly for two,
+then rests for one. Leave at least fourteen blocks clear beside it. The example uses ordinary
+server gravity and collisions; walls reduce the measured speed and ledges can make it fall.
+The shared tracked speed is measured from actual horizontal displacement **after collision
+resolution**, not copied from the cosine velocity target or client interpolation. That measured
+blocks/tick scalar is captured once by `.animationBlendSpace1D(...)`. Animation does not drive
+position, collision, root motion or any gameplay decision. Grounded status remains available in
+inspection but is not a second blendspace axis.
+
+`ExampleBlendSpaceScene` declares three equal-priority, full-body OVERRIDE layers before
+configuring the blendspace. They have their own controller IDs:
+
+- `blend_idle` at speed 0
+- `blend_walk` at speed 0.06
+- `blend_run` at speed 0.14
+
+Between samples only the adjacent pair contributes, with weights summing to one. Exact sample
+hits select one contribution; speeds outside the range clamp to an endpoint. Member playheads
+continue even at zero weight, so crossing a sample cannot restart its motion. The existing
+independent `upper` layer keeps its masked attack cue every five seconds and its captured weight
+fade. The procedural tip pose, final socket, real weapon/animated ornament, appearance, named
+skins and extended-attachment option use their existing paths. Items remain unchanged.
+
+The dedicated strict-v1 `blend_models/blendspace_actor.json` points to an actual authored
+`models3d/blendspace_actor.glb`. Its idle/walk/run loops have unequal raw durations **2, 1 and
+0.5 seconds**, and non-unit descriptor speeds **0.5, 1.5 and 2**. Their normalized bob/rotation
+cycles were authored in phase. The blendspace's fixed common cycle is **0.8 seconds**; it accounts
+for both duration and descriptor speed, rather than giving every clip the same raw playback
+rate. The shared phase starts at the actor's first extraction, survives resource reload, and
+resets after unload, explicit retirement or reconnect. Separate actors have independent clocks.
+Changing the measured scalar changes weights without new member commands.
+
+This consumer has no locomotion-rules JSON sidecar and does not combine hysteresis-based state
+selection with continuous weights. Renderer precedence is two-bone IK, then blendspace, then
+discrete locomotion rules, then the default actor. Leave the other two JVM properties off for
+an unambiguous demo. If both movement tags are present, the smooth blendspace trajectory wins;
+remove both tags to stop all scripted movement.
+
+Use `/blendlib_example inspect` and then `/blendlib_example inspect <entity-id>`. Alongside the
+received speed, the existing immutable layer snapshot shows effective member weights and
+clip-local seconds. A read-only formatter divides those sampled times by **current loaded clip
+durations**, obtained from the existing runtime duration query, and prints each normalized
+playhead. This also works after a resource pack changes clip durations. Inspection does not
+advance playback, and sampled evidence can lag while culled; received speed may be newer than
+the sampled weights. Resource packs must preserve the required member states, valid continuous
+loops, compatible masks and supported playback rates.
+
+Equal normalized phase does not infer stride lengths, repair misaligned source gaits, lock feet
+to the floor or deduplicate footstep/contact events. These technical fixture loops have no
+member footstep markers. The independently authored upper `attack_whoosh` remains; callback
+counts are extraction observations, not proof of audio or a displayed frame.
+
+`verifyRunnableExamples` loads the dedicated descriptor and actual GLB from the **built example
+JAR** through production reload prepare/apply. It checks unequal raw durations and non-unit
+speeds; synchronized zero-weight members; endpoint and midpoint final root poses and CPU-skinned
+vertices; unchanged member sequences during smooth parameter changes; independent upper cues
+and weight fade; final procedural sockets and nested attachments; read-only inspection and no
+extraction resource I/O; retained geometry and phase after reload with changed descriptor
+speeds; two-owner isolation, unload, explicit retirement and disconnect/reconnect. The deterministic
+generator is `tools/generate_blendspace_actor.py`; normal builds use the committed bytes.
+
+Native graphical acceptance is **unverified**. When explicitly validating in-game, compare two
+actors; watch acceleration, deceleration and wall contact; inspect matching normalized playheads
+while weights change; verify the upper attack and final-socket attachments; reload with F3+T;
+unload/re-enter and reconnect; then restart without the property. Passing headless verification
+does not establish a client session, GPU behavior, frame submission or visible foot contact.
 
 ## Opt-in standard two-bone IK mechanical arm
 
@@ -297,6 +392,8 @@ reports callbacks disabled. Those manual checks remain deferred until explicitly
 - `ExampleItemCommands`: public item playback API on the real current main-hand stack
 - `ExampleItemVisualEvents`: separately opt-in bounded weak exact-stack callback measurements
 - `ExampleLayerVisualEvents`: actor-owned, bounded measurement of real layer-event callbacks
+- `ExampleBlendSpaceScene` / `ExampleBlendSpaceMotion`: separate fixed-cycle continuous blendspace
+  and server-safe smooth trajectory; measured collision-resolved speed is the animation input
 - `blend_models/actor.json`, `wand.json`, `marker.json`: ordinary strict-v1 model descriptors
 - `prepareRunnableExampleAssets`: deterministic build-time copy of four tracked repository assets
 

@@ -52,7 +52,8 @@ public final class LayeredActor extends Entity {
     }
 
     private void tickLocomotionDemo() {
-        if (!entityTags().contains(LOCOMOTION_TAG)) {
+        boolean blendSpace = entityTags().contains(ExampleBlendSpaceMotion.TAG);
+        if (!blendSpace && !entityTags().contains(LOCOMOTION_TAG)) {
             if (wasLocomotionDemo) setDeltaMovement(Vec3.ZERO);
             wasLocomotionDemo = false;
             entityData.set(LOCOMOTION_SPEED, 0F);
@@ -63,7 +64,8 @@ public final class LayeredActor extends Entity {
         int phase = Math.floorMod(tickCount, 240);
         int segment = phase % 120;
         double speed = segment < 40 ? 0 : segment < 80 ? 0.065 : 0.18;
-        double dx = phase < 120 ? speed : -speed;
+        double dx = blendSpace ? ExampleBlendSpaceMotion.requestedHorizontalVelocity(tickCount)
+                : phase < 120 ? speed : -speed;
         double dy = Math.max(-0.6, getDeltaMovement().y - 0.08);
         double oldX = getX(), oldZ = getZ();
         setDeltaMovement(dx, dy, 0);

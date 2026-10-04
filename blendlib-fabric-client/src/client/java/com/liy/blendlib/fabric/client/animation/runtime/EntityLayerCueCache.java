@@ -16,6 +16,11 @@ import java.util.Objects;
 /** Single extraction-owner cache. Entity equality deliberately never participates in lookup. */
 final class EntityLayerCueCache {
     private final Map<Object, Map<Object, Capture>> owners = new IdentityHashMap<>();
+    private final EntityLayerCueCache original;
+    private final List<RetainedCaptureCleanup> cleanups = new ArrayList<>();
+    private record RetainedCaptureCleanup(BlendInstanceKey instance, Object owner, List<AnimationV2Command> retained) { }
+    EntityLayerCueCache() { original = null; }
+    private EntityLayerCueCache(EntityLayerCueCache original) { this.original = original; }
     private record Capture(BlendInstanceKey.Entity instance, BlendModelKey model, long generation,
             Map<BlendResourceId, AnimationV2Command> commands) { }
 
@@ -39,7 +44,7 @@ final class EntityLayerCueCache {
             if (!controllers.add(cue.controllerId())) throw new IllegalArgumentException("Duplicate cue controller: " + cue.controllerId());
         }
         if (checked.isEmpty()) return List.of();
-        var sources = owners.computeIfAbsent(owner, ignored -> new IdentityHashMap<>());
+        var sources = owners.computeIfAbsent(owner, this::copyOwner);
         var capture = sources.get(source);
         if (capture == null || !capture.instance().equals(instance) || !capture.model().equals(model)
                 || capture.generation() != generation) {
@@ -72,6 +77,7 @@ final class EntityLayerCueCache {
 
     /** Keeps only exact cue commands captured by a successful replacement frame. */
     void retireExceptCaptured(BlendInstanceKey instance, Object owner, List<AnimationV2Command> retained) {
+        if (original != null) cleanups.add(new RetainedCaptureCleanup(instance, owner, List.copyOf(retained)));
         var accepted = java.util.Collections.newSetFromMap(new IdentityHashMap<AnimationV2Command, Boolean>());
         accepted.addAll(retained);
         for (var entry : owners.entrySet()) {
@@ -93,6 +99,29 @@ final class EntityLayerCueCache {
     void retainGeneration(long generation) {
         owners.values().forEach(sources -> sources.values().removeIf(c -> c.generation() != generation));
         owners.values().removeIf(Map::isEmpty);
+    }
+
+    /** Copy-on-write owner staging; a frame never copies unrelated entity caches. */
+    EntityLayerCueCache copy() { return new EntityLayerCueCache(this); }
+
+    private Map<Object, Capture> copyOwner(Object owner) {
+        Map<Object, Capture> result = new IdentityHashMap<>();
+        var previous = original == null ? null : original.owners.get(owner);
+        if (previous != null) for (var source : previous.entrySet()) {
+            var capture = source.getValue();
+            result.put(source.getKey(), new Capture(capture.instance(), capture.model(), capture.generation(),
+                    new HashMap<>(capture.commands())));
+        }
+        return result;
+    }
+
+    /** Commits only owners touched by an accepted compound frame. */
+    EntityLayerCueCache commit() {
+        if (original == null) return this;
+        for (var cleanup : cleanups)
+            original.retireExceptCaptured(cleanup.instance(), cleanup.owner(), cleanup.retained());
+        original.owners.putAll(owners);
+        return original;
     }
 
     void clear() { owners.clear(); }

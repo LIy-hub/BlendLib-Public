@@ -24,7 +24,8 @@ public final class ExampleClient implements ClientModInitializer {
     public void onInitializeClient() {
         boolean itemAppearance = Boolean.getBoolean("blendlib.examples.itemAppearance");
         boolean namedSkins = Boolean.getBoolean("blendlib.examples.namedSkins");
-        boolean locomotionRules = ExampleLocomotionScene.enabled();
+        boolean blendSpace = ExampleBlendSpaceScene.enabled();
+        boolean locomotionRules = !blendSpace && ExampleLocomotionScene.enabled();
         if (namedSkins) ExampleNamedSkins.register();
         if (ITEM_VISUAL_EVENTS_ENABLED) {
             ExampleItemMaterialAppearance.register(itemAppearance, namedSkins, ITEM_VISUAL_EVENTS::accept);
@@ -44,12 +45,14 @@ public final class ExampleClient implements ClientModInitializer {
                                 .shadowRadius(0.45F)
                                 .build();
                     }
-                    var builder = BlendEntityRenderer.<LayeredActor>builder(context, locomotionRules
+                    var builder = BlendEntityRenderer.<LayeredActor>builder(context, blendSpace
+                            ? ExampleBlendSpaceScene.MODEL : locomotionRules
                             ? ExampleLocomotionScene.MODEL : ExampleContent.APPEARANCE_ACTOR_MODEL)
                         .materialAppearance((entity, request) -> ExampleMaterialAppearance.forName(
                                 appearanceName(entity, namedSkins)))
                         .skinnedAnimation((entity, request) -> ExampleContent.WALK)
-                        .animationLayerCues(locomotionRules ? ExampleLocomotionScene.layers() : ExampleAnimationScene.layers(),
+                        .animationLayerCues(blendSpace ? ExampleBlendSpaceScene.layers() : locomotionRules
+                                ? ExampleLocomotionScene.layers() : ExampleAnimationScene.layers(),
                                 ExampleClient::cues)
                         .onAnimationLayerVisualEvent((entity, event) -> entity.visualEvents().accept(event))
                         .animationLayerWeights((entity, request) -> ExampleAnimationScene.clipLayerWeights(
@@ -57,6 +60,8 @@ public final class ExampleClient implements ClientModInitializer {
                         .poseComponents(ExampleAnimationScene.procedural())
                         .attachments(ExampleClient::attachments)
                         .shadowRadius(0.45F);
+                    if (blendSpace) builder.animationBlendSpace1D(ExampleBlendSpaceScene.definition(),
+                            (entity, request) -> entity.locomotionSpeed());
                     if (locomotionRules) builder.animationLocomotionRules(ExampleAnimationScene.BASE,
                             (entity, request) -> ExampleLocomotionScene.inputs(
                                     entity.locomotionGrounded(), entity.locomotionSpeed()));
@@ -74,7 +79,8 @@ public final class ExampleClient implements ClientModInitializer {
                     ITEM_VISUAL_EVENTS.clear();
                 });
         ExampleItemCommands.register(ITEM_VISUAL_EVENTS_ENABLED, ITEM_VISUAL_EVENTS);
-        ExampleInspectionCommands.register(locomotionRules && !ExampleTwoBoneIkScene.enabled());
+        ExampleInspectionCommands.register(locomotionRules && !ExampleTwoBoneIkScene.enabled(),
+                blendSpace && !ExampleTwoBoneIkScene.enabled());
     }
 
     private static String appearanceName(LayeredActor entity, boolean namedSkins) {

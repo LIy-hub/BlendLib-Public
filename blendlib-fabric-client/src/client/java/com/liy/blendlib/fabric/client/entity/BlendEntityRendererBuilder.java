@@ -24,6 +24,8 @@ public final class BlendEntityRendererBuilder<E extends Entity> {
     private java.util.List<com.liy.blendlib.core.animation.v2.ModelAnimationLayers.Layer> animationLayers;
     private BlendEntityLayerCommands<? super E> layerCommands;
     private BlendEntityLayerWeights<? super E> layerWeights;
+    private com.liy.blendlib.core.animation.v2.AnimationBlendSpace1D blendSpace;
+    private BlendEntityBlendSpaceParameter<? super E> blendSpaceParameter;
     private BlendResourceId locomotionController;
     private BlendEntityLocomotionInputs<? super E> locomotionInputs;
     private BlendEntityLayerVisualEventHandler<? super E> layerVisualEventHandler;
@@ -200,7 +202,8 @@ public final class BlendEntityRendererBuilder<E extends Entity> {
             BlendEntityLayerCommands<? super E> commands) {
         requireAnimated();
         if (layers.isEmpty()) throw new IllegalArgumentException("At least one layer is required");
-        if (locomotionInputs != null) throw new IllegalStateException("Configure layers before locomotion rules");
+        if (locomotionInputs != null || blendSpace != null)
+            throw new IllegalStateException("Configure layers before locomotion rules or a blendspace");
         this.animationLayers = java.util.List.copyOf(layers);
         this.layerCommands = Objects.requireNonNull(commands, "commands");
         return this;
@@ -227,6 +230,8 @@ public final class BlendEntityRendererBuilder<E extends Entity> {
         Objects.requireNonNull(controllerId, "controllerId");
         if (animationLayers.stream().noneMatch(layer -> layer.id().equals(controllerId)))
             throw new IllegalArgumentException("Undeclared locomotion controller: " + controllerId);
+        if (blendSpace != null && blendSpace.memberLayerIds().contains(controllerId))
+            throw new IllegalArgumentException("blendspace owns locomotion controller: " + controllerId);
         this.locomotionController = controllerId;
         this.locomotionInputs = Objects.requireNonNull(inputs, "inputs");
         return this;
@@ -240,6 +245,29 @@ public final class BlendEntityRendererBuilder<E extends Entity> {
         requireAnimated();
         if (animationLayers == null) throw new IllegalStateException("Configure animation layers or cues first");
         this.layerWeights = Objects.requireNonNull(weights, "weights");
+        return this;
+    }
+
+    /**
+     * Opts existing independent layers into one synchronized, fixed-cycle 1D blendspace.
+     * Configure layers/cues first. Member clocks and weights are exclusively owned by the space;
+     * unrelated commands/weights remain independent. The finite parameter is captured once per
+     * extraction, before commands. Clips must share authored gait phase; zero-weight members run.
+     */
+    public BlendEntityRendererBuilder<E> animationBlendSpace1D(
+            com.liy.blendlib.core.animation.v2.AnimationBlendSpace1D definition,
+            BlendEntityBlendSpaceParameter<? super E> parameter) {
+        requireAnimated();
+        if (animationLayers == null) throw new IllegalStateException("Configure animation layers or cues first");
+        if (blendSpace != null) throw new IllegalStateException("Only one blendspace may be configured");
+        Objects.requireNonNull(definition, "definition"); Objects.requireNonNull(parameter, "parameter");
+        for (var member : definition.memberLayerIds()) {
+            if (animationLayers.stream().noneMatch(layer -> layer.id().equals(member)))
+                throw new IllegalArgumentException("Undeclared blendspace layer: " + member);
+            if (member.equals(locomotionController))
+                throw new IllegalArgumentException("blendspace owns locomotion controller: " + member);
+        }
+        this.blendSpace = definition; this.blendSpaceParameter = parameter;
         return this;
     }
 
@@ -313,7 +341,7 @@ public final class BlendEntityRendererBuilder<E extends Entity> {
                     skinnedAnimationVisualEventHandler,
                     poseModifier,
                     rootRotationSelector,
-                    skinnedSocketMarkerKey, animationLayers, captureLocomotionCommands(layerCommands, locomotionController, locomotionInputs), poseComponents, socketHandler, attachmentProvider, layerWeights, layerVisualEventHandler);
+                    skinnedSocketMarkerKey, animationLayers, captureLocomotionCommands(layerCommands, locomotionController, locomotionInputs), poseComponents, socketHandler, attachmentProvider, layerWeights, layerVisualEventHandler, blendSpace, blendSpaceParameter);
         }
         if (snapshotFactory == null) {
             throw new IllegalStateException("A BlendEntityRenderer requires an extraction-only snapshotFactory");

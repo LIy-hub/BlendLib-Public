@@ -1,15 +1,14 @@
 # Minecraft 26.3 port
 
-This page records the initial port checkpoint. For the current cumulative development branch,
-use the [26.3 developer quickstart](../developer-quickstart-26.3.md); the hash and CI below
-identify the original port, not subsequent animation/appearance/attachment additions.
-
 ## Changes
 
 - Add `26.3` to the existing modern shared-source build, with Fabric API `0.161.0+26.3`, Loader `0.19.5`, Loom `1.17.21`, Java 25 and Gradle 9.6.0.
 - Port GPU namespaces and pipeline metadata to RenderPearl, use compiled pipelines and combined-image-sampler uniforms, and retain the existing direct-GPU availability gates.
 - Update quaternion pose operations and frustum-culling partial-tick signatures.
 - Move the final-present Mixin to `com.mojang.renderpearl.api.device.GpuSurface.present()` and pin verified official/processed Minecraft class hashes.
+- Adapt all six packaged shader stages to `#include`, explicit interface locations
+  and SPIR-V vertex/instance built-ins only for the 26.3 target. Compile and reflect
+  them with Minecraft's native ShaderC compiler in both clip-depth modes during tests.
 - Keep older target sources, dependency versions, root 26.1.2 build and public release history unchanged.
 
 ## Build
@@ -18,7 +17,8 @@ identify the original port, not subsequent animation/appearance/attachment addit
 bash gradlew -p versions/modern -Pminecraft_version=26.3 --no-daemon build verifyRuntimeJar
 ```
 
-Outputs: `versions/modern/build/26.3/libs/blendlib-fabric-1.0.0-beta.3+26.3.jar` and its sources JAR.
+The 26.3 shader hotfix is released as `1.0.0-beta.4+26.3`.
+Outputs: `versions/modern/build/26.3/libs/blendlib-fabric-1.0.0-beta.4+26.3.jar` and its sources JAR.
 
 ## Evidence
 
@@ -30,8 +30,13 @@ The focused build compiles both source sets, validates metadata and all baseline
 
 Runtime JAR SHA-256: `8cf9adc9e415e83d4b987852867d150ec925ee4b9ba2898da22a1895920c30b4`.
 
+The 2026-10-04 shader resource fix passes a local `build verifyRuntimeJar` with five
+tests, including twelve native ShaderC compilations and SPIR-V reflections across
+the six shader stages and both clip-depth modes. The CI links and artifact hash
+above describe the original release before this resource fix.
+
 ## Boundaries
 
-No full client/window, world, dedicated-server or rendered GPU acceptance is claimed. The experimental GPU paths remain experimental. No EULA acceptance, GitHub Release/tag or CurseForge upload was performed.
+The CI and unit-test evidence does not prove world, dedicated-server or rendered GPU acceptance. The experimental GPU paths remain experimental. No EULA acceptance, GitHub Release/tag or CurseForge upload was performed.
 
 The cloud machine's Unix-domain socket restriction prevents local Loom initialization. Unmodified official tools on GitHub Actions completed the full build; no sandbox workarounds were installed.

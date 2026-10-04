@@ -39,7 +39,13 @@ if (fabricMirror.resolve("net/fabricmc/fabric-api/fabric-api/$fabricVersion/fabr
 }
 
 group = "com.liy.blendlib"
-version = "1.0.0-beta.3+$minecraftVersion"
+version = "1.0.0-beta.${if (minecraftVersion == "26.3") 4 else 3}+$minecraftVersion"
+// Opt-in development artifacts must not masquerade as the already published release.
+providers.gradleProperty("blendlib_preview").orNull?.let { qualifier ->
+    require(minecraftVersion == "26.3") { "Preview packaging currently targets Minecraft 26.3" }
+    require(Regex("[a-z0-9][a-z0-9.-]{0,63}").matches(qualifier)) { "Invalid preview qualifier" }
+    version = "${project.version}-$qualifier"
+}
 base.archivesName.set("blendlib-fabric")
 layout.buildDirectory.set(layout.projectDirectory.dir("build/$minecraftVersion"))
 val repository = rootDir.resolve("../..").canonicalFile
@@ -248,6 +254,8 @@ if (minecraftVersion == "26.3") {
         include(
             "**/X7PipelinePortTest.java",
             "**/Minecraft263ShutdownMixinTest.java",
+            "**/Minecraft263ShaderResourceTest.java",
+            "**/ShaderCompilationPortTest.java",
             "**/StaticDirectPipelinePortTest.java",
             "**/AnimationV2NativeClipTest.java",
             "**/SynchronizedVisualEventCursorTest.java",
@@ -257,6 +265,8 @@ if (minecraftVersion == "26.3") {
             "**/SkinnedAnimationRuntimeSourceBoundaryTest.java",
             "**/EntityLayerCueCacheTest.java",
             "**/*Locomotion*Test.java",
+            "**/*BlendSpace*.java",
+            "**/entity/consumer/BlendSpaceConsumerSample.java",
             "**/entity/consumer/LocomotionRulesConsumerSample.java",
             "**/MaterialAppearanceSubmissionTest.java",
             "**/MaterialAppearanceCaptureTest.java",
@@ -305,34 +315,27 @@ tasks.withType<ProcessResources>().configureEach {
         filter { line -> line.replace("JAVA_25", "JAVA_$javaVersion") }
     }
     if (minecraftVersion == "26.3") {
-        // 26.3 compiles both backends through ShaderC/SPIR-V. Keep earlier targets' resources unchanged.
-        // See https://www.minecraft.net/en-us/article/minecraft-java-edition-26-3#shader-compilation-changes
-        filesMatching("assets/blendlib/shaders/core/x7_*") {
-            val vertexShader = name.endsWith(".vsh")
-            val directStatic = name == "x7_static_direct.vsh"
-            val varyingLocations = mapOf(
-                "sphericalVertexDistance" to 0, "cylindricalVertexDistance" to 1,
-                "vertexColor" to 2, "lightMapColor" to 3, "texCoord" to 4,
-            )
+        // Preserve the published beta.4 shader transform; invalidate old raw incremental outputs too.
+        inputs.property("minecraft263ShaderInterfaceVersion", 1)
+        filesMatching("assets/blendlib/shaders/core/*") {
+            val shaderFileName = name
             filter { line ->
-                val declaration = Regex("^(in|out) (\\w+) (\\w+);$").matchEntire(line)
-                if (declaration != null) {
-                    val (direction, _, variable) = declaration.destructured
-                    val location = if (vertexShader && direction == "in") {
-                        when (variable) {
-                            "Position" -> 0
-                            "Normal" -> 1
-                            "UV0" -> if (directStatic) 2 else 1
-                            else -> error("Unknown 26.3 vertex input: $variable")
-                        }
-                    } else if (!vertexShader && direction == "out" && variable == "fragColor") 0
-                    else varyingLocations[variable] ?: error("Unknown 26.3 shader interface: $variable")
-                    "layout(location = $location) $line"
-                } else line.replace("#version 330", "#version 330\n#extension GL_ARB_separate_shader_objects : require")
+                var text = line
+                    .replace("#version 330", "#version 330\n#extension GL_ARB_separate_shader_objects : require")
                     .replace("#moj_import", "#include")
-                    // Every existing direct draw uses firstInstance = 0, preserving array indexing on both backends.
-                    .replace("gl_InstanceID", "gl_InstanceIndex")
                     .replace("gl_VertexID", "gl_VertexIndex")
+                    .replace("gl_InstanceID", "gl_InstanceIndex")
+                    .replace("in vec3 Position;", "layout(location = 0) in vec3 Position;")
+                    .replace("in vec3 Normal;", "layout(location = 1) in vec3 Normal;")
+                    .replace("out vec4 fragColor;", "layout(location = 0) out vec4 fragColor;")
+                val uvLocation = if (shaderFileName == "x7_static_direct.vsh") 2 else 1
+                text = text.replace("in vec2 UV0;", "layout(location = $uvLocation) in vec2 UV0;")
+                listOf("float sphericalVertexDistance", "float cylindricalVertexDistance",
+                    "vec4 vertexColor", "vec4 lightMapColor", "vec2 texCoord").forEachIndexed { location, varying ->
+                    text = text.replace("in $varying;", "layout(location = $location) in $varying;")
+                        .replace("out $varying;", "layout(location = $location) out $varying;")
+                }
+                text
             }
         }
     }
@@ -474,7 +477,7 @@ if (providers.gradleProperty("runnable_examples").orNull == "true") {
                         it.startsWith("com/liy/blendlib/core/") || it.startsWith("com/liy/blendlib/api/") }) {
                     "Example JAR must not embed library implementation or API classes"
                 }
-                listOf("ExampleContent", "LayeredActor", "ExampleClient", "ExampleItemCommands", "ExampleAnimationScene", "ExampleInspectionCommands", "ExampleLayerInspection", "ExampleItemInspection", "ExampleLayerVisualEvents", "ExampleMaterialAppearance", "ExampleItemMaterialAppearance", "ExampleNamedSkins", "ExampleAttachmentScene", "ExampleAttachmentOwners", "ExampleTwoBoneIkScene", "ExampleLocomotionScene").forEach {
+                listOf("ExampleContent", "LayeredActor", "ExampleClient", "ExampleItemCommands", "ExampleAnimationScene", "ExampleInspectionCommands", "ExampleLayerInspection", "ExampleItemInspection", "ExampleLayerVisualEvents", "ExampleMaterialAppearance", "ExampleItemMaterialAppearance", "ExampleNamedSkins", "ExampleAttachmentScene", "ExampleAttachmentOwners", "ExampleTwoBoneIkScene", "ExampleLocomotionScene", "ExampleBlendSpaceScene", "ExampleBlendSpaceMotion").forEach {
                     check("com/liy/blendlib/examples/runnable/$it.class" in names) { "Missing example class: $it" }
                 }
                 val metadata = zip.getInputStream(zip.getEntry("fabric.mod.json")).reader().readText()
@@ -482,7 +485,7 @@ if (providers.gradleProperty("runnable_examples").orNull == "true") {
                 check(metadata.contains("\"minecraft\": \"26.3\""))
                 check(metadata.contains("\"blendlib\": \"${project.version}\""))
                 check(!metadata.contains("\"mixins\""))
-                listOf("ExampleContent", "LayeredActor", "ExampleLayerVisualEvents").forEach {
+                listOf("ExampleContent", "LayeredActor", "ExampleLayerVisualEvents", "ExampleBlendSpaceMotion").forEach {
                     val bytes = zip.getInputStream(zip.getEntry("com/liy/blendlib/examples/runnable/$it.class")).readBytes()
                     check(!bytes.toString(Charsets.ISO_8859_1).contains("net/minecraft/client/")) {
                         "Common example entrypoint/entity must remain server-safe: $it"
@@ -500,7 +503,7 @@ if (providers.gradleProperty("runnable_examples").orNull == "true") {
                 }
                 val slurper = groovy.json.JsonSlurper()
                 listOf("actor", "appearance_actor", "wand", "appearance_wand", "marker",
-                        "mechanical_arm", "ik_target_marker", "ik_end_marker", "locomotion_actor").forEach { model ->
+                        "mechanical_arm", "ik_target_marker", "ik_end_marker", "locomotion_actor", "blendspace_actor").forEach { model ->
                     val path = namespace + "blend_models/$model.json"
                     val descriptor = slurper.parseText(zip.getInputStream(zip.getEntry(path)).reader().readText()) as Map<*, *>
                     val mesh = descriptor["mesh"] as String
@@ -522,7 +525,7 @@ if (providers.gradleProperty("runnable_examples").orNull == "true") {
                         check((descriptor["sockets"] as Map<*, *>).containsKey("blendlib_runnable_examples:tip"))
                     }
                 }
-                listOf("models3d/mechanical_arm.glb", "models3d/ik_target_marker.glb",
+                listOf("models3d/blendspace_actor.glb", "blend_models/blendspace_actor.json", "models3d/mechanical_arm.glb", "models3d/ik_target_marker.glb",
                         "models3d/ik_end_marker.glb", "textures/mechanical_arm.png").forEach { asset ->
                     val bytes = zip.getInputStream(zip.getEntry(namespace + asset)).readBytes()
                     check(bytes.contentEquals(file("showcase/src/main/resources/$namespace$asset").readBytes())) {

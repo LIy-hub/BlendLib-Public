@@ -59,7 +59,13 @@ public final class SkinnedAnimationRuntime {
     private final java.util.LinkedHashMap<LayerPlanKey, ModelAnimationLayers> preparedLayerPlans =
             new java.util.LinkedHashMap<>(16, 0.75F, true);
 
-    private final EntityLayerCueCache entityLayerCues = new EntityLayerCueCache();
+    private final Map<BlendInstanceKey, BlendSpaceClock> blendSpaceClocks = new HashMap<>();
+    private final java.util.LinkedHashMap<BlendSpacePlanKey, AnimationBlendSpace1D.Binding> preparedBlendSpaces =
+            new java.util.LinkedHashMap<>(16, 0.75F, true);
+    private AnimationBlendSpace1D capturingBlendSpace;
+
+    private EntityLayerCueCache entityLayerCues = new EntityLayerCueCache();
+    private EntityLayerCueCache blendSpaceOriginalCues;
 
     private final EntityLocomotionRuleCache entityLocomotionRules = new EntityLocomotionRuleCache();
     private final java.util.Set<ModelGenerationKey> invalidLocomotionInputs = new java.util.HashSet<>();
@@ -101,8 +107,10 @@ public final class SkinnedAnimationRuntime {
             return 0;
         }
         locomotionEpoch++;
+        blendSpaceClocks.keySet().removeIf(key -> key instanceof BlendInstanceKey.Entity entity && entity.entityId() == entityId);
         entityLocomotionRules.retireEntity(entityId);
         entityLayerCues.retireEntity(entityId);
+        if (blendSpaceOriginalCues != null) blendSpaceOriginalCues.retireEntity(entityId);
         int removed = lifecycle.onEntityUnload(entityId);
         Iterator<BlendInstanceKey> keys = clocks.keySet().iterator();
         while (keys.hasNext()) {
@@ -121,6 +129,12 @@ public final class SkinnedAnimationRuntime {
     public List<AnimationV2Command> captureEntityLayerCues(Object source, Object owner, int entityId,
             BlendModelKey model, long generation, double clientTicks,
             List<com.liy.blendlib.fabric.client.entity.BlendEntityLayerCue> cues) {
+        if (capturingBlendSpace != null) {
+            for (var cue : List.copyOf(cues)) {
+                if (capturingBlendSpace.memberLayerIds().contains(cue.controllerId()))
+                    throw new IllegalArgumentException("blendspace owns cue controller: " + cue.controllerId());
+            }
+        }
         return activeEntityKey(entityId)
                 .map(instance -> entityLayerCues.capture(source, owner, instance, model, generation, clientTicks, cues,
                         cue -> cueStateSpeed(model, generation, cue.animationKey())))
@@ -142,6 +156,8 @@ public final class SkinnedAnimationRuntime {
         Objects.requireNonNull(model, "model"); Objects.requireNonNull(controller, "controller");
         Objects.requireNonNull(inputs, "inputs"); Objects.requireNonNull(commands, "commands");
         if (!Double.isFinite(clientTicks) || generation < 0) throw new IllegalArgumentException("Invalid rule clock/generation");
+        if (capturingBlendSpace != null && capturingBlendSpace.memberLayerIds().contains(controller))
+            throw new IllegalArgumentException("blendspace owns locomotion controller: " + controller);
         if (capturingLocomotion) throw new IllegalStateException("Recursive locomotion capture is not supported");
         var active = activeEntityKey(entityId);
         var current = modelRegistry.current();
@@ -156,6 +172,12 @@ public final class SkinnedAnimationRuntime {
         capturingLocomotion = true;
         try {
             var supplied = List.copyOf(commands.get());
+            if (capturingBlendSpace != null) {
+                capturingBlendSpace.validateExternalCommands(supplied);
+                int completeCount = supplied.size() + (rules.isPresent() ? 1 : 0);
+                if (completeCount > AnimationV2Limits.MAX_INGRESS_DRAIN_PER_ADVANCE - capturingBlendSpace.samples().size())
+                    throw new IllegalArgumentException("blendspace capture reserves immediate-frame slots for all members");
+            }
             if (epoch != locomotionEpoch || modelRegistry.current() != current
                     || !active.equals(activeEntityKey(entityId))) return List.of();
             if (rules.isEmpty()) return supplied;
@@ -250,6 +272,7 @@ public final class SkinnedAnimationRuntime {
         BlendInstanceKey.BlockEntity checkedKey = Objects.requireNonNull(key, "key");
         int removed = lifecycle.onBlockEntityUnload(checkedKey);
         clocks.remove(checkedKey);
+        blendSpaceClocks.remove(checkedKey);
         return removed;
     }
 
@@ -264,9 +287,11 @@ public final class SkinnedAnimationRuntime {
         entityLocomotionRules.retainGeneration(activeGeneration);
         invalidLocomotionInputs.removeIf(key -> key.generation() != activeGeneration);
         entityLayerCues.retainGeneration(activeGeneration);
+        if (blendSpaceOriginalCues != null) blendSpaceOriginalCues.retainGeneration(activeGeneration);
         lifecycle.registry().retireOtherGenerations(activeGeneration);
         preparedAssets.keySet().removeIf(key -> key.generation() != activeGeneration);
         preparedLayerPlans.keySet().removeIf(key -> key.generation() != activeGeneration);
+        preparedBlendSpaces.keySet().removeIf(key -> key.layers().generation() != activeGeneration);
         clocks.entrySet().removeIf(entry -> entry.getValue().generation != activeGeneration);
         observedGeneration = activeGeneration;
     }
@@ -332,8 +357,10 @@ public final class SkinnedAnimationRuntime {
     public void retire(BlendInstanceKey key) {
         Objects.requireNonNull(key, "key");
         locomotionEpoch++;
+        blendSpaceClocks.remove(key);
         entityLocomotionRules.retire(key);
         entityLayerCues.retire(key);
+        if (blendSpaceOriginalCues != null) blendSpaceOriginalCues.retire(key);
         clocks.remove(key);
         lifecycle.registry().remove(key);
     }
@@ -371,11 +398,78 @@ public final class SkinnedAnimationRuntime {
                 Objects.requireNonNull(weights, "weights"), listener);
     }
 
+    /** Validates the exact current-generation binding before entity callbacks can capture cues. */
+    public boolean validateBlendSpaceBinding(BlendModelKey model, long generation,
+            List<ModelAnimationLayers.Layer> layers, AnimationBlendSpace1D definition) {
+        var current = modelRegistry.current();
+        if (current.isRetired() || current.generationId() != generation) return false;
+        var handle = current.find(Objects.requireNonNull(model, "model"));
+        if (handle.isEmpty() || !(handle.get() instanceof LoadedModelHandle loaded)
+                || loaded.asset().animationDefinition() == null) return false;
+        preparedBlendSpace(loaded, List.copyOf(layers), Objects.requireNonNull(definition, "definition"));
+        return true;
+    }
+
+    /** Scopes cue/rule preflight so a conflicting member cannot commit its capture cache. */
+    public List<AnimationV2Command> captureBlendSpaceCommands(AnimationBlendSpace1D definition,
+            java.util.function.Supplier<List<AnimationV2Command>> commands) {
+        Objects.requireNonNull(definition, "definition"); Objects.requireNonNull(commands, "commands");
+        if (capturingBlendSpace != null) throw new IllegalStateException("Recursive blendspace capture is not supported");
+        capturingBlendSpace = definition;
+        long epoch = locomotionEpoch;
+        var generation = modelRegistry.current();
+        blendSpaceOriginalCues = entityLayerCues;
+        entityLayerCues = entityLayerCues.copy();
+        boolean accepted = false;
+        try {
+            var captured = List.copyOf(commands.get());
+            definition.validateExternalCommands(captured);
+            if (captured.size() > AnimationV2Limits.MAX_INGRESS_DRAIN_PER_ADVANCE - definition.samples().size())
+                throw new IllegalArgumentException("blendspace capture reserves immediate-frame slots for all members");
+            accepted = epoch == locomotionEpoch && generation == modelRegistry.current();
+            return accepted ? captured : List.of();
+        } finally {
+            entityLayerCues = accepted ? entityLayerCues.commit() : blendSpaceOriginalCues;
+            blendSpaceOriginalCues = null;
+            capturingBlendSpace = null;
+        }
+    }
+
+    /**
+     * Fixed common-cycle blendspace over ordinary entity layers. The exact source and owner
+     * identities define activation. Generation replacement retains that activation's clock origin;
+     * unload, retire, disconnect, another owner/definition, or non-blendspace extraction resets it.
+     * Ordinary frames never seek. A gap beyond the core advance bound silently recovers the current
+     * cycle with one member discontinuity; unrelated layers keep their existing bounded advance.
+     */
+    public Optional<SkinnedAnimationRuntimeResult> extractBlendSpace(SkinnedAnimationRuntimeInput input,
+            List<ModelAnimationLayers.Layer> layers, List<AnimationV2Command> commands,
+            AnimationV2LayerWeights weights, AnimationBlendSpace1D definition, double parameter,
+            Object source, Object owner, ClientAnimationPoseModifier modifier,
+            java.util.function.Consumer<LayerAnimationVisualEvent> listener) {
+        var request = new BlendSpaceRequest(Objects.requireNonNull(definition, "definition"), parameter,
+                Objects.requireNonNull(source, "source"), Objects.requireNonNull(owner, "owner"));
+        definition.validateExternalCommands(commands);
+        definition.validateExternalWeights(weights);
+        // Validate the scalar before preparing or binding any runtime state.
+        definition.weights(parameter);
+        return extractInternal(input, modifier, null, List.copyOf(layers), List.copyOf(commands),
+                Objects.requireNonNull(weights, "weights"), listener, request);
+    }
+
     private Optional<SkinnedAnimationRuntimeResult> extractInternal(
             SkinnedAnimationRuntimeInput input, ClientAnimationPoseModifier poseModifier, Double clipSeconds,
             List<ModelAnimationLayers.Layer> layers, List<AnimationV2Command> commands,
             AnimationV2LayerWeights weights,
             java.util.function.Consumer<com.liy.blendlib.core.animation.v2.LayerAnimationVisualEvent> listener) {
+        return extractInternal(input, poseModifier, clipSeconds, layers, commands, weights, listener, null);
+    }
+
+    private Optional<SkinnedAnimationRuntimeResult> extractInternal(
+            SkinnedAnimationRuntimeInput input, ClientAnimationPoseModifier poseModifier, Double clipSeconds,
+            List<ModelAnimationLayers.Layer> layers, List<AnimationV2Command> commands,
+            AnimationV2LayerWeights weights,
+            java.util.function.Consumer<com.liy.blendlib.core.animation.v2.LayerAnimationVisualEvent> listener, BlendSpaceRequest blendSpace) {
         long preparationStartedNanos = ClientRenderMeasurementCollector.startAnimationPreparation();
         try {
             SkinnedAnimationRuntimeInput checkedInput = Objects.requireNonNull(input, "input");
@@ -400,13 +494,46 @@ public final class SkinnedAnimationRuntime {
             BlendInstanceKey instanceKey = checkedInput.instanceKey();
             // Validate a complete captured frame before binding/advancing live instance state.
             LayeredClock selectedLayered = null;
+            BlendSpaceClock selectedBlendSpace = null;
+            boolean initializeBlendSpace = false;
+            long blendSpaceSequence = -1;
+            double blendSpaceTick = checkedInput.clientGameTimeInTicks();
             if (layers != null) {
                 InstanceClock prior = clocks.get(instanceKey);
                 selectedLayered = prior != null && prior.matches(checkedInput.modelKey(), generation)
                         && prior.layered != null && prior.layered.layers.equals(layers)
                         ? prior.layered
                         : new LayeredClock(preparedLayers(loaded, layers), layers, checkedInput.clientGameTimeInTicks());
+                if (blendSpace != null) {
+                    var binding = preparedBlendSpace(loaded, layers, blendSpace.definition());
+                    blendSpaceTick = Math.max(blendSpaceTick, selectedLayered.lastTick);
+                    var previousSpace = blendSpaceClocks.get(instanceKey);
+                    selectedBlendSpace = previousSpace != null && previousSpace.matches(checkedInput.modelKey(), blendSpace)
+                            ? previousSpace : new BlendSpaceClock(checkedInput.modelKey(), blendSpace, blendSpaceTick);
+                    blendSpaceTick = Math.max(blendSpaceTick, selectedBlendSpace.lastTick);
+                    initializeBlendSpace = selectedLayered.blendSpace != selectedBlendSpace
+                            || (blendSpaceTick - selectedLayered.lastTick) / TICKS_PER_SECOND > AnimationV2Limits.MAX_ADVANCE_SECONDS;
+                    var merged = new java.util.LinkedHashMap<>(weights.multipliers());
+                    merged.putAll(blendSpace.definition().weights(blendSpace.parameter()).multipliers());
+                    weights = new AnimationV2LayerWeights(merged);
+                    if (initializeBlendSpace) {
+                        long maximum = -1;
+                        for (var member : blendSpace.definition().memberLayerIds())
+                            maximum = Math.max(maximum, selectedLayered.commandWatermarks.getOrDefault(member, -1L));
+                        blendSpaceSequence = Math.incrementExact(maximum);
+                        double elapsed = Math.max(0, blendSpaceTick - selectedBlendSpace.originTick) / TICKS_PER_SECOND;
+                        double phase = (elapsed % blendSpace.definition().cycleSeconds()) / blendSpace.definition().cycleSeconds();
+                        // Rounding division at the upper endpoint must still satisfy [0, 1).
+                        phase = Math.min(phase, Math.nextDown(1.0));
+                        var combined = new java.util.ArrayList<>(commands);
+                        combined.addAll(binding.commands(phase, blendSpaceSequence));
+                        commands = List.copyOf(combined);
+                    }
+                }
                 selectedLayered.runtime.validateLayerWeights(weights);
+                if (blendSpace != null) selectedLayered.runtime.validateImmediateFrameCommands(commands);
+                if (commands.size() > AnimationV2Limits.MAX_FRAME_COMMANDS_PER_ADVANCE)
+                    throw new IllegalArgumentException("blendspace frame command batch exceeds v2 bounds");
             }
             ClientAnimationInstanceRegistry instances = lifecycle.registry();
             ClientAnimationInstance instance = instances.bind(instanceKey, checkedInput.modelKey(), generation, prepared.definition());
@@ -430,15 +557,28 @@ public final class SkinnedAnimationRuntime {
             List<com.liy.blendlib.core.animation.v2.LayerAnimationVisualEvent> layerEvents = List.of();
             if (layers != null) {
                 LayeredClock layered = selectedLayered;
-                double tick = checkedInput.clientGameTimeInTicks();
+                double tick = blendSpace == null ? checkedInput.clientGameTimeInTicks() : blendSpaceTick;
                 double delta = Math.max(0.0D, tick - layered.lastTick) / TICKS_PER_SECOND;
                 var evaluation = layered.runtime.advanceWeightedAtFrame(delta, commands, weights);
+                for (var command : commands) {
+                    if (layered.model.plan().controllerIds().contains(command.controllerId()))
+                        layered.commandWatermarks.merge(command.controllerId(), command.sequence(), Math::max);
+                }
                 layered.lastTick = Math.max(layered.lastTick, tick);
                 clock.layered = layered;
+                if (selectedBlendSpace != null) {
+                    selectedBlendSpace.lastTick = tick;
+                    layered.blendSpace = selectedBlendSpace;
+                    blendSpaceClocks.put(instanceKey, selectedBlendSpace);
+                } else {
+                    layered.blendSpace = null;
+                    blendSpaceClocks.remove(instanceKey);
+                }
                 layerEvents = layered.events.consume(evaluation);
                 basePose = instances.captureEvaluatedPose(basePose, layered.model.localPose(evaluation.pose()));
             } else {
                 clock.layered = null;
+                blendSpaceClocks.remove(instanceKey);
             }
             ClientAnimationPoseSnapshot effectivePose = basePose;
             if (poseModifier != null) {
@@ -644,9 +784,12 @@ public final class SkinnedAnimationRuntime {
 
     private void clearRuntimeState() {
         locomotionEpoch++;
+        blendSpaceClocks.clear();
+        preparedBlendSpaces.clear();
         entityLocomotionRules.clear();
         invalidLocomotionInputs.clear();
         entityLayerCues.clear();
+        if (blendSpaceOriginalCues != null) blendSpaceOriginalCues.clear();
         preparedAssets.clear();
         preparedLayerPlans.clear();
         clocks.clear();
@@ -697,6 +840,36 @@ public final class SkinnedAnimationRuntime {
         return prepared;
     }
 
+    private AnimationBlendSpace1D.Binding preparedBlendSpace(LoadedModelHandle loaded,
+            List<ModelAnimationLayers.Layer> layers, AnimationBlendSpace1D definition) {
+        var key = new BlendSpacePlanKey(new LayerPlanKey(loaded.key(), loaded.generationId(), layers), definition);
+        var binding = preparedBlendSpaces.get(key);
+        if (binding == null) {
+            binding = definition.bind(preparedLayers(loaded, layers).plan());
+            preparedBlendSpaces.put(key, binding);
+            if (preparedBlendSpaces.size() > 64) preparedBlendSpaces.remove(preparedBlendSpaces.keySet().iterator().next());
+        }
+        return binding;
+    }
+
+    private record BlendSpacePlanKey(LayerPlanKey layers, AnimationBlendSpace1D definition) { }
+    private record BlendSpaceRequest(AnimationBlendSpace1D definition, double parameter, Object source, Object owner) { }
+    private static final class BlendSpaceClock {
+        final BlendModelKey model;
+        final AnimationBlendSpace1D definition;
+        final Object source;
+        final Object owner;
+        final double originTick;
+        double lastTick;
+        BlendSpaceClock(BlendModelKey model, BlendSpaceRequest request, double tick) {
+            this.model = model; definition = request.definition(); source = request.source(); owner = request.owner();
+            originTick = tick; lastTick = tick;
+        }
+        boolean matches(BlendModelKey model, BlendSpaceRequest request) {
+            return this.model.equals(model) && definition == request.definition() && source == request.source() && owner == request.owner();
+        }
+    }
+
     private record LayerPlanKey(BlendModelKey model, long generation, List<ModelAnimationLayers.Layer> layers) {}
 
     private static final class LayeredClock {
@@ -705,6 +878,8 @@ public final class SkinnedAnimationRuntime {
         private final AnimationV2InstanceRuntime runtime;
         private final com.liy.blendlib.core.animation.v2.LayerAnimationVisualEventCursor events;
         private double lastTick;
+        private BlendSpaceClock blendSpace;
+        private final Map<com.liy.blendlib.api.BlendResourceId, Long> commandWatermarks = new HashMap<>();
         private LayeredClock(ModelAnimationLayers model, List<ModelAnimationLayers.Layer> layers, double tick) {
             this.layers = layers;
             this.model = model;

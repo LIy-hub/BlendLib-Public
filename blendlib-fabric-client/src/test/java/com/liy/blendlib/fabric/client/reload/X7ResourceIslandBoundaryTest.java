@@ -327,6 +327,15 @@ class X7ResourceIslandBoundaryTest {
                     actualManifest.split(java.util.regex.Pattern.quote(addition), -1).length - 1, addition);
             actualManifest = actualManifest.replace(addition, "");
         }
+        // Synchronized 1D blendspace is additive; pin its exact descriptors without changing the retained baseline.
+        for (String addition : List.of(
+                "  public boolean validateBlendSpaceBinding(com.liy.blendlib.api.BlendModelKey, long, java.util.List<com.liy.blendlib.core.animation.v2.ModelAnimationLayers$Layer>, com.liy.blendlib.core.animation.v2.AnimationBlendSpace1D);\n    descriptor: (Lcom/liy/blendlib/api/BlendModelKey;JLjava/util/List;Lcom/liy/blendlib/core/animation/v2/AnimationBlendSpace1D;)Z\n\n",
+                "  public java.util.List<com.liy.blendlib.core.animation.v2.AnimationV2Command> captureBlendSpaceCommands(com.liy.blendlib.core.animation.v2.AnimationBlendSpace1D, java.util.function.Supplier<java.util.List<com.liy.blendlib.core.animation.v2.AnimationV2Command>>);\n    descriptor: (Lcom/liy/blendlib/core/animation/v2/AnimationBlendSpace1D;Ljava/util/function/Supplier;)Ljava/util/List;\n\n",
+                "  public java.util.Optional<com.liy.blendlib.fabric.client.animation.runtime.SkinnedAnimationRuntimeResult> extractBlendSpace(com.liy.blendlib.fabric.client.animation.runtime.SkinnedAnimationRuntimeInput, java.util.List<com.liy.blendlib.core.animation.v2.ModelAnimationLayers$Layer>, java.util.List<com.liy.blendlib.core.animation.v2.AnimationV2Command>, com.liy.blendlib.core.animation.v2.AnimationV2LayerWeights, com.liy.blendlib.core.animation.v2.AnimationBlendSpace1D, double, java.lang.Object, java.lang.Object, com.liy.blendlib.fabric.client.animation.runtime.ClientAnimationPoseModifier, java.util.function.Consumer<com.liy.blendlib.core.animation.v2.LayerAnimationVisualEvent>);\n    descriptor: (Lcom/liy/blendlib/fabric/client/animation/runtime/SkinnedAnimationRuntimeInput;Ljava/util/List;Ljava/util/List;Lcom/liy/blendlib/core/animation/v2/AnimationV2LayerWeights;Lcom/liy/blendlib/core/animation/v2/AnimationBlendSpace1D;DLjava/lang/Object;Ljava/lang/Object;Lcom/liy/blendlib/fabric/client/animation/runtime/ClientAnimationPoseModifier;Ljava/util/function/Consumer;)Ljava/util/Optional;\n\n",
+                "  public com.liy.blendlib.fabric.client.entity.BlendEntityRendererBuilder<E> animationBlendSpace1D(com.liy.blendlib.core.animation.v2.AnimationBlendSpace1D, com.liy.blendlib.fabric.client.entity.BlendEntityBlendSpaceParameter<? super E>);\n    descriptor: (Lcom/liy/blendlib/core/animation/v2/AnimationBlendSpace1D;Lcom/liy/blendlib/fabric/client/entity/BlendEntityBlendSpaceParameter;)Lcom/liy/blendlib/fabric/client/entity/BlendEntityRendererBuilder;\n\n")) {
+            assertTrue(actualManifest.contains(addition), addition);
+            actualManifest = actualManifest.replace(addition, "");
+        }
         assertEquals(expectedManifest, actualManifest, "b3660bb javap -protected -s descriptor manifest");
         for (String requiredPin : List.of(
                 "public final class com.liy.blendlib.fabric.client.reload.ClientModelRegistry",

@@ -21,6 +21,7 @@ public final class ExampleNamedSkins {
     public static void register() {
         BlendLibModelSkins.register(ExampleContent.APPEARANCE_ACTOR_MODEL, definitions(false));
         BlendLibModelSkins.register(ExampleLocomotionScene.MODEL, definitions(false));
+        BlendLibModelSkins.register(ExampleBlendSpaceScene.MODEL, definitions(false));
         BlendLibModelSkins.register(ExampleContent.APPEARANCE_WAND_MODEL, definitions(true));
     }
 

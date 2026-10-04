@@ -204,6 +204,23 @@ public final class AnimationV2InstanceRuntime {
         }
     }
 
+    /**
+     * Owner-thread preflight for adapters that require their whole batch to apply this frame.
+     * Rejects existing deferred/queued commands and conservatively limits raw commands to the
+     * complete-group drain budget. This does not drain, evaluate or change playback. The adapter
+     * must own ingress exclusively between this check and advance (no concurrent producers).
+     * Ordinary queued/frame entrypoints retain their existing larger bounded-backlog behavior.
+     */
+    public void validateImmediateFrameCommands(List<AnimationV2Command> commands) {
+        Objects.requireNonNull(commands, "commands");
+        if (commands.size() > AnimationV2Limits.MAX_INGRESS_DRAIN_PER_ADVANCE)
+            throw new IllegalArgumentException("immediate frame commands exceed the complete-group drain budget");
+        for (var command : commands) Objects.requireNonNull(command, "command");
+        claimOwner();
+        if (!incoming.isEmpty() || !commandBacklog.isEmpty() || !frameCommandBacklog.isEmpty())
+            throw new IllegalStateException("drain existing commands before immediate-frame ownership");
+    }
+
     /** Validates immutable targets without claiming ownership or changing any runtime/queue state. */
     public void validateLayerWeights(AnimationV2LayerWeights weights) {
         Objects.requireNonNull(weights, "weights");

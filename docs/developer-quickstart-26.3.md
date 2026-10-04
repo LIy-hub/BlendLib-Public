@@ -6,16 +6,20 @@ release: the published Beta.3 release still covers its original 15 targets. A `+
 alone does not identify which development checkpoint it contains; keep the package's commit,
 source-tree identity and SHA-256 checksums with your integration.
 
+Preview packages built with `-Pblendlib_preview=blendspace-preview` add
+`-blendspace-preview` to the library/example version and JAR names. They are development
+builds, distinct from the published beta.4 release. Install one matching pair only.
+
 ## 1. Choose the exact environment and JARs
 
 - Minecraft **26.3**, **Java 25**, Fabric Loader **0.19.5+**
 - Fabric API **0.161.0+26.3** is the pinned build/test dependency; use the exact game target
 - Build with the checked-in **Gradle 9.6.0** wrapper; the modern build pins Loom **1.17.21**
-- Install exactly one `blendlib-fabric-1.0.0-beta.3+26.3.jar` in your instance's `mods` folder
+- Install exactly one `blendlib-fabric-1.0.0-beta.4+26.3.jar` in your instance's `mods` folder
   alongside Fabric API and your content mod. It includes BlendLib API, core, common and client
   modules; do not install these modules separately
-- `blendlib-fabric-1.0.0-beta.3+26.3-sources.jar` is for IDE/source browsing, not `mods`
-- Only for the demo, also install `blendlib-runnable-examples-1.0.0-beta.3+26.3.jar`.
+- `blendlib-fabric-1.0.0-beta.4+26.3-sources.jar` is for IDE/source browsing, not `mods`
+- Only for the demo, also install `blendlib-runnable-examples-1.0.0-beta.4+26.3.jar`.
   It owns the demo entities/items/assets/commands; the library alone adds no gameplay content
 
 For multiplayer demos install the example mod and its dependencies on both sides. A content
@@ -90,7 +94,7 @@ and add this Gradle Kotlin dependency (the older remapped 1.21.x setup differs):
 
 ```kotlin
 dependencies {
-    implementation(files("libs/blendlib-fabric-1.0.0-beta.3+26.3.jar"))
+    implementation(files("libs/blendlib-fabric-1.0.0-beta.4+26.3.jar"))
 }
 ```
 

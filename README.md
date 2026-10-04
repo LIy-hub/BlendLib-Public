@@ -205,3 +205,10 @@ and [public client compile fixture](blendlib-fabric-consumer-fixture/README.md).
 Headless verification does not establish native-window or graphics acceptance.
 
 Named entity/item texture skins: [API and reload contract](docs/named-texture-skins.md).
+
+### Synchronized continuous 1D animation
+
+Opt existing entity layers into [fixed-cycle 1D blendspaces](docs/synchronized-blendspace-1d.md)
+for adjacent idle/walk/run mixtures with phase-synchronized unequal clip durations. Includes a
+separate [smooth-speed actor demo](versions/modern/showcase/README.md#opt-in-synchronized-continuous-1d-blendspace);
+existing discrete locomotion rules remain available. Headless verification is separate from native graphics acceptance.

@@ -61,5 +61,26 @@ public final class ExampleLayerInspection {
         return List.copyOf(lines);
     }
 
+    /** Derives a labelled normalized observation without sampling or reading model resources. */
+    public static List<String> formatBlendSpace(AnimationV2EvaluationSnapshot snapshot,
+            java.util.Map<com.liy.blendlib.api.BlendResourceId, Double> clipDurations) {
+        Objects.requireNonNull(snapshot, "snapshot");
+        List<String> lines = new ArrayList<>();
+        lines.add("Sampled blendspace normalized playheads (clipSeconds / current loaded clip duration; read-only)");
+        for (var layer : ExampleBlendSpaceScene.layers().subList(0, 3)) {
+            var playhead = snapshot.playheads().get(layer.id());
+            Double duration = clipDurations.get(layer.id());
+            if (duration == null || !Double.isFinite(duration) || duration <= 0
+                    || playhead == null || !playhead.state().equals(layer.initialState())) {
+                lines.add("  " + layer.id() + " normalizedPlayhead=unavailable");
+            } else {
+                double phase = playhead.timeSeconds() / duration;
+                lines.add("  " + layer.id() + " normalizedPlayhead=" + number(phase - Math.floor(phase))
+                        + " durationSeconds=" + number(duration));
+            }
+        }
+        return List.copyOf(lines);
+    }
+
     private static String number(double value) { return String.format(Locale.ROOT, "%.3f", value); }
 }

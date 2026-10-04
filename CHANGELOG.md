@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased: synchronized one-dimensional blendspaces
+
+- Add bounded immutable adjacent-sample definitions with explicit zero weights and overflow-safe interpolation
+- Integrate fixed-cycle phase synchronization into the standard entity renderer without changing old APIs or schemas
+- Compensate unequal clip lengths and descriptor speeds; retain activation phase across reload and recover large gaps without event backfill
+- Reject member ownership and deferred-batch conflicts before live clock advancement; keep upper cues, procedural poses and attachments independent
+- Add a smooth measured-speed opt-in actor, actual GLB/CPU-pose acceptance, lifecycle tests and precise API pins; native graphics remains deferred
+
 ## Unreleased: Blender state/event editor
 
 - Add explicit state drafts with attached Action selection and pose-marker event assignment

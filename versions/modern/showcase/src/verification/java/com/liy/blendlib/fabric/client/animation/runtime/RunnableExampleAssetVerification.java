@@ -31,6 +31,7 @@ public final class RunnableExampleAssetVerification {
         RunnableAttachmentVerification.verify();
         RunnableTwoBoneIkVerification.verify();
         com.liy.blendlib.fabric.client.reload.RunnableLocomotionVerification.verify();
+        com.liy.blendlib.fabric.client.reload.RunnableBlendSpaceVerification.verify();
         ModelAsset actor = load("actor");
         ModelAsset wand = load("wand");
         ModelAsset marker = load("marker");
