@@ -196,3 +196,46 @@ The root is block-local identity because Minecraft already translates to the blo
 position. Use descriptor bounds large enough for the authored deformation range.
 This block path adds no attachments, sockets callback, packets or gameplay API.
 The optional runnable examples contain `static_cpu_morph_block`; see their README.
+
+## Animation-free marker items
+
+Register a normal vanilla item and its ordinary item-model JSON, then opt its client-side
+binding into static CPU morph extraction before model bake:
+
+```java
+var binding = new BlendLibItemBinding(itemId, modelKey, baseModelId);
+BlendLibItemMorphs.register(binding, stack -> new MorphFrameOverrides(Map.of(
+        BlendResourceId.parse("my_mod:squeeze"), visualSqueezeForCount(stack.getCount()))));
+```
+
+`BlendLibItemBinding`, `BlendLibItemMorphs` and the functional `BlendLibItemMorphControls`
+interface are in `com.liy.blendlib.fabric.client.item`. `weights(ItemStack)` returns
+`com.liy.blendlib.core.animation.runtime.MorphFrameOverrides`. Alternatively,
+`BlendLibItemMorphs.register(binding)` uses authored weights without a callback. This requires
+the CPU morph profile but no animation states or GLB clips. The model is always deformed on its
+fixed bone rest pose, including when some controls are omitted or all explicit weights are zero.
+
+The callback runs during extraction, never submission. Treat the stack as read-only and return
+fresh frame-local values; do not retain it, mutate it, invoke nested extraction or perform
+resource I/O. Missing names use authored defaults on every frame. Unknown names, non-finite or
+out-of-range weights, null results and callback failures reject the capture rather than
+partially applying it. The library does not maintain per-stack controls, weights, clocks or
+animation playback. Equal-count copies can intentionally produce equal results, while each
+captured snapshot remains immutable.
+
+Static morph and animated item registration are mutually exclusive. Conflicting modes,
+bindings or callback identities are rejected; a plain re-registration preserves existing
+controls. Material appearance and named-skin selectors remain available through ordinary
+`BlendLibItemModelBindings` registration. This opt-in adds no new JSON renderer type, display
+context callback, sockets, attachments, visual events, components, network payload or gameplay
+state. Vanilla still applies display transforms, lighting and overlay to the captured item.
+
+An active play connection and current prepared generation are required. Reload or disconnect
+during extraction invalidates the unfinished capture and follows the existing missing-model
+path; retained old snapshots remain immutable and subject to generation-retirement safeguards.
+New captures after reload or reconnect read the current stack and freshly prepared model.
+
+The optional [squeeze-item walkthrough](../versions/modern/showcase/README.md#animation-free-squeeze-item)
+compiles the public API and reuses the animation-free face fixture. Stack counts 1..64 produce
+a cosmetic squeeze using Blink and Smile while preserving the omitted Breath default. Packaged
+headless verification is separate from native Minecraft visual acceptance.

@@ -58,15 +58,22 @@ public final class BlendLibItemAnimations {
             ItemAnimationVisualEventHandler handler) {
         Objects.requireNonNull(binding, "binding");
         Objects.requireNonNull(defaultAnimation, "defaultAnimation");
-        Registration previous = DEFAULTS.get(binding.itemId());
-        if (previous != null && (!previous.animation().equals(defaultAnimation)
-                || (handler != null && previous.handler() != null && previous.handler() != handler))) {
-            throw new IllegalStateException("Marker item already has a different default animation or handler: " + binding.itemId());
+        synchronized (BlendLibItemModelBindings.class) {
+            if (BlendLibItemMorphs.isRegistered(binding)) {
+                throw new IllegalStateException("Marker item already has a static morph binding: " + binding.itemId());
+            }
+            Registration previous = DEFAULTS.get(binding.itemId());
+            if (previous != null && (!previous.animation().equals(defaultAnimation)
+                    || (handler != null && previous.handler() != null && previous.handler() != handler))) {
+                throw new IllegalStateException("Marker item already has a different default animation or handler: " + binding.itemId());
+            }
+            BlendLibItemModelBindings.register(binding);
+            DEFAULTS.put(binding.itemId(), new Registration(defaultAnimation,
+                    handler == null && previous != null ? previous.handler() : handler));
         }
-        BlendLibItemModelBindings.register(binding);
-        DEFAULTS.put(binding.itemId(), new Registration(defaultAnimation,
-                handler == null && previous != null ? previous.handler() : handler));
     }
+
+    static boolean isRegistered(BlendLibItemBinding binding) { return DEFAULTS.containsKey(binding.itemId()); }
 
     /**
      * Returns controls for this exact stack object. Equal contents and ItemStack.copy() do not share

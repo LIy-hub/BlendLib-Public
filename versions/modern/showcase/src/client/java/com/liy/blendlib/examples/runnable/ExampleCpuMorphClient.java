@@ -14,6 +14,7 @@ public final class ExampleCpuMorphClient implements ClientModInitializer {
     private static final ExampleCpuMorphOwners OWNERS = new ExampleCpuMorphOwners();
 
     @Override public void onInitializeClient() {
+        ExampleCpuMorphItemClient.register();
         BlendEntityRenderers.register(ExampleCpuMorphContent.ACTOR, context ->
                 BlendEntityRenderer.<CpuMorphActor>builder(context, ExampleCpuMorphControls.MODEL)
                         .skinnedAnimation((entity, request) -> controls(entity).animation())

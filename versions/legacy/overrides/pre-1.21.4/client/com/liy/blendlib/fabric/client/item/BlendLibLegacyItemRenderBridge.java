@@ -21,9 +21,11 @@ public final class BlendLibLegacyItemRenderBridge {
         if (registration == null) return false;
         BlendLibItemBinding binding = registration.binding();
         ClientModelView model = BlendLibClientServices.models().resolve(binding.modelKey());
-        var snapshot = BlendLibItemAnimations.extract(binding, stack, model.renderHandle());
+        boolean staticMorph = BlendLibItemMorphs.isRegistered(binding);
+        var snapshot = staticMorph ? BlendLibItemMorphs.extract(binding, stack, model.renderHandle())
+                : BlendLibItemAnimations.extract(binding, stack, model.renderHandle());
         var handle = model.renderHandle();
-        if (snapshot.isEmpty() && handle.skinned()) {
+        if (snapshot.isEmpty() && (handle.skinned() || staticMorph)) {
             handle = new com.liy.blendlib.fabric.client.render.MissingModelRenderHandle(binding.modelKey(), handle.generation());
         }
         BlendLibItemRenderArgument argument = BlendLibItemRenderArgument.capture(

@@ -1,0 +1,6 @@
+{
+  "model": {
+    "type": "minecraft:model",
+    "model": "blendlib_runnable_examples:item/static_cpu_morph_item"
+  }
+}

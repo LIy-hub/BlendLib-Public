@@ -58,6 +58,7 @@ public final class RunnableCpuMorphVerification {
                 .stream().noneMatch(key -> key.modelId().equals(MODEL.value())), "GPU inventory excludes CPU morph generations");
         verifyStaticMorph(h, prepared);
         verifyStaticMorphBlock();
+        verifyStaticMorphItem();
         int reads = resources.reads;
         var a = h.controls(new ExampleCpuMorphControls(), 42);
         var b = h.controls(new ExampleCpuMorphControls(), 43);
@@ -280,9 +281,108 @@ public final class RunnableCpuMorphVerification {
                 + "no controls/controllers/attachments retained, immutable CPU captures, reload/unload/replacement/reconnect; native graphics remains unverified");
     }
 
+    private static void verifyStaticMorphItem() {
+        var h = new Harness();
+        var resources = new PackagedResources();
+        var shared = new PreparableReloadListener.SharedState(resources);
+        var prepared = h.reload.prepare(shared);
+        h.reload.apply(prepared, shared);
+        var key = ExampleCpuMorphItemControls.MODEL;
+        var model = h.lookup.resolve(key);
+        var asset = prepared.loadedAssets().get(key);
+        require(asset != null && asset.profile() == ModelProfile.SKINNED_MORPH_CPU_V1
+                && asset.animationDefinition() == null && asset.clips().isEmpty(),
+                "squeeze item reuses the animation-free packaged CPU morph asset");
+        var marker = packagedJson("items/static_cpu_morph_item.json").getAsJsonObject("model");
+        require(marker.get("type").getAsString().equals("minecraft:model")
+                && marker.get("model").getAsString().equals("blendlib_runnable_examples:item/static_cpu_morph_item"),
+                "squeeze item uses an ordinary vanilla marker model");
+        var base = packagedJson("models/item/static_cpu_morph_item.json");
+        require(base.get("parent").getAsString().equals("minecraft:item/generated")
+                && base.getAsJsonObject("textures").get("layer0").getAsString().equals("minecraft:item/slime_ball"),
+                "marker has a vanilla fallback with no custom JSON renderer type");
+        for (String context : List.of("gui", "firstperson_righthand", "firstperson_lefthand",
+                "thirdperson_righthand", "thirdperson_lefthand", "ground", "fixed", "head")) {
+            var display = base.getAsJsonObject("display").getAsJsonObject(context);
+            require(display != null, "ordinary display transforms exist for " + context);
+            for (String component : List.of("rotation", "translation", "scale")) {
+                var values = display.getAsJsonArray(component);
+                require(values.size() == 3, "display transform is a triple for " + context + "/" + component);
+                for (var value : values) require(Double.isFinite(value.getAsDouble()),
+                        "display transform is finite for " + context + "/" + component);
+            }
+        }
+        var relaxed = ExampleCpuMorphItemControls.capture(1);
+        var squeezed = ExampleCpuMorphItemControls.capture(ExampleCpuMorphItemControls.MAX_STACK_SIZE);
+        require(relaxed.values().equals(Map.of(BLINK, 0F, SMILE, 1F))
+                && squeezed.values().equals(Map.of(BLINK, 1F, SMILE, -1F)),
+                "stack endpoints select visibly distinct relaxed/squeezed controls");
+        float previous = -1;
+        for (int count = 1; count <= ExampleCpuMorphItemControls.MAX_STACK_SIZE; count++) {
+            var batch = ExampleCpuMorphItemControls.capture(count);
+            batch.validate(asset.morphBindings());
+            require(batch.values().size() == 2 && !batch.values().containsKey(BREATH)
+                    && near(MorphWeights.defaults(asset.morphBindings()).overridden(batch).weight(BREATH), .15),
+                    "all normal counts preserve the omitted authored Breath default");
+            require(batch.values().get(BLINK) > previous, "squeeze rises monotonically with ordinary stack count");
+            previous = batch.values().get(BLINK);
+        }
+        for (int count : new int[]{Integer.MIN_VALUE, -1, 0, 65, Integer.MAX_VALUE}) {
+            var batch = ExampleCpuMorphItemControls.capture(count);
+            batch.validate(asset.morphBindings());
+            require(batch.values().equals((count < 1 ? relaxed : squeezed).values()),
+                    "example input mapping saturates safely outside its ordinary 1..64 stack range");
+        }
+        var request = new SkinnedExtractionRequest(Transform.IDENTITY, 0xF000F0, 0, 0xFFFFFFFF,
+                RenderVisibility.VISIBLE, new CullingMetadata(model.renderHandle().bounds(), true));
+        long revision = h.runtime.captureExtractionLifecycleRevision();
+        int reads = resources.reads;
+        var a = h.runtime.extractStaticMorph(key, model.generationId(), revision, relaxed, request).orElseThrow().renderSnapshot();
+        var b = h.runtime.extractStaticMorph(key, model.generationId(), revision, squeezed, request).orElseThrow().renderSnapshot();
+        var retained = RunnableAttachmentRenderVerification.positions(a);
+        require(!retained.equals(RunnableAttachmentRenderVerification.positions(b)),
+                "stack-count squeeze changes real packaged CPU vertices without an animation clip");
+        var recaptured = h.runtime.extractStaticMorph(key, model.generationId(), revision,
+                ExampleCpuMorphItemControls.capture(1), request).orElseThrow().renderSnapshot();
+        require(retained.equals(RunnableAttachmentRenderVerification.positions(recaptured))
+                && retained.equals(RunnableAttachmentRenderVerification.positions(a))
+                && relaxed.values().equals(ExampleCpuMorphItemControls.capture(1).values()),
+                "equal counts recapture equal geometry without inheriting another count or mutating old frames");
+        require(a.rootTransform().equals(Transform.IDENTITY) && b.rootTransform().equals(Transform.IDENTITY)
+                && a.attachments().isEmpty() && b.attachments().isEmpty() && h.lifecycle.registry().size() == 0,
+                "squeeze item keeps local identity, no attachments and no animation controllers");
+        RunnableCpuMorphRenderVerification.verify(a);
+        RunnableCpuMorphRenderVerification.verify(b);
+        require(resources.reads == reads, "count controls, CPU extraction and submission perform no resource reads");
+        var reloaded = h.reload.prepare(shared);
+        h.reload.apply(reloaded, shared);
+        require(h.runtime.extractStaticMorph(key, model.generationId(), revision, relaxed, request).isEmpty(),
+                "reload fences a stale item callback and generation");
+        var freshModel = h.lookup.resolve(key);
+        long freshRevision = h.runtime.captureExtractionLifecycleRevision();
+        var freshRequest = new SkinnedExtractionRequest(Transform.IDENTITY, 0xF000F0, 0, 0xFFFFFFFF,
+                RenderVisibility.VISIBLE, new CullingMetadata(freshModel.renderHandle().bounds(), true));
+        var fresh = h.runtime.extractStaticMorph(key, freshModel.generationId(), freshRevision,
+                ExampleCpuMorphItemControls.capture(1), freshRequest).orElseThrow().renderSnapshot();
+        require(fresh.generation() != a.generation() && retained.equals(RunnableAttachmentRenderVerification.positions(fresh)),
+                "reloaded item recomputes count controls on the current generation");
+        h.runtime.onWorldDisconnect();
+        require(h.runtime.extractStaticMorph(key, freshModel.generationId(), freshRevision, squeezed, freshRequest).isEmpty()
+                && h.runtime.extractStaticMorph(key, freshModel.generationId(), h.runtime.captureExtractionLifecycleRevision(),
+                        squeezed, freshRequest).isEmpty(), "disconnected item extraction fails for old and current revisions");
+        h.runtime.onPlayInit();
+        var rejoined = h.runtime.extractStaticMorph(key, freshModel.generationId(), h.runtime.captureExtractionLifecycleRevision(),
+                ExampleCpuMorphItemControls.capture(64), freshRequest).orElseThrow().renderSnapshot();
+        require(RunnableAttachmentRenderVerification.positions(b).equals(RunnableAttachmentRenderVerification.positions(rejoined))
+                && h.lifecycle.registry().size() == 0 && retained.equals(RunnableAttachmentRenderVerification.positions(a)),
+                "reconnect recomputes stack presentation with no retained playback or changed old frames");
+        System.out.println("Verified packaged animation-free CPU morph item: ordinary marker/display resources, bounded stack-count squeeze, "
+                + "omitted defaults, real CPU deformation, immutable captures, reload/reconnect and no retained controllers; native graphics remains unverified");
+    }
+
     private static com.google.gson.JsonObject packagedJson(String file) {
         try (var input = RunnableCpuMorphVerification.class.getResourceAsStream("/assets/blendlib_runnable_examples/" + file)) {
-            if (input == null) throw new AssertionError("missing packaged block resource: " + file);
+            if (input == null) throw new AssertionError("missing packaged example resource: " + file);
             return com.google.gson.JsonParser.parseReader(new InputStreamReader(input, java.nio.charset.StandardCharsets.UTF_8)).getAsJsonObject();
         } catch (IOException e) { throw new AssertionError(e); }
     }

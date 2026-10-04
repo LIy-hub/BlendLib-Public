@@ -9,6 +9,7 @@ import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.MobCategory;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockBehaviour;
 
@@ -29,5 +30,9 @@ public final class ExampleCpuMorphContent implements ModInitializer {
     public static final BlockEntityType<ExampleCpuMorphBlockEntity> STATIC_BLOCK_ENTITY = Registry.register(
             BuiltInRegistries.BLOCK_ENTITY_TYPE, STATIC_BLOCK_ID,
             FabricBlockEntityTypeBuilder.create(ExampleCpuMorphBlockEntity::new, STATIC_BLOCK).build());
+    public static final Identifier STATIC_ITEM_ID = ExampleContent.id("static_cpu_morph_item");
+    public static final Item STATIC_ITEM = Registry.register(BuiltInRegistries.ITEM, STATIC_ITEM_ID,
+            new Item(new Item.Properties().stacksTo(ExampleCpuMorphItemControls.MAX_STACK_SIZE)
+                    .setId(ResourceKey.create(Registries.ITEM, STATIC_ITEM_ID))));
     @Override public void onInitialize() { }
 }

@@ -148,3 +148,17 @@ vanilla model intentionally contributes no geometry; its particle texture refere
 existing CPU morph surface. The registered block-entity renderer supplies the deforming face
 at a block-local root. The control phase is original stateless example Java, with no asset
 download, animation authoring or build-time asset generation.
+
+## Animation-free CPU morph item reuse
+
+`static_cpu_morph_item` also reuses the committed `cpu_morph:static_face_actor` descriptor,
+GLB and two existing first-party textures without changing any authored bytes. Its Blink/Smile
+"squeeze" is a stateless mapping of vanilla stack count in `ExampleCpuMorphItemControls`.
+Breath remains at the asset's authored default; no animation is generated or authored.
+
+`items/static_cpu_morph_item.json` is an ordinary `minecraft:model` marker. Its vanilla
+`models/item/static_cpu_morph_item.json` defines per-context display transforms and references
+Minecraft's installed `minecraft:item/slime_ball` texture for the fallback. No vanilla texture
+bytes are copied, redistributed or downloaded by this change. BlendLib's public model-loading
+hook replaces the registered marker with the CPU morph renderer. The new Java and JSON files
+are original example source under the repository's existing Apache-2.0 scope.

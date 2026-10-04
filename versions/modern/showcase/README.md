@@ -996,3 +996,79 @@ vertices. It checks bounded controls, omitted defaults, independent frames, immu
 geometry, block-local identity, no controller or attachment retention, zero resource reads
 during extraction/submission, stale callbacks, reload, unload/replacement and reconnect.
 These are headless checks; native Minecraft visual acceptance remains deferred.
+
+## Animation-free squeeze item
+
+`blendlib_runnable_examples:static_cpu_morph_item` is a stackable decorative marker item named
+**BlendLib Squeeze Face**. It reuses the same `cpu_morph:static_face_actor` GLB and textures as the
+static entity and block examples. The GLB has no animation clips and the descriptor has no
+animation states. `ExampleCpuMorphItemClient` registers the ordinary vanilla marker with
+`BlendLibItemMorphs.register(binding, controls)` before model bake.
+
+Build and launch the matching preview pair with Java 25:
+
+```sh
+./gradlew -p versions/modern -Pminecraft_version=26.3 -Prunnable_examples=true -Pblendlib_preview=static-item-morphs verifyRunnableExamples
+./gradlew -p versions/modern -Pminecraft_version=26.3 -Prunnable_examples=true -Pblendlib_preview=static-item-morphs runRunnableExamplesClient
+```
+
+For a packaged install, put both `blendlib-fabric-1.0.0-beta.4+26.3-static-item-morphs.jar` and
+`blendlib-runnable-examples-1.0.0-beta.4+26.3-static-item-morphs.jar` from
+`versions/modern/build/26.3/libs/` into a Minecraft 26.3 Fabric Loader 0.19.5 /
+Fabric API 0.161.0+26.3 profile. Install the example on the server too for multiplayer. No JVM
+scene switch is required. The runtime JAR alone registers no example item.
+
+In a Creative test world, give yourself two differently named stacks so vanilla will keep them
+separate. Names are labels only; the controls read only stack count:
+
+```mcfunction
+/give @s blendlib_runnable_examples:static_cpu_morph_item[minecraft:custom_name={text:"Relaxed"}] 1
+/give @s blendlib_runnable_examples:static_cpu_morph_item[minecraft:custom_name={text:"Squeezed"}] 64
+```
+
+- Count 1: Blink = 0, Smile = 1, giving an open-eyed smile
+- Count 64: Blink = 1, Smile = -1, giving closed eyes and a squeezed expression
+- Counts in between linearly interpolate those independent coefficients
+- Breath is omitted from each immutable batch and keeps its authored 0.15 default
+
+Split the full stack in the inventory, compare the separate slots, then recombine it. The next
+extraction derives fresh weights from each current count, without a clip, clock, cached weight,
+custom component, event callback or animation playback instance. Copy stacks can have equal
+geometry when their counts match; changing one cannot change a previously captured frame.
+The example saturates its count-to-weight mapping at 1 and 64 for unusual counts. The library
+still validates complete named weight batches and does not clamp invalid morph overrides.
+
+Try the marker in GUI/inventory, first- and third-person hands, on the ground, and in an item
+frame. The ordinary `items/static_cpu_morph_item.json` references its matching vanilla
+`models/item/static_cpu_morph_item.json`; the latter supplies standard display transforms and
+an ordinary slime-ball fallback. BlendLib replaces only this registered item during model bake.
+The morph snapshot keeps local identity; vanilla applies each display transform and lighting.
+Shape keys remain on the fixed authored bone rest pose. This cosmetic "squeeze" does not add
+charging, use actions, hitboxes, collision, damage, attachments, socket callbacks, packets or
+other gameplay behavior. Stack count changes use existing vanilla behavior.
+
+The live public API call is:
+
+```java
+var binding = new BlendLibItemBinding(ExampleCpuMorphContent.STATIC_ITEM_ID,
+        ExampleCpuMorphItemControls.MODEL, ExampleContent.id("item/static_cpu_morph_item"));
+BlendLibItemMorphs.register(binding,
+        stack -> ExampleCpuMorphItemControls.capture(stack.getCount()));
+```
+
+`BlendLibItemMorphs.register(binding)` without controls is also available for authored defaults.
+Do not register this marker through `BlendLibItemAnimations`; animated and static morph modes
+are mutually exclusive. The existing animated wand and its commands remain independent.
+
+`verifyRunnableExamples` compiles this public consumer, requires both new example classes,
+checks server-safe common code, and verifies the ordinary marker/display resources inside the
+built consumer JAR. Its CPU morph verifier exercises every normal count plus extreme integer
+inputs, omitted defaults, actual packaged CPU vertices, independent captures, local roots,
+no attachments/controllers, zero extraction/submission resource reads, reload and reconnect.
+All prior actor, block, animated-wand, export-byte and runtime-isolation checks remain enabled.
+
+Manual graphics acceptance remains deferred. When testing in Minecraft, compare the two
+stacks in each display context, split/recombine one stack, press F3+T, move between slots, drop
+and pick up a stack, and disconnect/rejoin. Check that each expression still follows its own
+current count, with no animation-marker callbacks or stale appearance from the other stack.
+Headless checks do not establish visible quality, native-window acceptance or performance.

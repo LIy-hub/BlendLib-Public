@@ -389,6 +389,10 @@ class X7ResourceIslandBoundaryTest {
             assertEquals(1, actualManifest.split(java.util.regex.Pattern.quote(addition), -1).length - 1, addition);
             actualManifest = actualManifest.replace(addition, "");
         }
+        // Item morphs add only this exact runtime descriptor; preserve the historical manifest.
+        String itemMorph = "  public java.util.Optional<com.liy.blendlib.fabric.client.animation.extract.ClientSkinnedExtractionFrame> extractStaticMorph(com.liy.blendlib.api.BlendModelKey, long, long, com.liy.blendlib.core.animation.runtime.MorphFrameOverrides, com.liy.blendlib.fabric.client.animation.extract.SkinnedExtractionRequest);\n    descriptor: (Lcom/liy/blendlib/api/BlendModelKey;JJLcom/liy/blendlib/core/animation/runtime/MorphFrameOverrides;Lcom/liy/blendlib/fabric/client/animation/extract/SkinnedExtractionRequest;)Ljava/util/Optional;\n\n";
+        assertEquals(1, actualManifest.split(java.util.regex.Pattern.quote(itemMorph), -1).length - 1);
+        actualManifest = actualManifest.replace(itemMorph, "");
         String activePlay = "  public boolean hasActivePlayConnection();\n    descriptor: ()Z\n\n";
         // One on the lifecycle bridge and one on its extraction-runtime facade.
         assertEquals(2, actualManifest.split(java.util.regex.Pattern.quote(activePlay), -1).length - 1);

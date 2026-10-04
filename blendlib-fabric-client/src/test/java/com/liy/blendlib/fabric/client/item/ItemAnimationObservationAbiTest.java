@@ -183,7 +183,7 @@ class ItemAnimationObservationAbiTest {
         assertTrue(ItemAnimationVisualEvent.class.isRecord());
     }
 
-    private static Set<String> exportedDescriptors(Class<?> type) {
+    static Set<String> exportedDescriptors(Class<?> type) {
         var descriptors = new TreeSet<String>();
         Arrays.stream(type.getDeclaredMethods()).filter(method -> exported(method.getModifiers())).forEach(method ->
                 descriptors.add(Modifier.toString(method.getModifiers()) + " " + method.getName()

@@ -123,3 +123,18 @@ See also [runtime contract](../../docs/cpu-morph-profile.md),
 [Blender preview](../../test-assets/cpu-morph/preview-blender.png).
 Headless checks and Blender previews do not establish native Minecraft visual acceptance.
 In-game screenshots, actual graphics inspection, and performance claims remain deferred.
+
+## Animation-free host examples
+
+The optional runnable mod also reuses the animation-free `cpu_morph:static_face_actor` asset:
+
+- [`static_cpu_morph_block`](../../versions/modern/showcase/README.md#animation-free-deforming-block)
+  derives independent cosmetic controls from block position and client presentation time
+- [`static_cpu_morph_item`](../../versions/modern/showcase/README.md#animation-free-squeeze-item)
+  uses `BlendLibItemMorphs` and ordinary stack counts 1..64 for a cosmetic squeeze, with no clips,
+  events, retained playback or gameplay behavior
+
+For the item example, use the walkthrough's matching `static-item-morphs` runtime/example pair.
+The existing `morph-preview` package predates this public item API. Both animation-free examples
+preserve omitted authored weights and use the same committed static GLB; native graphics
+acceptance remains deferred.

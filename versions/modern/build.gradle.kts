@@ -292,6 +292,7 @@ if (minecraftVersion == "26.3") {
             "**/entity/consumer/LayeredAnimationConsumerSample.java",
             "**/item/ItemAnimation*Test.java",
             "**/item/BlendLibItemAdapterContractsTest.java",
+            "**/item/StaticItemMorphTest.java",
             "**/item/consumer/*.java",
         )
     }
@@ -481,7 +482,7 @@ if (providers.gradleProperty("runnable_examples").orNull == "true") {
                         it.startsWith("com/liy/blendlib/core/") || it.startsWith("com/liy/blendlib/api/") }) {
                     "Example JAR must not embed library implementation or API classes"
                 }
-                listOf("ExampleContent", "LayeredActor", "ExampleClient", "ExampleItemCommands", "ExampleAnimationScene", "ExampleInspectionCommands", "ExampleLayerInspection", "ExampleItemInspection", "ExampleLayerVisualEvents", "ExampleMaterialAppearance", "ExampleItemMaterialAppearance", "ExampleNamedSkins", "ExampleAttachmentScene", "ExampleAttachmentOwners", "ExampleTwoBoneIkScene", "ExampleLocomotionScene", "ExampleBlendSpaceScene", "ExampleBlendSpaceMotion", "ExampleDirectionalScene", "ExampleDirectionalMotion", "ExampleNativeCubicContent", "ExampleNativeCubicClient", "CpuMorphActor", "StaticCpuMorphActor", "ExampleCpuMorphContent", "ExampleCpuMorphControls", "ExampleCpuMorphOwners", "ExampleCpuMorphBlock", "ExampleCpuMorphBlockEntity", "ExampleCpuMorphBlockControls", "ExampleCpuMorphClient", "ExampleCpuMorphScene", "ExampleCpuMorphCommands").forEach {
+                listOf("ExampleContent", "LayeredActor", "ExampleClient", "ExampleItemCommands", "ExampleAnimationScene", "ExampleInspectionCommands", "ExampleLayerInspection", "ExampleItemInspection", "ExampleLayerVisualEvents", "ExampleMaterialAppearance", "ExampleItemMaterialAppearance", "ExampleNamedSkins", "ExampleAttachmentScene", "ExampleAttachmentOwners", "ExampleTwoBoneIkScene", "ExampleLocomotionScene", "ExampleBlendSpaceScene", "ExampleBlendSpaceMotion", "ExampleDirectionalScene", "ExampleDirectionalMotion", "ExampleNativeCubicContent", "ExampleNativeCubicClient", "CpuMorphActor", "StaticCpuMorphActor", "ExampleCpuMorphContent", "ExampleCpuMorphControls", "ExampleCpuMorphOwners", "ExampleCpuMorphBlock", "ExampleCpuMorphBlockEntity", "ExampleCpuMorphBlockControls", "ExampleCpuMorphItemControls", "ExampleCpuMorphItemClient", "ExampleCpuMorphClient", "ExampleCpuMorphScene", "ExampleCpuMorphCommands").forEach {
                     check("com/liy/blendlib/examples/runnable/$it.class" in names) { "Missing example class: $it" }
                 }
                 val metadata = zip.getInputStream(zip.getEntry("fabric.mod.json")).reader().readText()
@@ -489,7 +490,7 @@ if (providers.gradleProperty("runnable_examples").orNull == "true") {
                 check(metadata.contains("\"minecraft\": \"26.3\""))
                 check(metadata.contains("\"blendlib\": \"${project.version}\""))
                 check(!metadata.contains("\"mixins\""))
-                listOf("ExampleContent", "LayeredActor", "ExampleLayerVisualEvents", "ExampleBlendSpaceMotion", "ExampleDirectionalMotion", "ExampleNativeCubicContent", "CpuMorphActor", "StaticCpuMorphActor", "ExampleCpuMorphContent", "ExampleCpuMorphControls", "ExampleCpuMorphOwners", "ExampleCpuMorphBlock", "ExampleCpuMorphBlockEntity", "ExampleCpuMorphBlockControls").forEach {
+                listOf("ExampleContent", "LayeredActor", "ExampleLayerVisualEvents", "ExampleBlendSpaceMotion", "ExampleDirectionalMotion", "ExampleNativeCubicContent", "CpuMorphActor", "StaticCpuMorphActor", "ExampleCpuMorphContent", "ExampleCpuMorphControls", "ExampleCpuMorphOwners", "ExampleCpuMorphBlock", "ExampleCpuMorphBlockEntity", "ExampleCpuMorphBlockControls", "ExampleCpuMorphItemControls").forEach {
                     val bytes = zip.getInputStream(zip.getEntry("com/liy/blendlib/examples/runnable/$it.class")).readBytes()
                     check(!bytes.toString(Charsets.ISO_8859_1).contains("net/minecraft/client/")) {
                         "Common example entrypoint/entity must remain server-safe: $it"
@@ -585,6 +586,21 @@ if (providers.gradleProperty("runnable_examples").orNull == "true") {
                 check("data/blendlib_runnable_examples/function/item_appearance.mcfunction" in names)
                 check(namespace + "items/animated_wand.json" in names)
                 check(namespace + "models/item/animated_wand.json" in names)
+                listOf("items/static_cpu_morph_item.json", "models/item/static_cpu_morph_item.json").forEach { asset ->
+                    val entry = zip.getEntry(namespace + asset)
+                    check(entry != null) { "Missing static CPU morph item resource: $asset" }
+                    check(zip.getInputStream(entry).readBytes().contentEquals(
+                        file("showcase/src/main/resources/$namespace$asset").readBytes())) {
+                        "Static CPU morph item resource must match the committed marker/display definition: $asset"
+                    }
+                }
+                val itemMarker = slurper.parseText(zip.getInputStream(zip.getEntry(
+                    namespace + "items/static_cpu_morph_item.json")).reader().readText()) as Map<*, *>
+                val markerModel = itemMarker["model"] as Map<*, *>
+                check(markerModel["type"] == "minecraft:model"
+                        && markerModel["model"] == "blendlib_runnable_examples:item/static_cpu_morph_item")
+                val itemNames = slurper.parseText(zip.getInputStream(zip.getEntry(namespace + "lang/en_us.json")).reader().readText()) as Map<*, *>
+                check(itemNames["item.blendlib_runnable_examples.static_cpu_morph_item"] == "BlendLib Squeeze Face")
             }
             ZipFile(tasks.named<Jar>("jar").get().archiveFile.get().asFile).use { zip ->
                 check(zip.entries().asSequence().none {

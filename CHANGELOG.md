@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased: animation-free marker-item morph controls
+
+- Add explicit static CPU morph marker registration and immutable named per-extraction weights without animation clips or retained stack state
+- Preserve ordinary item appearance/skin capture, reject animated/static mode conflicts, and fence reload/disconnect and recursive callbacks
+- Test real copied-stack independence, authored defaults, frozen snapshots, invalid controls and additive public ABI descriptors
+- Add a decorative stack-count squeeze item and dedicated `static-item-morphs` runtime/examples/source preview identity; native graphics remain deferred
+
 ## Unreleased: animation-free block-entity morph controls
 
 - Add block renderer `staticMorph()` and named `morphControls(...)` callbacks using immutable CPU morph snapshots

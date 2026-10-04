@@ -418,6 +418,26 @@ public final class SkinnedAnimationRuntime {
         return Optional.of(ClientSkinnedExtractionBridge.extractStaticMorph(loaded, overrides, request));
     }
 
+    /**
+     * Stateless animation-free item CPU morph extraction. The adapter captures each stack's weights
+     * once and verifies it remains usable after controls. No stack identity, weights or controller
+     * is retained here. Revision and generation checks discard reload/disconnect during capture.
+     */
+    public Optional<ClientSkinnedExtractionFrame> extractStaticMorph(
+            BlendModelKey model, long generation, long lifecycleRevision, MorphFrameOverrides overrides,
+            com.liy.blendlib.fabric.client.animation.extract.SkinnedExtractionRequest request) {
+        Objects.requireNonNull(model, "model");
+        Objects.requireNonNull(overrides, "overrides");
+        Objects.requireNonNull(request, "request");
+        if (captureExtractionLifecycleRevision() != lifecycleRevision
+                || !hasActivePlayConnection()) return Optional.empty();
+        var current = modelRegistry.current();
+        if (current.isRetired() || current.generationId() != generation) return Optional.empty();
+        var found = current.find(model);
+        if (found.isEmpty() || !(found.get() instanceof LoadedModelHandle loaded)) return Optional.empty();
+        return Optional.of(ClientSkinnedExtractionBridge.extractStaticMorph(loaded, overrides, request));
+    }
+
     /** Generation-local preflight for control callbacks, before stateful cue capture. */
     public boolean validateMorphControls(BlendModelKey model, long generation, MorphFrameOverrides overrides) {
         Objects.requireNonNull(overrides, "overrides");
