@@ -1,0 +1,25 @@
+{
+  "blender_version": "5.1.2",
+  "build_hash": "ec6e62d40fa9",
+  "real_registered_operators_and_glb_discovery": true,
+  "manual_only_create_without_actions_or_animation": true,
+  "explicit_create_add_edit_apply_and_discard": true,
+  "invalid_ranges_and_defaults_do_not_write_text": true,
+  "duplicate_alias_and_target_rejected": true,
+  "text_rename_allowed_identity_and_content_conflicts_rejected": true,
+  "collection_mesh_target_default_and_profile_fences": true,
+  "edit_mode_and_undo_handler_fences": true,
+  "nonzero_shape_key_default_preserved": true,
+  "failed_discovery_restores_shape_values_and_preserves_text": true,
+  "states_events_sockets_and_locomotion_preserved": true,
+  "export_ignores_unapplied_draft": true,
+  "saved_text_reopens_transient_draft_cleared": true,
+  "repeat_and_reopened_export_byte_identical": true,
+  "interactive_visual_verification": false,
+  "exported_sha256": {
+    "assets/morph_editor/blend_models/face_squeeze.json": "368bfa468634111da79f2b0f43bc91b2a320d3adc500c410faeddd9009aaa5e2",
+    "assets/morph_editor/models3d/face_squeeze.glb": "89a2c7c17f9722e4fad2ade56c211f8118c878e4250d20134e38b216d6ac1d7d",
+    "assets/morph_editor/textures/blendlib/face_squeeze__facedetails.png": "ca38459776d4597521c8925825fb256656eda115f129f82221f063d02a75fd25",
+    "assets/morph_editor/textures/blendlib/face_squeeze__morphsurface.png": "99d0fb808bca795e0c1773984e53842089206f6e307783045b1fd2901a7c9105"
+  }
+}

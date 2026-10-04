@@ -1,5 +1,13 @@
 # Changelog
 
+## Blender morph authoring editor preview
+
+- Add CPU-profile-only exact exported mesh/shape-key discovery and explicit control alias / weight-interval drafts
+- Create valid morph-only Text without attaching a fake Action; preserve other authoring sections and authored shape-key defaults
+- Extend Apply/Discard source-identity, Text-conflict, Edit Mode and undo fences to morph drafts
+- Include an editable face/squeeze walkthrough and headless Blender export/reopen acceptance
+- This preview changes Blender authoring only; runtime schemas and Java behavior are unchanged
+
 ## Unreleased: animation-free marker-item morph controls
 
 - Add explicit static CPU morph marker registration and immutable named per-extraction weights without animation clips or retained stack state

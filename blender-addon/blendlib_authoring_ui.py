@@ -16,6 +16,8 @@ _UNDO_HANDLER = None
 # Blender dynamic enum strings must outlive their callback invocation.
 _STATE_ITEMS = []
 _SOCKET_ITEMS = []
+_MORPH_ITEMS = []
+_TARGET_ITEMS = {}
 _NODE_ITEMS = {}
 _LOOP_ITEMS = {}
 _NEXT_ITEMS = {}
@@ -46,6 +48,7 @@ def _reset_draft(draft):
     draft.source_invalidated = False
     draft.events.clear()
     draft.nodes.clear()
+    draft.targets.clear()
     draft.rules.clear()
 
 
@@ -82,6 +85,25 @@ def register(blender, exporter):
                 pass
         _SOCKET_ITEMS = result or [('__NONE__', 'No sockets', '')]
         return _SOCKET_ITEMS
+
+    def morph_items(self, context):
+        global _MORPH_ITEMS
+        result = []
+        text = context.scene.blendlib_runtime_authoring_text if context else None
+        if text and _morph(context.scene):
+            try:
+                values = editor.authoring.parse(text.as_string(), allow_morph_controls=True).get('morph_controls', {})
+                result = [(key, key, 'Load this control into an explicit draft') for key in values]
+            except (ValueError, KeyError, TypeError):
+                pass
+        _MORPH_ITEMS = result or [('__NONE__', 'No morph controls', '')]
+        return _MORPH_ITEMS
+
+    def target_items(self, context):
+        _TARGET_ITEMS[self.as_pointer()] = [('/', 'Choose exported mesh / target', '')] + [
+            (json.dumps([row.path, row.name], ensure_ascii=False), row.path + ' / ' + row.name,
+             'Authored default: ' + row.default_weight) for row in self.targets]
+        return _TARGET_ITEMS[self.as_pointer()]
 
     def node_items(self, context):
         key = self.as_pointer()
@@ -135,6 +157,7 @@ def register(blender, exporter):
         kind: props.StringProperty(options=transient)
         name: props.StringProperty(options=transient)
         owner: props.StringProperty(options=transient)
+        default_weight: props.StringProperty(options=transient)
 
     class BLENDLIB_PG_authoring_condition(blender.types.PropertyGroup):
         input_name: props.StringProperty(name='Input Name', options=transient)
@@ -164,6 +187,10 @@ def register(blender, exporter):
         source_signature: props.StringProperty(options=transient)
         source_invalidated: props.BoolProperty(default=False, options=transient)
         nodes: props.CollectionProperty(type=BLENDLIB_PG_authoring_node, options=transient)
+        targets: props.CollectionProperty(type=BLENDLIB_PG_authoring_node, options=transient)
+        morph_target: props.EnumProperty(name='Exported Mesh / Target', items=target_items, options=transient)
+        min_weight: props.StringProperty(name='Minimum Weight', default='0', options=transient)
+        max_weight: props.StringProperty(name='Maximum Weight', default='1', options=transient)
         socket_node: props.EnumProperty(name='Exported Node', items=node_items, options=transient)
         source: props.PointerProperty(type=blender.types.Text, options=transient)
         source_content: props.StringProperty(options=transient)
@@ -263,6 +290,51 @@ def register(blender, exporter):
                 draft.source_signature = signature
                 draft.socket_node = node if any(row['path'] == node for row in rows) else '/'
                 draft.events.clear()
+                draft.active = True
+                return {'FINISHED'}
+            except (ValueError, KeyError, TypeError, OverflowError, OSError, RuntimeError, exporter.ExportError) as error:
+                self.report({'ERROR'}, str(error)[:300])
+                return {'CANCELLED'}
+
+    class BLENDLIB_OT_authoring_morph_begin(blender.types.Operator):
+        bl_idname = 'blendlib.authoring_morph_begin'
+        bl_label = 'Start Morph Control Draft'
+        bl_description = 'Discover exact CPU mesh targets in temporary output; never changes Text or shape-key defaults'
+        mode: props.EnumProperty(items=[('EDIT', 'Load Control', ''), ('ADD', 'Add Control', ''), ('CREATE', 'New Morph Text', '')])
+
+        def execute(self, context):
+            scene, draft = context.scene, context.scene.blendlib_authoring_draft
+            if draft.active:
+                self.report({'ERROR'}, 'Apply or discard the current draft first')
+                return {'CANCELLED'}
+            try:
+                if not _morph(scene):
+                    raise ValueError('Select the CPU morph profile first')
+                text = scene.blendlib_runtime_authoring_text
+                if self.mode != 'CREATE' and (text is None or text.library is not None):
+                    raise ValueError('Select a local editable Text datablock')
+                content = text.as_string() if text else ''
+                _, facts, fps = _source(scene, exporter)
+                config = editor.load(content, facts, fps, allow_morph_controls=True) if self.mode != 'CREATE' else {}
+                key = scene.blendlib_authoring_morph if self.mode == 'EDIT' else scene.blendlib_namespace + ':new_control'
+                control = config.get('morph_controls', {})[key] if self.mode == 'EDIT' else None
+                rows, signature = sockets.discover(scene, exporter, morph_targets=True)
+                draft.targets.clear()
+                for raw in rows:
+                    row = draft.targets.add()
+                    row.path, row.name, row.default_weight = raw['node'], raw['target'], json.dumps(raw['default'])
+                draft.source, draft.source_content = text, content
+                draft.source_signature, draft.source_invalidated = signature, False
+                draft.kind, draft.mode = 'MORPH', self.mode
+                draft.key = draft.loaded_key = key
+                pair = (control['node'], control['target']) if control else None
+                draft.morph_target = json.dumps(list(pair), ensure_ascii=False) if pair and any(
+                    (raw['node'], raw['target']) == pair for raw in rows) else '/'
+                draft.min_weight = json.dumps(control['min_weight']) if control else '0'
+                draft.max_weight = json.dumps(control['max_weight']) if control else '1'
+                draft.events.clear()
+                draft.nodes.clear()
+                draft.rules.clear()
                 draft.active = True
                 return {'FINISHED'}
             except (ValueError, KeyError, TypeError, OverflowError, OSError, RuntimeError, exporter.ExportError) as error:
@@ -393,7 +465,7 @@ def register(blender, exporter):
     class BLENDLIB_OT_authoring_apply(blender.types.Operator):
         bl_idname = 'blendlib.authoring_apply'
         bl_label = 'Apply Draft to Text'
-        bl_description = 'Validate source references, then explicitly save this state to the selected Text (no export)'
+        bl_description = 'Validate source references, then explicitly save this draft to Text (no resource export)'
         bl_options = {'UNDO'}
 
         def execute(self, context):
@@ -415,7 +487,21 @@ def register(blender, exporter):
                 if draft.mode != 'CREATE' and (text is None or text.library is not None):
                     raise ValueError('Select a local editable Text datablock')
                 actions, facts, fps = _source(scene, exporter)
-                if draft.kind == 'SOCKET':
+                if draft.kind == 'MORPH':
+                    if not _morph(scene):
+                        raise ValueError('Morph controls require the CPU morph profile; discard and reload')
+                    if draft.source_invalidated:
+                        raise ValueError('Scene edit or undo changed source identity; discard and reload the draft')
+                    rows, signature = sockets.discover(scene, exporter, morph_targets=True)
+                    if signature != draft.source_signature:
+                        raise ValueError('Export source or morph targets changed; discard and reload the draft')
+                    if draft.morph_target == '/':
+                        raise ValueError('Choose an exact exported mesh / target')
+                    node, target = json.loads(draft.morph_target)
+                    replacement = editor.apply_morph(content, mode=draft.mode, key=draft.key,
+                        node=node, target=target, min_weight=draft.min_weight, max_weight=draft.max_weight,
+                        targets=rows, actions=facts, fps=fps)
+                elif draft.kind == 'SOCKET':
                     if draft.source_invalidated:
                         raise ValueError('Armature Edit Mode or undo changed source identity; discard and reload the draft')
                     rows, signature = _socket_source(scene, exporter)
@@ -515,6 +601,14 @@ def register(blender, exporter):
             if not scene.blendlib_runtime_authoring_enabled:
                 layout.label(text='Enable Runtime Animation Authoring to export', icon='INFO')
             if not draft.active:
+                if _morph(scene):
+                    if scene.blendlib_runtime_authoring_text:
+                        layout.prop(scene, 'blendlib_authoring_morph', text='Morph Control')
+                        row = layout.row(align=True)
+                        row.operator('blendlib.authoring_morph_begin', text='Load Control').mode = 'EDIT'
+                        row.operator('blendlib.authoring_morph_begin', text='Add Control').mode = 'ADD'
+                    layout.operator('blendlib.authoring_morph_begin', text='Start Morph-only Text').mode = 'CREATE'
+                    layout.label(text='Discover exact mesh / shape key; no live preview')
                 if scene.blendlib_runtime_authoring_text:
                     layout.prop(scene, 'blendlib_authoring_state', text='State')
                     row = layout.row(align=True)
@@ -535,7 +629,20 @@ def register(blender, exporter):
                 return
             key_row = layout.row()
             key_row.enabled = draft.mode != 'EDIT'
-            key_row.prop(draft, 'key')
+            key_row.prop(draft, 'key', text='Control Alias' if draft.kind == 'MORPH' else 'State Key' if draft.kind == 'STATE' else 'Socket Key')
+            if draft.kind == 'MORPH':
+                if draft.source_invalidated:
+                    layout.label(text='Scene edited: discard and reload this draft', icon='ERROR')
+                layout.prop(draft, 'morph_target')
+                layout.prop(draft, 'min_weight')
+                layout.prop(draft, 'max_weight')
+                layout.label(text='Interval includes zero and default; within [-2, 2]')
+                layout.label(text='Add one control for every exported target before export')
+                layout.label(text='Authored shape-key values are never changed')
+                row = layout.row(align=True)
+                row.operator('blendlib.authoring_apply', text='Apply Morph Control to Text')
+                row.operator('blendlib.authoring_discard', text='Discard')
+                return
             if draft.kind == 'SOCKET':
                 if draft.source_invalidated:
                     layout.label(text='Scene edited: discard and reload this draft', icon='ERROR')
@@ -584,12 +691,13 @@ def register(blender, exporter):
 
     _CLASSES = (BLENDLIB_PG_authoring_event, BLENDLIB_PG_authoring_node,
                 BLENDLIB_PG_authoring_condition, BLENDLIB_PG_authoring_rule, BLENDLIB_PG_authoring_draft,
-                BLENDLIB_OT_authoring_begin, BLENDLIB_OT_authoring_socket_begin, BLENDLIB_OT_authoring_discard,
+                BLENDLIB_OT_authoring_begin, BLENDLIB_OT_authoring_morph_begin, BLENDLIB_OT_authoring_socket_begin, BLENDLIB_OT_authoring_discard,
                 BLENDLIB_OT_authoring_event, BLENDLIB_OT_authoring_rules_begin, BLENDLIB_OT_authoring_rules_row, BLENDLIB_OT_authoring_apply,
                 BLENDLIB_UL_authoring_events, BLENDLIB_UL_authoring_rules, BLENDLIB_UL_authoring_conditions, VIEW3D_PT_blendlib_authoring)
     for cls in _CLASSES:
         blender.utils.register_class(cls)
     blender.types.Scene.blendlib_authoring_state = props.EnumProperty(name='State', items=state_items, options=transient)
+    blender.types.Scene.blendlib_authoring_morph = props.EnumProperty(name='Morph Control', items=morph_items, options=transient)
     blender.types.Scene.blendlib_authoring_socket = props.EnumProperty(name='Socket', items=socket_items, options=transient)
     blender.types.Scene.blendlib_authoring_draft = props.PointerProperty(type=BLENDLIB_PG_authoring_draft, options=transient)
 
@@ -605,17 +713,17 @@ def register(blender, exporter):
         # Bone RNA addresses can be reused after delete/recreate with identical
         # names/transforms. Seeing Edit Mode is the conservative identity boundary;
         # a pointer or retained Bone wrapper alone cannot detect that replacement.
-        if any(obj.type == 'ARMATURE' and obj.mode == 'EDIT' for obj in blender.data.objects):
+        if any(obj.type in {'ARMATURE', 'MESH'} and obj.mode == 'EDIT' for obj in blender.data.objects):
             for owner_scene in blender.data.scenes:
                 draft = owner_scene.blendlib_authoring_draft
-                if draft.active and draft.kind == 'SOCKET':
+                if draft.active and draft.kind in {'SOCKET', 'MORPH'}:
                     draft.source_invalidated = True
 
     @blender.app.handlers.persistent
     def invalidate_undo(_):
         for scene in blender.data.scenes:
             draft = scene.blendlib_authoring_draft
-            if draft.active and draft.kind == 'SOCKET':
+            if draft.active and draft.kind in {'SOCKET', 'MORPH'}:
                 draft.source_invalidated = True
 
     _EDIT_HANDLER, _UNDO_HANDLER = invalidate_bone_edits, invalidate_undo
@@ -646,7 +754,7 @@ def unregister(blender):
             handlers.remove(handler)
     _EDIT_HANDLER = _UNDO_HANDLER = None
     _clear_drafts(blender)
-    for name in ('blendlib_authoring_state', 'blendlib_authoring_socket', 'blendlib_authoring_draft'):
+    for name in ('blendlib_authoring_state', 'blendlib_authoring_morph', 'blendlib_authoring_socket', 'blendlib_authoring_draft'):
         if hasattr(blender.types.Scene, name):
             delattr(blender.types.Scene, name)
     for cls in reversed(_CLASSES):
@@ -654,6 +762,8 @@ def unregister(blender):
     _CLASSES = ()
     _STATE_ITEMS = []
     _SOCKET_ITEMS = []
+    _MORPH_ITEMS.clear()
+    _TARGET_ITEMS.clear()
     _NODE_ITEMS.clear()
     _LOOP_ITEMS.clear()
     _NEXT_ITEMS.clear()

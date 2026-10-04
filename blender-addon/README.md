@@ -185,3 +185,12 @@ python -m unittest discover -s blender-addon/tests -v
 The sample includes a real Blender render, evaluated position/weight oracles,
 a separately labeled glTF-delta/skin normal oracle, and strict rejection/fallback
 checks. It is not native Minecraft visual acceptance.
+
+## CPU morph control editor
+
+The Runtime Authoring Editor now exposes **Start Morph-only Text**, **Load Control**
+and **Add Control** when the CPU morph profile is selected. Choose an actual
+export-discovered mesh/shape-key pair, a namespaced alias, and a finite interval
+within [-2, 2] containing zero and the authored default. Only **Apply** writes Text;
+**Discard** leaves it untouched. Add every target before exporting. Drafts never
+change shape-key values or create Actions. See the [face/squeeze walkthrough](../docs/blender-morph-editor-walkthrough.md).

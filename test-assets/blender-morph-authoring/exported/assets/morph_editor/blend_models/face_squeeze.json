@@ -1,0 +1,49 @@
+{
+  "extensions": {},
+  "extensions_required": [],
+  "extensions_used": [],
+  "format_version": 2,
+  "materials": {
+    "FaceDetails": {
+      "base_color": "morph_editor:textures/blendlib/face_squeeze__facedetails.png",
+      "double_sided": false,
+      "emissive": false,
+      "mode": "opaque"
+    },
+    "MorphSurface": {
+      "base_color": "morph_editor:textures/blendlib/face_squeeze__morphsurface.png",
+      "double_sided": false,
+      "emissive": false,
+      "mode": "opaque"
+    }
+  },
+  "mesh": "morph_editor:models3d/face_squeeze.glb",
+  "morph_controls": {
+    "morph_editor:blink": {
+      "max_weight": 1,
+      "min_weight": 0,
+      "node": "MorphRoot/MorphRig/FaceBody",
+      "target": "Blink"
+    },
+    "morph_editor:breath": {
+      "max_weight": 1,
+      "min_weight": -0.5,
+      "node": "MorphRoot/MorphRig/FaceBody",
+      "target": "Breath"
+    },
+    "morph_editor:smile": {
+      "max_weight": 1,
+      "min_weight": -1,
+      "node": "MorphRoot/MorphRig/FaceBody",
+      "target": "Smile"
+    },
+    "morph_editor:squeeze": {
+      "max_weight": 1,
+      "min_weight": -1,
+      "node": "MorphRoot/MorphRig/FaceBody",
+      "target": "Squeeze"
+    }
+  },
+  "profile": "blendlib:skinned_morph_cpu_v1",
+  "units_per_block": 1.0
+}

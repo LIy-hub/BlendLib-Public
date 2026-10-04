@@ -64,7 +64,7 @@ def _restore_objects(snapshot):
                 setattr(value, field, raw)
 
 
-def discover(scene, exporter):
+def discover(scene, exporter, *, morph_targets=False):
     """Return typed real GLB nodes and a source-identity/path snapshot.
 
     Explicit Load/Apply operations call this, never panel draw callbacks. Temporary
@@ -73,13 +73,25 @@ def discover(scene, exporter):
     """
     blender = exporter._require_blender()
     if blender.context.mode != 'OBJECT':
-        raise ValueError('Switch to Object Mode before discovering exported socket nodes')
-    if any(obj.animation_data and obj.animation_data.use_tweak_mode for obj in blender.data.objects):
-        raise ValueError('Exit NLA Tweak Mode before discovering exported socket nodes')
+        raise ValueError('Switch to Object Mode before discovering exported nodes / targets')
+    if any(owner.animation_data and owner.animation_data.use_tweak_mode
+           for obj in blender.data.objects
+           for owner in ([obj, obj.data.shape_keys] if obj.type == 'MESH' and obj.data.shape_keys else [obj])):
+        raise ValueError('Exit NLA Tweak Mode before discovering exported nodes / targets')
     collection = exporter._select_collection(scene.blendlib_collection.name if scene.blendlib_collection else None)
     objects, _ = exporter._collect_export_objects(collection)
     exporter._validate_source_objects(objects, scene.blendlib_profile)
     identity = source_signature(scene, exporter)
+    morph_meshes = None
+    if morph_targets:
+        if scene.blendlib_profile != 'blendlib:skinned_morph_cpu_v1':
+            raise ValueError('Morph controls require the CPU morph profile')
+        if blender.app.version != (5, 1, 2):
+            raise ValueError('CPU morph discovery is verified only for Blender 5.1.2')
+        # Source topology/budget validation is independent of exact exported paths.
+        morph_meshes = exporter._cpu_morph_module().validate_source(objects, {
+            'discovery:probe': {'node': 'probe', 'target': 'probe', 'min_weight': -2, 'max_weight': 2}})
+        identity = morph_signature(scene, exporter)
     source = {}
     for obj in objects:
         source[obj.name] = ('OBJECT', obj.name)
@@ -122,6 +134,40 @@ def discover(scene, exporter):
     if set(source) != {row['name'] for row in rows}:
         raise ValueError('GLB omitted source nodes; socket discovery requires a supported complete export')
     rows.sort(key=lambda row: row['path'])
+    if morph_targets:
+        targets = []
+        for index, path in paths.items():
+            node = gltf['nodes'][index]
+            info = morph_meshes.get(node['name'])
+            if info is None:
+                continue
+            meshes, mesh_index = gltf.get('meshes', []), node.get('mesh')
+            if type(mesh_index) is not int or not 0 <= mesh_index < len(meshes):
+                raise ValueError('Exported morph node has no valid mesh')
+            mesh = meshes[mesh_index]
+            names = mesh.get('extras', {}).get('targetNames')
+            if names != info['names'] or any(len(p.get('targets', [])) != len(names) for p in mesh['primitives']):
+                raise ValueError('Exported morph targets differ from authored shape keys')
+            targets.extend({'node': path, 'target': name, 'default': value}
+                           for name, value in zip(names, info['defaults']))
+        if len(targets) > 1024 or len(targets) != sum(len(m['names']) for m in morph_meshes.values()):
+            raise ValueError('Export omitted morph targets or exceeds the control budget')
+        if identity != morph_signature(scene, exporter):
+            raise ValueError('Morph source changed during discovery; reload the draft')
+        return targets, json.dumps([identity, targets], ensure_ascii=False, sort_keys=True)
     if identity != source_signature(scene, exporter):
         raise ValueError('Export source changed during discovery; reload the draft')
     return rows, json.dumps([identity, rows], ensure_ascii=False, sort_keys=True)
+
+
+def morph_signature(scene, exporter):
+    """Identity, ordering and defaults fence for explicit morph drafts."""
+    collection = exporter._select_collection(scene.blendlib_collection.name if scene.blendlib_collection else None)
+    objects, _ = exporter._collect_export_objects(collection)
+    keys = []
+    for obj in objects:
+        if obj.type == 'MESH' and obj.data.shape_keys:
+            key = obj.data.shape_keys
+            keys.append((_identity(key), [(_identity(block), block.name, float(block.value),
+                _identity(block.relative_key), block.mute, block.vertex_group) for block in key.key_blocks]))
+    return json.dumps([source_signature(scene, exporter), keys], ensure_ascii=False)

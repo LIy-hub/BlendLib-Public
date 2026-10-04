@@ -10,8 +10,10 @@ import copy
 import json
 try:
     from . import blendlib_runtime_authoring as authoring
+    from . import blendlib_cpu_morph as morph
 except ImportError:
     import blendlib_runtime_authoring as authoring
+    import blendlib_cpu_morph as morph
 
 
 _UNCHANGED = object()
@@ -31,7 +33,7 @@ def apply(text: str, *, mode: str, key: str, clip: str, loop: bool,
         raise ValueError('Unknown authoring draft mode')
     config = ({'schema_version': 1, 'animation': {'initial_state': key, 'states': {}}}
               if mode == 'CREATE' else authoring.parse(text, allow_morph_controls=allow_morph_controls))
-    animation = config['animation']
+    animation = config.setdefault('animation', {'initial_state': key, 'states': {}})
     states = animation['states']
     if mode == 'EDIT' and key not in states:
         raise ValueError('The loaded state no longer exists; reload the draft')
@@ -123,4 +125,33 @@ def apply_locomotion(text: str, *, default: str, interval: int, rules: list,
     authoring.validate_source(copy.deepcopy(config), actions, fps)
     result = json.dumps(config, ensure_ascii=False, indent=2, allow_nan=False) + '\n'
     authoring.parse(result, allow_morph_controls=allow_morph_controls)
+    return result
+
+
+def apply_morph(text: str, *, mode: str, key: str, node: str, target: str,
+                min_weight: str, max_weight: str, targets: list, actions: dict, fps: float) -> str:
+    """Patch one CPU control using exact export discovery; never change geometry."""
+    if mode not in {'CREATE', 'ADD', 'EDIT'}:
+        raise ValueError('Unknown morph draft mode')
+    config = {'schema_version': 1} if mode == 'CREATE' else load(text, actions, fps, allow_morph_controls=True)
+    controls = config.setdefault('morph_controls', {})
+    if mode == 'EDIT' and key not in controls:
+        raise ValueError('The loaded control no longer exists; reload the draft')
+    if mode != 'EDIT' and key in controls:
+        raise ValueError('Control alias already exists; load it to edit instead')
+    matches = [row for row in targets if (row['node'], row['target']) == (node, target)]
+    if len(matches) != 1:
+        raise ValueError('Choose an exact discovered exported mesh and shape-key target')
+    try:
+        low, high = json.loads(min_weight), json.loads(max_weight)
+    except (ValueError, RecursionError) as error:
+        raise ValueError('Declared weights must be finite JSON numbers') from error
+    controls[key] = {'node': node, 'target': target, 'min_weight': low, 'max_weight': high}
+    # Reuse CPU validation before numeric comparisons; bool is not a weight.
+    morph.validate_controls(controls)
+    authoring.validate_source(copy.deepcopy(config), actions, fps)
+    if not low <= matches[0]['default'] <= high:
+        raise ValueError('Declared interval must contain the authored shape-key default')
+    result = json.dumps(config, ensure_ascii=False, indent=2, allow_nan=False) + '\n'
+    authoring.parse(result, allow_morph_controls=True)
     return result
