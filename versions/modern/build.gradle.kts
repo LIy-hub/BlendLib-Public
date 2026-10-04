@@ -304,6 +304,38 @@ tasks.withType<ProcessResources>().configureEach {
     filesMatching("blendlib.client.mixins.json") {
         filter { line -> line.replace("JAVA_25", "JAVA_$javaVersion") }
     }
+    if (minecraftVersion == "26.3") {
+        // 26.3 compiles both backends through ShaderC/SPIR-V. Keep earlier targets' resources unchanged.
+        // See https://www.minecraft.net/en-us/article/minecraft-java-edition-26-3#shader-compilation-changes
+        filesMatching("assets/blendlib/shaders/core/x7_*") {
+            val vertexShader = name.endsWith(".vsh")
+            val directStatic = name == "x7_static_direct.vsh"
+            val varyingLocations = mapOf(
+                "sphericalVertexDistance" to 0, "cylindricalVertexDistance" to 1,
+                "vertexColor" to 2, "lightMapColor" to 3, "texCoord" to 4,
+            )
+            filter { line ->
+                val declaration = Regex("^(in|out) (\\w+) (\\w+);$").matchEntire(line)
+                if (declaration != null) {
+                    val (direction, _, variable) = declaration.destructured
+                    val location = if (vertexShader && direction == "in") {
+                        when (variable) {
+                            "Position" -> 0
+                            "Normal" -> 1
+                            "UV0" -> if (directStatic) 2 else 1
+                            else -> error("Unknown 26.3 vertex input: $variable")
+                        }
+                    } else if (!vertexShader && direction == "out" && variable == "fragColor") 0
+                    else varyingLocations[variable] ?: error("Unknown 26.3 shader interface: $variable")
+                    "layout(location = $location) $line"
+                } else line.replace("#version 330", "#version 330\n#extension GL_ARB_separate_shader_objects : require")
+                    .replace("#moj_import", "#include")
+                    // Every existing direct draw uses firstInstance = 0, preserving array indexing on both backends.
+                    .replace("gl_InstanceID", "gl_InstanceIndex")
+                    .replace("gl_VertexID", "gl_VertexIndex")
+            }
+        }
+    }
     if (obfuscated) {
         filesMatching("**/*.vsh") {
             // Matches vanilla 1.21's entity shader lightmap lookup; 26.x's helper does not exist here.
