@@ -22,8 +22,9 @@ import org.junit.jupiter.api.parallel.Isolated;
 class StaticItemMorphTest {
     static final BlendModelKey MODEL = BlendModelKey.parse("item_morph:face");
     static final BlendResourceId SQUEEZE = BlendResourceId.parse("item_morph:squeeze");
+    // Dedicated marker: animated integration fixtures reserve slime_ball and other vanilla items.
     static final BlendLibItemBinding BINDING = new BlendLibItemBinding(
-            Identifier.withDefaultNamespace("slime_ball"), MODEL, Identifier.withDefaultNamespace("item/slime_ball"));
+            Identifier.withDefaultNamespace("honeycomb"), MODEL, Identifier.withDefaultNamespace("item/slime_ball"));
     static final AtomicReference<BlendLibItemMorphControls> CONTROLS = new AtomicReference<>();
     static final BlendLibItemMorphControls DISPATCH = stack -> CONTROLS.get().weights(stack);
 
@@ -40,7 +41,7 @@ class StaticItemMorphTest {
                 calls.incrementAndGet(); mutable.put(SQUEEZE, (stack.getCount() - 1) / 63F);
                 return new MorphFrameOverrides(mutable);
             });
-            var a = new ItemStack(Items.SLIME_BALL, 1);
+            var a = new ItemStack(Items.HONEYCOMB, 1);
             var b = a.copy(); b.setCount(64);
             var renderer = new BlendLibItemSpecialRenderer(BINDING);
             var first = renderer.extractArgument(a);
@@ -70,7 +71,7 @@ class StaticItemMorphTest {
             var renderer = new BlendLibItemSpecialRenderer(BINDING,
                     stack -> { order.add("appearance"); return mutable; },
                     stack -> { order.add("skin"); return Optional.empty(); });
-            var captured = renderer.extractArgument(new ItemStack(Items.SLIME_BALL));
+            var captured = renderer.extractArgument(new ItemStack(Items.HONEYCOMB));
             mutable.clear();
             assertEquals(List.of("morph", "skin", "appearance"), order);
             assertEquals(1, firstX(captured.snapshot(123, 456)), 1e-6);
@@ -84,7 +85,7 @@ class StaticItemMorphTest {
     @Test void callbacksChangingLifecycleOrEmptyingStackDiscardExtraction() throws Exception {
         for (String mutation : List.of("reload", "disconnect", "play_init", "retired", "empty")) {
             withServices((models, lifecycle, runtime) -> {
-                var stack = new ItemStack(Items.SLIME_BALL);
+                var stack = new ItemStack(Items.HONEYCOMB);
                 CONTROLS.set(s -> new MorphFrameOverrides(Map.of(SQUEEZE, 1F)));
                 var renderer = new BlendLibItemSpecialRenderer(BINDING);
                 var frozen = renderer.extractArgument(stack);
@@ -107,7 +108,7 @@ class StaticItemMorphTest {
                 CONTROLS.set(s -> MorphFrameOverrides.empty());
                 if (!mutation.equals("retired")) {
                     runtime.onPlayInit();
-                    assertEquals(.25, firstX(renderer.extractArgument(new ItemStack(Items.SLIME_BALL)).snapshot(0, 0)), 1e-6);
+                    assertEquals(.25, firstX(renderer.extractArgument(new ItemStack(Items.HONEYCOMB)).snapshot(0, 0)), 1e-6);
                 }
             });
         }
@@ -116,7 +117,7 @@ class StaticItemMorphTest {
     @Test void invalidControlsAndRecursionLeaveNoLatchedGuardOrState() throws Exception {
         withServices((models, lifecycle, runtime) -> {
             var renderer = new BlendLibItemSpecialRenderer(BINDING);
-            var stack = new ItemStack(Items.SLIME_BALL);
+            var stack = new ItemStack(Items.HONEYCOMB);
             CONTROLS.set(s -> new MorphFrameOverrides(Map.of(BlendResourceId.parse("item_morph:unknown"), 1F)));
             assertThrows(IllegalArgumentException.class, () -> renderer.extractArgument(stack));
             CONTROLS.set(s -> new MorphFrameOverrides(Map.of(SQUEEZE, -1F)));
