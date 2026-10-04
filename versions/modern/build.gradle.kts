@@ -478,7 +478,7 @@ if (providers.gradleProperty("runnable_examples").orNull == "true") {
                         it.startsWith("com/liy/blendlib/core/") || it.startsWith("com/liy/blendlib/api/") }) {
                     "Example JAR must not embed library implementation or API classes"
                 }
-                listOf("ExampleContent", "LayeredActor", "ExampleClient", "ExampleItemCommands", "ExampleAnimationScene", "ExampleInspectionCommands", "ExampleLayerInspection", "ExampleItemInspection", "ExampleLayerVisualEvents", "ExampleMaterialAppearance", "ExampleItemMaterialAppearance", "ExampleNamedSkins", "ExampleAttachmentScene", "ExampleAttachmentOwners", "ExampleTwoBoneIkScene", "ExampleLocomotionScene", "ExampleBlendSpaceScene", "ExampleBlendSpaceMotion", "ExampleDirectionalScene", "ExampleDirectionalMotion").forEach {
+                listOf("ExampleContent", "LayeredActor", "ExampleClient", "ExampleItemCommands", "ExampleAnimationScene", "ExampleInspectionCommands", "ExampleLayerInspection", "ExampleItemInspection", "ExampleLayerVisualEvents", "ExampleMaterialAppearance", "ExampleItemMaterialAppearance", "ExampleNamedSkins", "ExampleAttachmentScene", "ExampleAttachmentOwners", "ExampleTwoBoneIkScene", "ExampleLocomotionScene", "ExampleBlendSpaceScene", "ExampleBlendSpaceMotion", "ExampleDirectionalScene", "ExampleDirectionalMotion", "ExampleNativeCubicContent", "ExampleNativeCubicClient").forEach {
                     check("com/liy/blendlib/examples/runnable/$it.class" in names) { "Missing example class: $it" }
                 }
                 val metadata = zip.getInputStream(zip.getEntry("fabric.mod.json")).reader().readText()
@@ -486,7 +486,7 @@ if (providers.gradleProperty("runnable_examples").orNull == "true") {
                 check(metadata.contains("\"minecraft\": \"26.3\""))
                 check(metadata.contains("\"blendlib\": \"${project.version}\""))
                 check(!metadata.contains("\"mixins\""))
-                listOf("ExampleContent", "LayeredActor", "ExampleLayerVisualEvents", "ExampleBlendSpaceMotion", "ExampleDirectionalMotion").forEach {
+                listOf("ExampleContent", "LayeredActor", "ExampleLayerVisualEvents", "ExampleBlendSpaceMotion", "ExampleDirectionalMotion", "ExampleNativeCubicContent").forEach {
                     val bytes = zip.getInputStream(zip.getEntry("com/liy/blendlib/examples/runnable/$it.class")).readBytes()
                     check(!bytes.toString(Charsets.ISO_8859_1).contains("net/minecraft/client/")) {
                         "Common example entrypoint/entity must remain server-safe: $it"
@@ -502,7 +502,18 @@ if (providers.gradleProperty("runnable_examples").orNull == "true") {
                 check(namespace + "blend_animation_rules/locomotion_actor.json" in names) {
                     "Missing packaged locomotion sidecar"
                 }
+                val cubicNamespace = "assets/native_cubic/"
+                listOf("blend_models/eased_actor.json", "models3d/eased_actor.glb", "textures/blendlib/eased_actor__cubicsurface.png").forEach { asset ->
+                    val entry = zip.getEntry(cubicNamespace + asset)
+                    check(entry != null) { "Missing native cubic asset: $asset" }
+                    check(zip.getInputStream(entry).readBytes().contentEquals(
+                        repository.resolve("test-assets/native-cubic/exported/$cubicNamespace$asset").readBytes())) {
+                        "Native cubic example must match the verified authored export: $asset"
+                    }
+                }
                 val slurper = groovy.json.JsonSlurper()
+                val cubicDescriptor = slurper.parseText(zip.getInputStream(zip.getEntry(cubicNamespace + "blend_models/eased_actor.json")).reader().readText()) as Map<*, *>
+                check(cubicDescriptor["format_version"] == 2 && cubicDescriptor["profile"] == "blendlib:skinned_cubic_v1")
                 listOf("actor", "appearance_actor", "wand", "appearance_wand", "marker",
                         "mechanical_arm", "ik_target_marker", "ik_end_marker", "locomotion_actor", "blendspace_actor", "directional_actor").forEach { model ->
                     val path = namespace + "blend_models/$model.json"
@@ -549,7 +560,7 @@ if (providers.gradleProperty("runnable_examples").orNull == "true") {
             ZipFile(tasks.named<Jar>("jar").get().archiveFile.get().asFile).use { zip ->
                 check(zip.entries().asSequence().none {
                     it.name.startsWith("com/liy/blendlib/examples/runnable/") || it.name.startsWith(namespace) ||
-                            it.name.startsWith("data/blendlib_runnable_examples/")
+                            it.name.startsWith("data/blendlib_runnable_examples/") || it.name.startsWith("assets/native_cubic/")
                 }) { "The normal BlendLib runtime must not include opt-in example content" }
                 val metadata = zip.getInputStream(zip.getEntry("fabric.mod.json")).reader().readText()
                 check(!metadata.contains("blendlib_runnable_examples"))

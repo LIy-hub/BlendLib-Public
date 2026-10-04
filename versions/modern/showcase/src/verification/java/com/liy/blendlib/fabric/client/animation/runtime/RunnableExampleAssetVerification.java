@@ -28,6 +28,7 @@ public final class RunnableExampleAssetVerification {
     private record EqualEntity(int id) { }
 
     public static void main(String[] args) {
+        com.liy.blendlib.fabric.client.reload.RunnableNativeCubicVerification.verify();
         RunnableAttachmentVerification.verify();
         RunnableTwoBoneIkVerification.verify();
         com.liy.blendlib.fabric.client.reload.RunnableLocomotionVerification.verify();

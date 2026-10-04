@@ -100,7 +100,7 @@ def parse_blender_arguments(argv: Sequence[str]) -> ExportOptions:
     parser.add_argument(
         "--profile",
         required=True,
-        choices=("blendlib:rigid_v1", "blendlib:skinned_v1"),
+        choices=("blendlib:rigid_v1", "blendlib:skinned_v1", "blendlib:skinned_cubic_v1"),
     )
     parser.add_argument("--collection")
     parser.add_argument("--runtime-authoring-text", help="Explicit opt-in Blender Text datablock containing runtime authoring v1 JSON")
@@ -234,6 +234,10 @@ def export_open_blend(options: ExportOptions) -> dict[str, Any]:
     objects, warnings = _collect_export_objects(collection)
     _validate_source_objects(objects, options.profile)
     action_names = _discover_actions(objects)
+    native_plan = None
+    if options.profile == "blendlib:skinned_cubic_v1":
+        native_plan = _native_cubic_module().analyze(objects, _discover_action_objects(objects),
+            _action_fcurves, blender.context.scene)
     authoring_text = getattr(options, "runtime_authoring_text", None)
     authoring = _read_runtime_authoring(authoring_text)
     source_bounds = _source_world_bounds(objects)
@@ -258,10 +262,20 @@ def export_open_blend(options: ExportOptions) -> dict[str, Any]:
     descriptor_path.parent.mkdir(parents=True, exist_ok=True)
     raw_path = mesh_path.with_suffix(".raw.glb")
     try:
-        _export_raw_glb(collection, raw_path, runtime_authoring=authoring is not None)
+        if native_plan is None:
+            _export_raw_glb(collection, raw_path, runtime_authoring=authoring is not None)
+        else:
+            _export_raw_glb(collection, raw_path, runtime_authoring=True, native_curves=native_plan.native)
         raw_gltf, raw_binary = read_glb(raw_path, allowed_roots=(options.project_root,))
         gltf, binary = strip_runtime_images(raw_gltf, raw_binary)
-        if authoring is not None:
+        if native_plan is not None:
+            gltf["materials"] = [{"name": material["name"]} for material in gltf.get("materials", [])]
+        if native_plan is not None and native_plan.native:
+            try:
+                binary = _native_cubic_module().replace_animations(gltf, binary, native_plan)
+            except ValueError as error:
+                raise ExportError("BLENDLIB-ANIM-006", str(error)) from error
+        elif authoring is not None or native_plan is not None:
             binary = _retime_runtime_authoring(objects, gltf, binary)
         authored, locomotion = _compile_runtime_authoring(authoring, objects, gltf, binary)
         write_glb(mesh_path, gltf, binary)
@@ -319,12 +333,22 @@ def export_open_blend(options: ExportOptions) -> dict[str, Any]:
             "normalized_structure": sha256_bytes(_canonical_json_bytes(summary)),
         },
     }
+    if native_plan is not None:
+        result["native_cubic"] = native_plan.report()
     if authored is not None:
         result["runtime_authoring"] = {"schema_version": 1, "text": authoring_text}
         if locomotion is not None:
             result["locomotion_path"] = str(rules_path)
             result["sha256"]["locomotion"] = sha256_file(rules_path, maximum_bytes=65536, allowed_roots=(options.project_root,))
     return result
+
+
+def _native_cubic_module() -> Any:
+    try:
+        from . import blendlib_native_cubic as module
+    except ImportError:
+        import blendlib_native_cubic as module
+    return module
 
 
 def _runtime_authoring_module() -> Any:
@@ -549,7 +573,7 @@ def _validate_source_objects(objects: Sequence[Any], profile: str) -> None:
                     )
                 skin_meshes += 1
                 _validate_skin_weights(obj, bone_names)
-            elif profile == "blendlib:skinned_v1":
+            elif profile in {"blendlib:skinned_v1", "blendlib:skinned_cubic_v1"}:
                 raise ExportError(
                     "BLENDLIB-EXPORT-005",
                     f"Skinned profile requires an Armature modifier on mesh '{obj.name}'.",
@@ -567,7 +591,7 @@ def _validate_source_objects(objects: Sequence[Any], profile: str) -> None:
         raise ExportError(
             "BLENDLIB-EXPORT-005", "Rigid profile cannot contain Armature-modified meshes."
         )
-    if profile == "blendlib:skinned_v1" and skin_meshes == 0:
+    if profile in {"blendlib:skinned_v1", "blendlib:skinned_cubic_v1"} and skin_meshes == 0:
         raise ExportError(
             "BLENDLIB-EXPORT-005", "Skinned profile requires at least one skinned mesh."
         )
@@ -738,7 +762,7 @@ def _find_layer_collection(layer_collection: Any, collection: Any) -> Any | None
     return None
 
 
-def _export_raw_glb(collection: Any, output_path: Path, *, runtime_authoring: bool = False) -> None:
+def _export_raw_glb(collection: Any, output_path: Path, *, runtime_authoring: bool = False, native_curves: bool = False) -> None:
     blender = _require_blender()
     layer_collection = _find_layer_collection(blender.context.view_layer.layer_collection, collection)
     if layer_collection is None:
@@ -764,7 +788,7 @@ def _export_raw_glb(collection: Any, output_path: Path, *, runtime_authoring: bo
         export_lights=False,
         export_animations=True,
         export_animation_mode="ACTIONS",
-        export_force_sampling=True,
+        export_force_sampling=not native_curves,
         export_sampling_interpolation_fallback="LINEAR",
         export_skins=True,
         export_influence_nb=4,
@@ -930,7 +954,7 @@ def _build_descriptor(
     options: ExportOptions, action_names: Sequence[str], materials: dict[str, str]
 ) -> dict[str, Any]:
     descriptor: dict[str, Any] = {
-        "format_version": 1,
+        "format_version": 2 if options.profile == "blendlib:skinned_cubic_v1" else 1,
         "profile": options.profile,
         "mesh": f"{options.namespace}:models3d/{options.model_id}.glb",
         "units_per_block": 1.0,
@@ -968,10 +992,15 @@ def _build_descriptor(
 def validate_descriptor(
     descriptor: dict[str, Any], assets_root: Path, material_names: Sequence[str]
 ) -> None:
-    if descriptor.get("format_version") != 1:
-        raise ExportError("BLENDLIB-DESC-001", "Descriptor version must be exactly 1.")
-    if descriptor.get("profile") not in {"blendlib:rigid_v1", "blendlib:skinned_v1"}:
-        raise ExportError("BLENDLIB-DESC-001", "Descriptor profile is not supported by v1.")
+    profile = descriptor.get("profile")
+    if profile == "blendlib:skinned_cubic_v1":
+        if type(descriptor.get("format_version")) is not int or descriptor.get("format_version") != 2:
+            raise ExportError("BLENDLIB-DESC-001", "Native cubic descriptor version must be exactly 2.")
+    else:
+        if descriptor.get("format_version") != 1:
+            raise ExportError("BLENDLIB-DESC-001", "Descriptor version must be exactly 1.")
+        if profile not in {"blendlib:rigid_v1", "blendlib:skinned_v1"}:
+            raise ExportError("BLENDLIB-DESC-001", "Descriptor profile is not supported by v1.")
     materials = descriptor.get("materials")
     if not isinstance(materials, dict) or tuple(sorted(materials)) != tuple(sorted(material_names)):
         raise ExportError(
@@ -1324,7 +1353,7 @@ def validate_glb(
         if not isinstance(joints, list) or not joints or len(joints) > MAX_SKIN_JOINTS:
             raise ExportError("BLENDLIB-LIMIT-001", "Skin joint count is invalid or exceeds 512.")
 
-    animation_names = _validate_animations(gltf)
+    animation_names = _validate_animations(gltf, binary=binary, profile=profile)
     if tuple(sorted(animation_names)) != tuple(sorted(expected_animation_names)):
         raise ExportError(
             "BLENDLIB-ANIM-006",
@@ -1438,7 +1467,7 @@ def _normalized_values(values: Sequence[float | int], component_type: int, norma
     return [max(-1.0, float(value) / maximum) if signed else float(value) / maximum for value in values]
 
 
-def _validate_animations(gltf: dict[str, Any]) -> list[str]:
+def _validate_animations(gltf: dict[str, Any], *, binary: bytes = b"", profile: str = "blendlib:skinned_v1") -> list[str]:
     animations = gltf.get("animations", [])
     if not isinstance(animations, list) or len(animations) > MAX_CLIPS:
         raise ExportError("BLENDLIB-LIMIT-001", "Animation clip count is invalid or exceeds 256.")
@@ -1453,7 +1482,7 @@ def _validate_animations(gltf: dict[str, Any]) -> list[str]:
             raise ExportError("BLENDLIB-ANIM-006", "Animation channels/samplers must be arrays.")
         for sampler in samplers:
             interpolation = sampler.get("interpolation", "LINEAR") if isinstance(sampler, dict) else None
-            if interpolation not in {"LINEAR", "STEP"}:
+            if interpolation not in ({"LINEAR", "STEP", "CUBICSPLINE"} if profile == "blendlib:skinned_cubic_v1" else {"LINEAR", "STEP"}):
                 raise ExportError(
                     "BLENDLIB-ANIM-006", "CUBICSPLINE or another unsupported interpolation was exported."
                 )
@@ -1461,6 +1490,21 @@ def _validate_animations(gltf: dict[str, Any]) -> list[str]:
             target = channel.get("target", {}) if isinstance(channel, dict) else {}
             if target.get("path") not in {"translation", "rotation", "scale"}:
                 raise ExportError("BLENDLIB-ANIM-006", "Only node TRS animation channels are supported.")
+            if profile == "blendlib:skinned_cubic_v1":
+                index = channel.get("sampler")
+                if type(index) is not int or not 0 <= index < len(samplers):
+                    raise ExportError("BLENDLIB-ANIM-006", "Animation channel sampler index is invalid.")
+                sampler = samplers[index]
+                if sampler.get("interpolation") == "CUBICSPLINE":
+                    inputs = _read_accessor(gltf, binary, sampler["input"])
+                    outputs = _read_accessor(gltf, binary, sampler["output"])
+                    if inputs["type"] != "SCALAR" or inputs["component_type"] != 5126 or outputs["component_type"] != 5126 or outputs["type"] != ("VEC4" if target["path"] == "rotation" else "VEC3"):
+                        raise ExportError("BLENDLIB-ANIM-006", "Native cubic requires FLOAT SCALAR time and FLOAT TRS outputs.")
+                    try:
+                        _native_cubic_module().validate_channel({"times": [row[0] for row in inputs["values"]],
+                            "values": outputs["values"], "path": target["path"], "interpolation": "CUBICSPLINE"})
+                    except ValueError as error:
+                        raise ExportError("BLENDLIB-ANIM-006", str(error)) from error
     if _duplicates(names):
         raise ExportError("BLENDLIB-ANIM-006", "Animation clip names must be unique.")
     return names
@@ -1763,7 +1807,12 @@ def register() -> None:
                         else "" if scene.blendlib_runtime_authoring_enabled else None),
                 )
                 result = export_open_blend(options)
-                self.report({"INFO"}, f"Exported {result['mesh_path']}")
+                native_report = result.get("native_cubic")
+                if native_report is not None and not native_report["exact_native_subset"]:
+                    reasons = "; ".join(item["reason"] for item in native_report["fallback_reasons"])
+                    self.report({"WARNING"}, "Exported baked LINEAR/STEP fallback (approximate): " + reasons[:300])
+                else:
+                    self.report({"INFO"}, f"Exported {result['mesh_path']}")
                 return {"FINISHED"}
             except ExportError as error:
                 self.report({"ERROR"}, str(error))
@@ -1802,6 +1851,7 @@ def register() -> None:
         items=(
             ("blendlib:rigid_v1", "Rigid v1", "Static or rigid node animation"),
             ("blendlib:skinned_v1", "Skinned v1", "Four-weight skeletal skinning"),
+            ("blendlib:skinned_cubic_v1", "Skinned native cubic v1 (format 2)", "Explicit opt-in: eligible native curves, reported baked fallback"),
         ),
         default="blendlib:rigid_v1",
     )

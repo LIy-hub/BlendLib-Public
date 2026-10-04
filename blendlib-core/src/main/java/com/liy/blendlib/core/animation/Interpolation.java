@@ -1,9 +1,10 @@
 package com.liy.blendlib.core.animation;
 
-/** The only interpolation modes accepted by the strict v1 profile. */
+/** Runtime interpolation modes. The serialized-name parser intentionally remains strict v1. */
 public enum Interpolation {
     LINEAR,
-    STEP;
+    STEP,
+    CUBICSPLINE;
 
     public static Interpolation fromSerializedName(String value) {
         return switch (value) {

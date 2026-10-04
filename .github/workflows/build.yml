@@ -115,3 +115,6 @@ jobs:
           git diff --exit-code -- test-assets/blender-transitions/exported
           blender --background --python-exit-code 1 --python blender-addon/scripts/verify_p2_fixtures.py -- --project-root .
           blender --background --python-exit-code 1 --python blender-addon/scripts/verify_x5_toolchain.py
+          blender --background --python-exit-code 1 --python blender-addon/scripts/create_native_cubic_fixture.py -- --project-root .
+          git diff --exit-code -- test-assets/native-cubic/exported
+          blender --background --python-exit-code 1 --python blender-addon/scripts/verify_native_cubic_edge_cases.py -- --project-root .

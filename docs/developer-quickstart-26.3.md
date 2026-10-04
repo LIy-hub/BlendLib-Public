@@ -10,6 +10,13 @@ Preview packages built with `-Pblendlib_preview=blendspace-preview` add
 `-blendspace-preview` to the library/example version and JAR names. They are development
 builds, distinct from the published beta.4 release. Install one matching pair only.
 
+The current native-cubic development checkpoint uses `-Pblendlib_preview=cubic-preview`
+and three matching `1.0.0-beta.4+26.3-cubic-preview` JARs. See the
+[native profile contract](native-cubic-profile.md) and
+[runnable cubic figure](../examples/native-cubic-profile/README.md). Strict-v1 formats and
+all existing examples remain available. Blender native curve preservation requires the
+verified 5.1.2 path; other versions use the documented explicit baked fallback.
+
 ## 1. Choose the exact environment and JARs
 
 - Minecraft **26.3**, **Java 25**, Fabric Loader **0.19.5+**

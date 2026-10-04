@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased: explicit native cubic animation profile
+
+- Add format-2 skinned_cubic_v1 opt-in runtime dispatch while preserving strict-v1 decoders, schemas and exporter defaults
+- Play seconds-scaled Hermite TRS with preserved quaternion signs/tangents and generation-shared immutable arrays
+- Validate positive scale and nonzero quaternion control hulls; bound overshoot and decoded/transient animation storage before allocation
+- Export eligible Blender 5.1.2 curves without per-frame baking, report explicit approximation fallbacks and retain state/event/socket tools
+- Add authored skinned fixture, independent Blender-to-Java oracle and summonable cubic example; distinct cubic-preview JARs, native graphics deferred
+
 ## Unreleased: positive dynamic blendspace cadence
 
 - Add bounded extraction-only cadence to both 1D and 2D spaces while preserving fixed-cadence APIs

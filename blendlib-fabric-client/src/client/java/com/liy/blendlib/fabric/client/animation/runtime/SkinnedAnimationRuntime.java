@@ -728,7 +728,7 @@ public final class SkinnedAnimationRuntime {
      */
     private static boolean supportsAnimatedHandle(LoadedModelHandle loaded, BlendModelKey modelKey, long generation) {
         return switch (loaded.asset().profile()) {
-            case SKINNED_V1 -> loaded.renderHandle() instanceof SkinnedRenderHandle skinnedHandle
+            case SKINNED_V1, SKINNED_CUBIC_V1 -> loaded.renderHandle() instanceof SkinnedRenderHandle skinnedHandle
                     && skinnedHandle.modelKey().equals(modelKey)
                     && skinnedHandle.generation() == generation;
             case RIGID_V1 -> loaded.renderHandle() instanceof StaticRigidRenderHandle rigidHandle

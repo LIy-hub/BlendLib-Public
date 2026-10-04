@@ -1,0 +1,258 @@
+{
+  "blender_version": "5.1.2",
+  "build_hash": "ec6e62d40fa9",
+  "deterministic_glb_and_descriptor": true,
+  "eligibility_checks": [
+    {
+      "case": "unequal_component_key_times",
+      "reasons": [
+        {
+          "action": "EaseWave",
+          "node": "Base",
+          "reason": "transform components have unequal key times"
+        }
+      ]
+    },
+    {
+      "case": "FCurve_modifier",
+      "reasons": [
+        {
+          "action": "EaseWave",
+          "node": "Base",
+          "reason": "modified, muted, or invalid FCurve"
+        }
+      ]
+    },
+    {
+      "case": "muted_FCurve",
+      "reasons": [
+        {
+          "action": "EaseWave",
+          "node": "Base",
+          "reason": "modified, muted, or invalid FCurve"
+        }
+      ]
+    },
+    {
+      "case": "Action_influence",
+      "reasons": [
+        {
+          "action": null,
+          "node": "CubicRig",
+          "reason": "Action blending or influence requires baking"
+        }
+      ]
+    },
+    {
+      "case": "active_NLA_mixing",
+      "reasons": [
+        {
+          "action": null,
+          "node": "CubicRig",
+          "reason": "active NLA mixing requires baking"
+        }
+      ]
+    },
+    {
+      "case": "bone_constraint",
+      "reasons": [
+        {
+          "action": null,
+          "node": "Tip",
+          "reason": "bone constraints require dependency-graph baking"
+        }
+      ]
+    },
+    {
+      "case": "nonstandard_bone_inheritance",
+      "reasons": [
+        {
+          "action": null,
+          "node": "Tip",
+          "reason": "nonstandard bone inheritance requires baking"
+        },
+        {
+          "action": "EaseWave",
+          "node": "Tip",
+          "reason": "nonstandard bone inheritance"
+        }
+      ]
+    },
+    {
+      "case": "nonpositive_or_nonuniform_scale_hull",
+      "reasons": [
+        {
+          "action": "EaseWave",
+          "node": "Base",
+          "reason": "scale Bezier controls must be positive and exactly uniform"
+        }
+      ]
+    },
+    {
+      "case": "quaternion_hemisphere_crossing",
+      "reasons": [
+        {
+          "action": "EaseWave",
+          "node": "Tip",
+          "reason": "quaternion controls lack a common positive hemisphere"
+        }
+      ]
+    },
+    {
+      "case": "component_linear_quaternion",
+      "reasons": [
+        {
+          "action": "EaseWave",
+          "node": "Tip",
+          "reason": "Blender component-linear quaternion is not glTF spherical-linear"
+        }
+      ]
+    },
+    {
+      "case": "object_constraint",
+      "rejection_code": "BLENDLIB-EXPORT-003"
+    }
+  ],
+  "fallback": {
+    "channels": [],
+    "effective_fps": 24.0,
+    "exact_native_subset": false,
+    "fallback_reasons": [
+      {
+        "action": "EaseWave",
+        "node": "Base",
+        "reason": "Bezier outgoing time handle is not one third of segment"
+      }
+    ],
+    "mode": "baked_linear_fallback",
+    "profile": "blendlib:skinned_cubic_v1",
+    "scope": "Native requires synchronized transform components and linear-in-time Bezier handles. Unsupported sources bake the entire asset at scene-frame cadence; this fallback is approximate."
+  },
+  "format_version": 2,
+  "fractional_fps_event_seconds": 0.5005000233650208,
+  "fractional_fps_maximum_error": 4.807789863616728e-07,
+  "maximum_skin_position_error": 4.807789863616728e-07,
+  "native": {
+    "channels": [
+      {
+        "clip": "EaseWave",
+        "interpolation": "CUBICSPLINE",
+        "key_count": 3,
+        "node": "Base",
+        "path": "translation"
+      },
+      {
+        "clip": "EaseWave",
+        "interpolation": "CUBICSPLINE",
+        "key_count": 3,
+        "node": "Base",
+        "path": "scale"
+      },
+      {
+        "clip": "EaseWave",
+        "interpolation": "CUBICSPLINE",
+        "key_count": 3,
+        "node": "Tip",
+        "path": "rotation"
+      }
+    ],
+    "effective_fps": 24.0,
+    "exact_native_subset": true,
+    "fallback_reasons": [],
+    "mode": "native_fcurves",
+    "profile": "blendlib:skinned_cubic_v1",
+    "scope": "Native requires synchronized transform components and linear-in-time Bezier handles. Unsupported sources bake the entire asset at scene-frame cadence; this fallback is approximate."
+  },
+  "native_linear_step_oracles": true,
+  "profile": "blendlib:skinned_cubic_v1",
+  "quarter_segment_easing_difference": 0.0352500022854656,
+  "sample_count": 14,
+  "samples": [
+    {
+      "frame": 10,
+      "maximum_pose_matrix_error": 4.470348358154297e-08,
+      "maximum_skinned_vertex_error": 8.429369702178807e-08,
+      "seconds": 0.0
+    },
+    {
+      "frame": 10.25,
+      "maximum_pose_matrix_error": 1.7881393432617188e-07,
+      "maximum_skinned_vertex_error": 2.6151431761360534e-07,
+      "seconds": 0.010416666666666666
+    },
+    {
+      "frame": 11.5,
+      "maximum_pose_matrix_error": 1.7881393432617188e-07,
+      "maximum_skinned_vertex_error": 4.807789863616728e-07,
+      "seconds": 0.0625
+    },
+    {
+      "frame": 13,
+      "maximum_pose_matrix_error": 1.7881393432617188e-07,
+      "maximum_skinned_vertex_error": 1.4057727354849284e-07,
+      "seconds": 0.125
+    },
+    {
+      "frame": 16,
+      "maximum_pose_matrix_error": 1.1920928955078125e-07,
+      "maximum_skinned_vertex_error": 1.6924465733171325e-07,
+      "seconds": 0.25
+    },
+    {
+      "frame": 19.25,
+      "maximum_pose_matrix_error": 1.1920928955078125e-07,
+      "maximum_skinned_vertex_error": 1.7120130796843852e-07,
+      "seconds": 0.3854166666666667
+    },
+    {
+      "frame": 21.9,
+      "maximum_pose_matrix_error": 2.384185791015625e-07,
+      "maximum_skinned_vertex_error": 3.625608998714816e-07,
+      "seconds": 0.4958333333333333
+    },
+    {
+      "frame": 22,
+      "maximum_pose_matrix_error": 1.7881393432617188e-07,
+      "maximum_skinned_vertex_error": 2.666641796853137e-07,
+      "seconds": 0.5
+    },
+    {
+      "frame": 24.5,
+      "maximum_pose_matrix_error": 2.384185791015625e-07,
+      "maximum_skinned_vertex_error": 2.911690328965952e-07,
+      "seconds": 0.6041666666666666
+    },
+    {
+      "frame": 28,
+      "maximum_pose_matrix_error": 1.7881393432617188e-07,
+      "maximum_skinned_vertex_error": 2.9839552036674004e-07,
+      "seconds": 0.75
+    },
+    {
+      "frame": 34,
+      "maximum_pose_matrix_error": 1.1920928955078125e-07,
+      "maximum_skinned_vertex_error": 3.65306457046606e-07,
+      "seconds": 1.0
+    },
+    {
+      "frame": 39.75,
+      "maximum_pose_matrix_error": 1.210719347000122e-07,
+      "maximum_skinned_vertex_error": 3.03925246810483e-07,
+      "seconds": 1.2395833333333333
+    },
+    {
+      "frame": 45.9,
+      "maximum_pose_matrix_error": 2.8312206268310547e-07,
+      "maximum_skinned_vertex_error": 3.7726726833498965e-07,
+      "seconds": 1.4958333333333333
+    },
+    {
+      "frame": 46,
+      "maximum_pose_matrix_error": 4.470348358154297e-08,
+      "maximum_skinned_vertex_error": 8.429369702178807e-08,
+      "seconds": 1.5
+    }
+  ],
+  "sidebar_export": true,
+  "strict_v1_preserved": true
+}

@@ -11,15 +11,13 @@ final class CompiledAnimationChannel {
     private final int targetNode;
     private final AnimationPath path;
     private final Interpolation interpolation;
-    private final float[] times;
-    private final float[] values;
+    private final AnimationChannel source;
 
     private CompiledAnimationChannel(AnimationChannel source) {
         this.targetNode = source.targetNode();
         this.path = source.path();
         this.interpolation = source.interpolation();
-        this.times = source.times();
-        this.values = source.values();
+        this.source = source;
     }
 
     static CompiledAnimationChannel compile(AnimationChannel source) {
@@ -33,12 +31,29 @@ final class CompiledAnimationChannel {
     void apply(double timeSeconds, MutableTransform target) {
         Objects.requireNonNull(target, "target");
         int key = keyAtOrBefore(timeSeconds);
-        if (key == times.length - 1 || interpolation == Interpolation.STEP) {
+        if (key == source.keyCount() - 1 || interpolation == Interpolation.STEP
+                || (source.clampsEndpoints() && timeSeconds <= source.keyTime(0)) || (source.clampsEndpoints() && timeSeconds == source.keyTime(key))) {
             applyKey(key, target);
             return;
         }
 
-        float fraction = (float) ((timeSeconds - times[key]) / (times[key + 1] - times[key]));
+        if (interpolation == Interpolation.CUBICSPLINE) {
+            double amount = (timeSeconds - source.keyTime(key)) / ((double) source.keyTime(key + 1) - source.keyTime(key));
+            double x = source.cubicComponent(key, 0, amount), y = source.cubicComponent(key, 1, amount);
+            double z = source.cubicComponent(key, 2, amount);
+            switch (path) {
+                case TRANSLATION -> target.setTranslation(finite(x), finite(y), finite(z));
+                case SCALE -> target.setScale(finite(x), finite(y), finite(z));
+                case ROTATION -> {
+                    double w = source.cubicComponent(key, 3, amount);
+                    double norm = Math.hypot(Math.hypot(x, y), Math.hypot(z, w));
+                    if (!(norm > 1.0e-6)) throw new IllegalArgumentException("Cubic quaternion is not normalizable");
+                    target.setRotation(finite(x / norm), finite(y / norm), finite(z / norm), finite(w / norm));
+                }
+            }
+            return;
+        }
+        float fraction = (float) ((timeSeconds - source.keyTime(key)) / (source.keyTime(key + 1) - source.keyTime(key)));
         switch (path) {
             case TRANSLATION -> target.setTranslation(
                     linear(key, 0, fraction), linear(key, 1, fraction), linear(key, 2, fraction));
@@ -52,17 +67,17 @@ final class CompiledAnimationChannel {
     }
 
     private int keyAtOrBefore(double timeSeconds) {
-        if (timeSeconds <= times[0]) {
+        if (timeSeconds <= source.keyTime(0)) {
             return 0;
         }
-        if (timeSeconds >= times[times.length - 1]) {
-            return times.length - 1;
+        if (timeSeconds >= source.keyTime(source.keyCount() - 1)) {
+            return source.keyCount() - 1;
         }
         int low = 0;
-        int high = times.length - 1;
+        int high = source.keyCount() - 1;
         while (low + 1 < high) {
             int middle = (low + high) >>> 1;
-            if (times[middle] <= timeSeconds) {
+            if (source.keyTime(middle) <= timeSeconds) {
                 low = middle;
             } else {
                 high = middle;
@@ -72,25 +87,30 @@ final class CompiledAnimationChannel {
     }
 
     private void applyKey(int key, MutableTransform target) {
-        int offset = key * path.components();
         switch (path) {
-            case TRANSLATION -> target.setTranslation(values[offset], values[offset + 1], values[offset + 2]);
-            case SCALE -> target.setScale(values[offset], values[offset + 1], values[offset + 2]);
-            case ROTATION -> target.setRotation(values[offset], values[offset + 1], values[offset + 2], values[offset + 3]);
+            case TRANSLATION -> target.setTranslation(value(key, 0), value(key, 1), value(key, 2));
+            case SCALE -> target.setScale(value(key, 0), value(key, 1), value(key, 2));
+            case ROTATION -> target.setRotation(value(key, 0), value(key, 1), value(key, 2), value(key, 3));
         }
     }
 
     private float linear(int key, int component, float fraction) {
-        int offset = key * path.components() + component;
-        float value = values[offset] + fraction * (values[offset + path.components()] - values[offset]);
+        float value = value(key, component) + fraction * (value(key + 1, component) - value(key, component));
         if (!Float.isFinite(value)) {
             throw new IllegalArgumentException("Animation interpolation produced a non-finite component");
         }
         return value;
     }
 
+    private float value(int key, int component) { return source.keyValue(key, component); }
+
+    private static float finite(double value) {
+        float result = (float) value;
+        if (!Double.isFinite(value) || !Float.isFinite(result)) throw new IllegalArgumentException("Non-finite cubic result");
+        return result;
+    }
+
     private Quaternion quaternionAt(int key) {
-        int offset = key * 4;
-        return new Quaternion(values[offset], values[offset + 1], values[offset + 2], values[offset + 3]);
+        return new Quaternion(value(key, 0), value(key, 1), value(key, 2), value(key, 3));
     }
 }

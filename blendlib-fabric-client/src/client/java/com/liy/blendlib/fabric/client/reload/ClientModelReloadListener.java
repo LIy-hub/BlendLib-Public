@@ -51,7 +51,7 @@ public final class ClientModelReloadListener extends SimpleReloadListener<Prepar
     private final ReloadDiagnosticsReporter diagnosticsReporter;
 
     public ClientModelReloadListener(ClientModelRegistry registry) {
-        this(registry, new ModelAssetLoader(), NO_ACTIVE_GENERATION_LISTENER, ReloadDiagnosticsReporter.production());
+        this(registry, ModelAssetLoader.runtimeProfiles(), NO_ACTIVE_GENERATION_LISTENER, ReloadDiagnosticsReporter.production());
     }
 
     /**
@@ -62,7 +62,7 @@ public final class ClientModelReloadListener extends SimpleReloadListener<Prepar
      * active generation.</p>
      */
     public ClientModelReloadListener(ClientModelRegistry registry, LongConsumer activeGenerationListener) {
-        this(registry, new ModelAssetLoader(), activeGenerationListener, ReloadDiagnosticsReporter.production());
+        this(registry, ModelAssetLoader.runtimeProfiles(), activeGenerationListener, ReloadDiagnosticsReporter.production());
     }
 
     ClientModelReloadListener(ClientModelRegistry registry, ModelAssetLoader loader) {
@@ -78,7 +78,7 @@ public final class ClientModelReloadListener extends SimpleReloadListener<Prepar
             ClientModelRegistry registry,
             LongConsumer activeGenerationListener,
             ReloadDiagnosticsReporter diagnosticsReporter) {
-        this(registry, new ModelAssetLoader(), activeGenerationListener, diagnosticsReporter);
+        this(registry, ModelAssetLoader.runtimeProfiles(), activeGenerationListener, diagnosticsReporter);
     }
 
     ClientModelReloadListener(
@@ -254,7 +254,7 @@ public final class ClientModelReloadListener extends SimpleReloadListener<Prepar
     private static ModelRenderHandle prepareRenderHandle(BlendModelKey modelKey, ModelAsset asset, PreparedNamedSkins skins) {
         return switch (asset.profile()) {
             case RIGID_V1 -> StaticRigidRenderHandle.prepareWithSkins(modelKey, asset, skins.valid(), skins.invalid());
-            case SKINNED_V1 -> SkinnedRenderHandle.prepareWithSkins(modelKey, asset, skins.valid(), skins.invalid());
+            case SKINNED_V1, SKINNED_CUBIC_V1 -> SkinnedRenderHandle.prepareWithSkins(modelKey, asset, skins.valid(), skins.invalid());
         };
     }
 

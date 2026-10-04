@@ -251,7 +251,7 @@ class ItemAnimationObservationIntegrationTest {
                 assertSame(stack, selectedStacks.getLast());
                 assertSame(stack, observedStacks.getLast());
                 assertEquals(red, appearance(captured.getLast(), 0));
-                assertEquals(profile == ModelProfile.SKINNED_V1, frameField(first.animatedSnapshot(), "skinnedRenderSnapshot") != null);
+                assertEquals(profile.skinned(), frameField(first.animatedSnapshot(), "skinnedRenderSnapshot") != null);
                 var before = BlendLibItemAnimations.observe(stack).orElseThrow();
                 var status = BlendLibItemAnimations.extractionStatus(stack).orElseThrow();
                 mutable.put("Surface", hidden);
@@ -378,7 +378,7 @@ class ItemAnimationObservationIntegrationTest {
                             var fallbackArgument = assertDoesNotThrow(() -> renderer.extractArgument(stack), scenario);
                             assertNull(fallbackArgument.animatedSnapshot(), "old poses must not survive extraction: " + scenario);
                             assertEquals(generation, fallbackArgument.handle().generation(), scenario);
-                            boolean missingFallback = profile == ModelProfile.SKINNED_V1 || unavailable == null;
+                            boolean missingFallback = profile.skinned() || unavailable == null;
                             assertEquals(missingFallback, fallbackArgument.handle().missingModel(), scenario);
                             if (!missingFallback) {
                                 assertSame(unavailable.renderHandle(), fallbackArgument.handle(), scenario);
@@ -486,7 +486,7 @@ class ItemAnimationObservationIntegrationTest {
 
     private static LoadedModelHandle fixture(long generation, ModelProfile profile,
             BlendAnimationKey declaredState, float duration) {
-        boolean skinned = profile == ModelProfile.SKINNED_V1;
+        boolean skinned = profile.skinned();
         var mesh = new MeshPrimitive("Surface",
                 new float[] {0, 0, 0, 1, 0, 0, 0, 1, 0},
                 new float[] {0, 0, 1, 0, 0, 1, 0, 0, 1},

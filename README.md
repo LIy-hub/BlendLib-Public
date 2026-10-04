@@ -26,7 +26,9 @@ does not add creatures, items or gameplay.
 [26.3 quickstart](docs/developer-quickstart-26.3.md).** It covers exact dependencies/JARs,
 build and demo launch commands, minimal public APIs, cumulative capabilities and known limits.
 This includes the 26.3 port plus opt-in layers, procedural motion, animated items, attachments,
-appearance and named skins. It does not create a new public release or CurseForge upload.
+appearance and named skins. The opt-in [native cubic profile](docs/native-cubic-profile.md)
+adds directly authored eased curves and a separate [runnable figure](examples/native-cubic-profile/README.md).
+This source branch does not create a new public release or CurseForge upload.
 
 当前累计开发源码请从 [26.3 入门](docs/developer-quickstart-26.3.md)开始；下方公开 Beta.3
 安装表与 26.1.2 示例保留各自版本范围，不代表 26.3 已发布或完成原生图形验收。

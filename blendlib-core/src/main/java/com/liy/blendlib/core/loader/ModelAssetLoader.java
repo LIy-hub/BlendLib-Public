@@ -8,6 +8,7 @@ import com.liy.blendlib.core.animation.Interpolation;
 import com.liy.blendlib.core.asset.AssetBytes;
 import com.liy.blendlib.core.asset.AssetResolver;
 import com.liy.blendlib.core.descriptor.DescriptorDecoder;
+import com.liy.blendlib.core.descriptor.RuntimeDescriptorDecoder;
 import com.liy.blendlib.core.descriptor.ModelDescriptor;
 import com.liy.blendlib.core.diagnostic.BlendAssetLoadException;
 import com.liy.blendlib.core.diagnostic.BlendDiagnostic;
@@ -60,13 +61,25 @@ public final class ModelAssetLoader {
     private final BlendAssetLimits limits;
     private final DescriptorDecoder descriptorDecoder;
     private final GlbReader glbReader;
+    private final RuntimeDescriptorDecoder runtimeDescriptorDecoder;
+    private final boolean runtimeProfiles;
 
     public ModelAssetLoader() {
         this(BlendAssetLimits.DEFAULT);
     }
 
     public ModelAssetLoader(BlendAssetLimits limits) {
+        this(limits, false);
+    }
+
+    /** Explicit runtime dispatcher; old constructors deliberately keep strict-v1 rejection behavior. */
+    public static ModelAssetLoader runtimeProfiles() { return runtimeProfiles(BlendAssetLimits.DEFAULT); }
+    public static ModelAssetLoader runtimeProfiles(BlendAssetLimits limits) { return new ModelAssetLoader(limits, true); }
+
+    private ModelAssetLoader(BlendAssetLimits limits, boolean runtimeProfiles) {
         this.limits = Objects.requireNonNull(limits, "limits");
+        this.runtimeProfiles = runtimeProfiles;
+        this.runtimeDescriptorDecoder = new RuntimeDescriptorDecoder(limits);
         this.descriptorDecoder = new DescriptorDecoder(limits);
         this.glbReader = new GlbReader(limits);
     }
@@ -81,7 +94,8 @@ public final class ModelAssetLoader {
         Objects.requireNonNull(modelKey, "modelKey");
         Objects.requireNonNull(descriptorBytes, "descriptorBytes");
         Objects.requireNonNull(resolver, "resolver");
-        ModelDescriptor descriptor = descriptorDecoder.decode(modelKey, descriptorBytes);
+        ModelDescriptor descriptor = runtimeProfiles ? runtimeDescriptorDecoder.decode(modelKey, descriptorBytes)
+                : descriptorDecoder.decode(modelKey, descriptorBytes);
         AssetBytes glbBytes;
         try {
             glbBytes = resolver.resolve(descriptor.meshId());
@@ -110,6 +124,10 @@ public final class ModelAssetLoader {
             throw LoaderFailure.error(BlendDiagnosticCodes.DESC_002, modelKey, descriptor.descriptorId(), "/mesh",
                     "GLB bytes do not match the descriptor mesh resource");
         }
+        if (!runtimeProfiles && descriptor.profile() == ModelProfile.SKINNED_CUBIC_V1) {
+            throw LoaderFailure.error(BlendDiagnosticCodes.DESC_001, modelKey, descriptor.descriptorId(), "/profile",
+                    "Native cubic assets require the explicit runtime-profile loader");
+        }
         GlbDocument document = glbReader.read(modelKey, glbBytes);
         return new Decoder(modelKey, generation, descriptor, glbBytes.resourceId(), document, limits).decode();
     }
@@ -127,6 +145,9 @@ public final class ModelAssetLoader {
         private final JsonObject root;
         private final GlbAccessorReader accessors;
         private final List<BlendDiagnostic> diagnostics = new ArrayList<>();
+        // Budget all decoded animation arrays, repeated accessor/channel uses and transient copies.
+        private long preparedAnimationFloatSlots;
+        private static final long MAX_PREPARED_ANIMATION_FLOAT_SLOTS = 32_000_000L;
 
         Decoder(
                 BlendResourceId modelKey,
@@ -230,6 +251,14 @@ public final class ModelAssetLoader {
                 if (material.containsKey("extensions") && !isEmptyObject(material.get("extensions"), pointer + "/extensions")) {
                     throw fail(BlendDiagnosticCodes.GLB_015, pointer + "/extensions", "Material extensions are not supported by v1");
                 }
+                if (descriptor.profile() == ModelProfile.SKINNED_CUBIC_V1) {
+                    for (String field : material.values().keySet()) {
+                        if (!Set.of("name", "extras", "extensions").contains(field)) {
+                            throw fail(BlendDiagnosticCodes.GLB_015, pointer + "/" + field,
+                                    "Native cubic GLB materials are named external-texture slots; richer material data is unsupported");
+                        }
+                    }
+                }
                 String name = string(required(material, "name", pointer + "/name", BlendDiagnosticCodes.GLB_015), pointer + "/name",
                         BlendDiagnosticCodes.GLB_015);
                 if (name.isBlank() || !unique.add(name)) {
@@ -313,7 +342,7 @@ public final class ModelAssetLoader {
                     indices += triangleIndices.length;
                     int[] joints = null;
                     float[] weights = null;
-                    if (descriptor.profile() == ModelProfile.SKINNED_V1) {
+                    if (descriptor.profile().skinned()) {
                         int jointAccessor = accessorIndex(attributes, "JOINTS_0", primitivePointer + "/attributes/JOINTS_0");
                         int weightAccessor = accessorIndex(attributes, "WEIGHTS_0", primitivePointer + "/attributes/WEIGHTS_0");
                         var jointInfo = accessors.requireUnnormalized(jointAccessor, "JOINTS_0 accessor");
@@ -335,7 +364,7 @@ public final class ModelAssetLoader {
                         primitiveList.add(new MeshPrimitive(materialNames.get(materialIndex), positions, normals, texCoords, triangleIndices, joints,
                                 weights));
                     } catch (IllegalArgumentException exception) {
-                        String code = descriptor.profile() == ModelProfile.SKINNED_V1 ? BlendDiagnosticCodes.SKIN_001 : BlendDiagnosticCodes.GLB_015;
+                        String code = descriptor.profile().skinned() ? BlendDiagnosticCodes.SKIN_001 : BlendDiagnosticCodes.GLB_015;
                         throw fail(code, primitivePointer, "Primitive data violates the strict v1 profile", exception);
                     }
                 }
@@ -349,7 +378,7 @@ public final class ModelAssetLoader {
         }
 
         private void validatePrimitiveAttributeNames(JsonObject attributes, String pointer) {
-            Set<String> allowed = descriptor.profile() == ModelProfile.SKINNED_V1
+            Set<String> allowed = descriptor.profile().skinned()
                     ? Set.of("POSITION", "NORMAL", "TEXCOORD_0", "JOINTS_0", "WEIGHTS_0")
                     : Set.of("POSITION", "NORMAL", "TEXCOORD_0");
             for (String attribute : attributes.values().keySet()) {
@@ -739,7 +768,7 @@ public final class ModelAssetLoader {
                             "Mesh node is not reachable from the active scene");
                 }
                 List<MeshPrimitive> mesh = meshes.get(node.meshIndex());
-                if (descriptor.profile() == ModelProfile.SKINNED_V1) {
+                if (descriptor.profile().skinned()) {
                     if (node.skinIndex() < 0 || skeleton == null || node.skinIndex() >= skeleton.skins().size()) {
                         throw fail(BlendDiagnosticCodes.SKIN_001, "/nodes/" + node.index() + "/skin", "Skinned mesh node must reference a valid skin");
                     }
@@ -786,7 +815,7 @@ public final class ModelAssetLoader {
                     continue;
                 }
                 String pointer = "/nodes/" + node.index() + "/skin";
-                if (descriptor.profile() != ModelProfile.SKINNED_V1) {
+                if (!descriptor.profile().skinned()) {
                     throw fail(BlendDiagnosticCodes.SKIN_001, pointer, "Rigid profile must not contain a node skin reference");
                 }
                 if (node.meshIndex() < 0) {
@@ -944,6 +973,7 @@ public final class ModelAssetLoader {
                     throw fail(BlendDiagnosticCodes.ANIM_007, pointer + "/channels", "Animation clip must have channels");
                 }
                 List<AnimationChannel> decodedChannels = new ArrayList<>();
+                boolean[] referencedSamplers = new boolean[samplers.size()];
                 Set<AnimationTarget> targets = new HashSet<>();
                 for (int channelIndex = 0; channelIndex < channels.size(); channelIndex++) {
                     String channelPointer = pointer + "/channels/" + channelIndex;
@@ -975,24 +1005,55 @@ public final class ModelAssetLoader {
                         throw fail(BlendDiagnosticCodes.ANIM_007, channelPointer + "/target",
                                 "Animation channels must not target the same node and path");
                     }
+                    referencedSamplers[samplerIndex] = true;
                     SamplerData sampler = samplers.get(samplerIndex);
                     var outputInfo = accessors.info(sampler.outputAccessor());
                     String expectedType = path == AnimationPath.ROTATION ? "VEC4" : "VEC3";
+                    boolean cubic = sampler.interpolation() == Interpolation.CUBICSPLINE;
+                    long expectedCount = (long) sampler.times().length * (cubic ? 3L : 1L);
                     if (!expectedType.equals(outputInfo.type()) || outputInfo.componentType() != 5126
-                            || outputInfo.count() != sampler.times().length) {
+                            || outputInfo.count() != expectedCount) {
                         throw fail(BlendDiagnosticCodes.ANIM_007, channelPointer,
                                 "Animation sampler output accessor does not match its target path and input count");
                     }
                     channelSamples = addBounded(channelSamples, sampler.times().length, limits.maxKeyframeSamples(), channelPointer,
                             "Animation keyframe sample limit exceeded");
-                    float[] values = accessors.readFloatElements(sampler.outputAccessor(), path == AnimationPath.ROTATION ? "VEC4" : "VEC3");
-                    if (values.length != sampler.times().length * path.components()) {
+                    if (descriptor.profile() == ModelProfile.SKINNED_CUBIC_V1) {
+                        long components = expectedCount * path.components();
+                        // accessor read + split arrays + immutable copies, plus per-channel copied times.
+                        budgetAnimation(3L * components + sampler.times().length, channelPointer);
+                    }
+                    float[] values = accessors.readFloatElements(sampler.outputAccessor(), expectedType);
+                    if (values.length != expectedCount * path.components()) {
                         throw fail(BlendDiagnosticCodes.ANIM_007, channelPointer, "Animation sampler output count does not match input times");
                     }
                     try {
-                        decodedChannels.add(new AnimationChannel(targetNode, path, sampler.interpolation(), sampler.times(), values));
+                        if (descriptor.profile() == ModelProfile.SKINNED_CUBIC_V1) {
+                            int components = path.components();
+                            float[] incoming = new float[cubic ? sampler.times().length * components : 0];
+                            float[] outgoing = new float[incoming.length];
+                            float[] keyValues = cubic ? new float[incoming.length] : values;
+                            if (cubic) {
+                                for (int key = 0; key < sampler.times().length; key++) {
+                                    int offset = key * components;
+                                    System.arraycopy(values, offset * 3, incoming, offset, components);
+                                    System.arraycopy(values, offset * 3 + components, keyValues, offset, components);
+                                    System.arraycopy(values, offset * 3 + components * 2, outgoing, offset, components);
+                                }
+                            }
+                            decodedChannels.add(AnimationChannel.forCubicProfile(targetNode, path, sampler.interpolation(),
+                                    sampler.times(), keyValues, incoming, outgoing));
+                        } else {
+                            decodedChannels.add(new AnimationChannel(targetNode, path, sampler.interpolation(), sampler.times(), values));
+                        }
                     } catch (IllegalArgumentException exception) {
-                        throw fail(BlendDiagnosticCodes.ANIM_007, channelPointer, "Animation channel is invalid", exception);
+                        throw fail(BlendDiagnosticCodes.ANIM_007, channelPointer, "Animation channel is invalid: " + exception.getMessage(), exception);
+                    }
+                }
+                for (int samplerIndex = 0; samplerIndex < samplers.size(); samplerIndex++) {
+                    if (!referencedSamplers[samplerIndex] && samplers.get(samplerIndex).interpolation() == Interpolation.CUBICSPLINE) {
+                        throw fail(BlendDiagnosticCodes.ANIM_007, pointer + "/samplers/" + samplerIndex,
+                                "Native cubic samplers must be referenced so their target-specific safety can be validated");
                     }
                 }
                 String name = animation.containsKey("name")
@@ -1030,7 +1091,8 @@ public final class ModelAssetLoader {
                         : "LINEAR";
                 Interpolation interpolation;
                 try {
-                    interpolation = Interpolation.fromSerializedName(interpolationText);
+                    interpolation = descriptor.profile() == ModelProfile.SKINNED_CUBIC_V1 && "CUBICSPLINE".equals(interpolationText)
+                            ? Interpolation.CUBICSPLINE : Interpolation.fromSerializedName(interpolationText);
                 } catch (IllegalArgumentException exception) {
                     throw fail(BlendDiagnosticCodes.ANIM_007, samplerPointer + "/interpolation",
                             "CUBICSPLINE and other interpolation modes are not supported", exception);
@@ -1040,6 +1102,18 @@ public final class ModelAssetLoader {
                     throw fail(BlendDiagnosticCodes.ANIM_007, samplerPointer + "/input",
                             "Animation sampler input must be a non-empty FLOAT SCALAR accessor");
                 }
+                if (interpolation == Interpolation.CUBICSPLINE) {
+                    if (inputInfo.count() < 2) {
+                        throw fail(BlendDiagnosticCodes.ANIM_007, samplerPointer + "/input", "Cubic samplers require at least two keys");
+                    }
+                    var outputInfo = accessors.info(outputAccessor);
+                    if (outputInfo.componentType() != 5126 || !("VEC3".equals(outputInfo.type()) || "VEC4".equals(outputInfo.type()))
+                            || outputInfo.count() != (long) inputInfo.count() * 3L) {
+                        throw fail(BlendDiagnosticCodes.ANIM_007, samplerPointer + "/output",
+                                "Cubic output must be FLOAT VEC3/VEC4 tangent-value-tangent triplets");
+                    }
+                }
+                if (descriptor.profile() == ModelProfile.SKINNED_CUBIC_V1) budgetAnimation(inputInfo.count(), samplerPointer + "/input");
                 inputSamples = addBounded(inputSamples, inputInfo.count(), limits.maxKeyframeSamples(), samplerPointer + "/input",
                         "Animation sampler input sample limit exceeded");
                 float[] times = accessors.readFloatElements(inputAccessor, "SCALAR");
@@ -1060,6 +1134,12 @@ public final class ModelAssetLoader {
                 result.add(new SamplerData(times, outputAccessor, interpolation));
             }
             return new SamplerDecodeResult(List.copyOf(result), inputSamples);
+        }
+
+        private void budgetAnimation(long slots, String pointer) {
+            preparedAnimationFloatSlots = addBounded(preparedAnimationFloatSlots, slots,
+                    MAX_PREPARED_ANIMATION_FLOAT_SLOTS, pointer,
+                    "Native cubic decoded animation storage budget exceeded (32 million float slots, including transient copies)");
         }
 
         private void validateDescriptorClipReferences(List<AnimationClip> clips) {
@@ -1106,7 +1186,7 @@ public final class ModelAssetLoader {
                 Skeleton skeleton,
                 List<ModelPrimitive> primitives,
                 List<AnimationClip> clips) {
-            if (descriptor.profile() != ModelProfile.SKINNED_V1 || skeleton == null) {
+            if (!descriptor.profile().skinned() || skeleton == null) {
                 return;
             }
 

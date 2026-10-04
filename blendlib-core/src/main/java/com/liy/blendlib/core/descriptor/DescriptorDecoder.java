@@ -45,6 +45,14 @@ public final class DescriptorDecoder {
 
     /** Decodes one descriptor supplied as immutable bytes without performing resource I/O. */
     public ModelDescriptor decode(BlendResourceId modelKey, AssetBytes descriptorBytes) {
+        return decodeProfile(modelKey, descriptorBytes, false);
+    }
+
+    ModelDescriptor decodeCubic(BlendResourceId modelKey, AssetBytes descriptorBytes) {
+        return decodeProfile(modelKey, descriptorBytes, true);
+    }
+
+    private ModelDescriptor decodeProfile(BlendResourceId modelKey, AssetBytes descriptorBytes, boolean cubic) {
         Objects.requireNonNull(modelKey, "modelKey");
         Objects.requireNonNull(descriptorBytes, "descriptorBytes");
         if (descriptorBytes.size() > limits.maxGlbBytes()) {
@@ -63,16 +71,23 @@ public final class DescriptorDecoder {
         rejectUnknown(root, TOP_LEVEL_FIELDS, modelKey, descriptorBytes.resourceId(), "");
         int version = integer(required(root, "format_version", "/format_version", modelKey, descriptorBytes.resourceId()),
                 "/format_version", modelKey, descriptorBytes.resourceId());
-        if (version != 1) {
+        if (version != (cubic ? 2 : 1)) {
             throw failure(BlendDiagnosticCodes.DESC_001, modelKey, descriptorBytes.resourceId(), "/format_version",
-                    "Only descriptor format_version 1 is supported", null);
+                    cubic ? "Cubic profile requires format_version 2" : "Only descriptor format_version 1 is supported", null);
         }
 
         String profileText = string(required(root, "profile", "/profile", modelKey, descriptorBytes.resourceId()),
                 "/profile", modelKey, descriptorBytes.resourceId());
         ModelProfile profile;
         try {
-            profile = ModelProfile.fromSerializedName(profileText);
+            if (cubic) {
+                if (!ModelProfile.SKINNED_CUBIC_V1.serializedName().equals(profileText)) {
+                    throw new IllegalArgumentException("Version 2 supports only the native cubic profile");
+                }
+                profile = ModelProfile.SKINNED_CUBIC_V1;
+            } else {
+                profile = ModelProfile.fromSerializedName(profileText);
+            }
         } catch (IllegalArgumentException exception) {
             throw failure(BlendDiagnosticCodes.DESC_002, modelKey, descriptorBytes.resourceId(), "/profile",
                     "Descriptor profile is not supported", exception);

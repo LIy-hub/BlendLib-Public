@@ -1,0 +1,45 @@
+{
+  "animation": {
+    "initial_state": "native_cubic:wave",
+    "states": {
+      "native_cubic:once": {
+        "blend_seconds": 0.1,
+        "clip": "EaseWave",
+        "loop": false,
+        "next": "native_cubic:wave",
+        "speed": 1.0
+      },
+      "native_cubic:wave": {
+        "clip": "EaseWave",
+        "events": [
+          {
+            "event": "native_cubic:apex",
+            "time_seconds": 0.5
+          }
+        ],
+        "loop": true,
+        "speed": 1.0
+      }
+    }
+  },
+  "extensions": {},
+  "extensions_required": [],
+  "extensions_used": [],
+  "format_version": 2,
+  "materials": {
+    "CubicSurface": {
+      "base_color": "native_cubic:textures/blendlib/eased_actor__cubicsurface.png",
+      "double_sided": false,
+      "emissive": false,
+      "mode": "opaque"
+    }
+  },
+  "mesh": "native_cubic:models3d/eased_actor.glb",
+  "profile": "blendlib:skinned_cubic_v1",
+  "sockets": {
+    "native_cubic:tip": {
+      "node": "CubicRoot/CubicRig/Base/Tip"
+    }
+  },
+  "units_per_block": 1.0
+}

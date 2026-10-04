@@ -669,7 +669,7 @@ class ItemAnimationVisualEventIntegrationTest {
     private static LoadedModelHandle fixture(long generation, ModelProfile profile, float duration,
             List<AnimationEventDefinition> events, boolean descriptorLoop, double descriptorSpeed,
             BlendAnimationKey declaredState) {
-        boolean skinned = profile == ModelProfile.SKINNED_V1;
+        boolean skinned = profile.skinned();
         var mesh = new MeshPrimitive("Surface", new float[] {0, 0, 0, 1, 0, 0, 0, 1, 0},
                 new float[] {0, 0, 1, 0, 0, 1, 0, 0, 1}, new float[] {0, 0, 1, 0, 0, 1}, new int[] {0, 1, 2},
                 skinned ? new int[12] : null, skinned ? new float[] {1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0} : null);

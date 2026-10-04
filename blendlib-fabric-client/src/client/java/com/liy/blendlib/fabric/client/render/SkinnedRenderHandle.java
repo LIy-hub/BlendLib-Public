@@ -94,7 +94,7 @@ public final class SkinnedRenderHandle implements ModelRenderHandle {
         if (!modelKey.resourceId().equals(asset.modelKey())) {
             throw new IllegalArgumentException("Render handle model key must match the loaded asset identity");
         }
-        if (asset.profile() != ModelProfile.SKINNED_V1 || asset.skeleton() == null) {
+        if (!asset.profile().skinned() || asset.skeleton() == null) {
             throw new IllegalArgumentException("P5 CPU skinning accepts only skinned-v1 assets with skeleton data");
         }
 

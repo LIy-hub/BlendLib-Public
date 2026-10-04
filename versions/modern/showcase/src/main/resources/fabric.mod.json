@@ -8,10 +8,12 @@
   "environment": "*",
   "entrypoints": {
     "main": [
-      "com.liy.blendlib.examples.runnable.ExampleContent"
+      "com.liy.blendlib.examples.runnable.ExampleContent",
+      "com.liy.blendlib.examples.runnable.ExampleNativeCubicContent"
     ],
     "client": [
-      "com.liy.blendlib.examples.runnable.ExampleClient"
+      "com.liy.blendlib.examples.runnable.ExampleClient",
+      "com.liy.blendlib.examples.runnable.ExampleNativeCubicClient"
     ]
   },
   "depends": {

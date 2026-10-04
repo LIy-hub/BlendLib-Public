@@ -3,6 +3,7 @@ package com.liy.blendlib.core.model;
 import com.liy.blendlib.core.animation.AnimationChannel;
 import com.liy.blendlib.core.animation.AnimationClip;
 import com.liy.blendlib.core.animation.AnimationPath;
+import com.liy.blendlib.core.animation.Interpolation;
 import java.util.ArrayDeque;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -18,7 +19,7 @@ import java.util.Objects;
  * radius {@code r}, every world pose is bounded by {@code A + B*r}. Unit rotations and quaternion
  * slerp do not increase a vector norm. LINEAR/STEP translation and uniform scale, including
  * cross-fade interpolation between two sampled poses, stay inside the extrema of their finite key
- * values. Therefore the hierarchy recurrence is {@code Achild=Aparent+Bparent*Tchild} and
+ * values. Native cubic channels instead use their validated Bezier control-hull extrema. Therefore the hierarchy recurrence is {@code Achild=Aparent+Bparent*Tchild} and
  * {@code Bchild=Bparent*Schild}.</p>
  *
  * <p>Rigid vertices use their actual local radius. A skinned positive-weight influence first uses
@@ -155,6 +156,14 @@ final class ConservativeAnimatedBounds {
         for (AnimationClip clip : clips) {
             for (AnimationChannel channel : clip.channels()) {
                 int target = ordinal(nodeOrdinals, channel.targetNode(), "animation target");
+                if (channel.interpolation() == Interpolation.CUBICSPLINE) {
+                    if (channel.path() == AnimationPath.TRANSLATION) {
+                        translationRadius[target] = Math.max(translationRadius[target], channel.cubicMagnitudeBound());
+                    } else if (channel.path() == AnimationPath.SCALE) {
+                        scaleMaximum[target] = Math.max(scaleMaximum[target], channel.cubicMagnitudeBound());
+                    }
+                    continue;
+                }
                 float[] values = channel.values();
                 if (channel.path() == AnimationPath.TRANSLATION) {
                     for (int offset = 0; offset < values.length; offset += 3) {
