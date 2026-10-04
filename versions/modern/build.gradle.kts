@@ -256,6 +256,29 @@ tasks.withType<ProcessResources>().configureEach {
     filesMatching("blendlib.client.mixins.json") {
         filter { line -> line.replace("JAVA_25", "JAVA_$javaVersion") }
     }
+    if (minecraftVersion == "26.3") {
+        filesMatching("assets/blendlib/shaders/core/*") {
+            val shaderFileName = name
+            filter { line ->
+                var text = line
+                    .replace("#version 330", "#version 330\n#extension GL_ARB_separate_shader_objects : require")
+                    .replace("#moj_import", "#include")
+                    .replace("gl_VertexID", "gl_VertexIndex")
+                    .replace("gl_InstanceID", "gl_InstanceIndex")
+                    .replace("in vec3 Position;", "layout(location = 0) in vec3 Position;")
+                    .replace("in vec3 Normal;", "layout(location = 1) in vec3 Normal;")
+                    .replace("out vec4 fragColor;", "layout(location = 0) out vec4 fragColor;")
+                val uvLocation = if (shaderFileName == "x7_static_direct.vsh") 2 else 1
+                text = text.replace("in vec2 UV0;", "layout(location = $uvLocation) in vec2 UV0;")
+                listOf("float sphericalVertexDistance", "float cylindricalVertexDistance",
+                    "vec4 vertexColor", "vec4 lightMapColor", "vec2 texCoord").forEachIndexed { location, varying ->
+                    text = text.replace("in $varying;", "layout(location = $location) in $varying;")
+                        .replace("out $varying;", "layout(location = $location) out $varying;")
+                }
+                text
+            }
+        }
+    }
     if (obfuscated) {
         filesMatching("**/*.vsh") {
             // Matches vanilla 1.21's entity shader lightmap lookup; 26.x's helper does not exist here.

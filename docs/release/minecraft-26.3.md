@@ -6,6 +6,9 @@
 - Port GPU namespaces and pipeline metadata to RenderPearl, use compiled pipelines and combined-image-sampler uniforms, and retain the existing direct-GPU availability gates.
 - Update quaternion pose operations and frustum-culling partial-tick signatures.
 - Move the final-present Mixin to `com.mojang.renderpearl.api.device.GpuSurface.present()` and pin verified official/processed Minecraft class hashes.
+- Adapt all six packaged shader stages to `#include`, explicit interface locations
+  and SPIR-V vertex/instance built-ins only for the 26.3 target. Compile and reflect
+  them with Minecraft's native ShaderC compiler in both clip-depth modes during tests.
 - Keep older target sources, dependency versions, root 26.1.2 build and public release history unchanged.
 
 ## Build
@@ -26,8 +29,13 @@ The focused build compiles both source sets, validates metadata and all baseline
 
 Runtime JAR SHA-256: `8cf9adc9e415e83d4b987852867d150ec925ee4b9ba2898da22a1895920c30b4`.
 
+The 2026-10-04 shader resource fix passes a local `build verifyRuntimeJar` with five
+tests, including twelve native ShaderC compilations and SPIR-V reflections across
+the six shader stages and both clip-depth modes. The CI links and artifact hash
+above describe the original release before this resource fix.
+
 ## Boundaries
 
-No full client/window, world, dedicated-server or rendered GPU acceptance is claimed. The experimental GPU paths remain experimental. No EULA acceptance, GitHub Release/tag or CurseForge upload was performed.
+The CI and unit-test evidence does not prove world, dedicated-server or rendered GPU acceptance. The experimental GPU paths remain experimental. No EULA acceptance, GitHub Release/tag or CurseForge upload was performed.
 
 The cloud machine's Unix-domain socket restriction prevents local Loom initialization. Unmodified official tools on GitHub Actions completed the full build; no sandbox workarounds were installed.
