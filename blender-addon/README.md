@@ -41,5 +41,7 @@ Enable **Runtime Animation Authoring** and select a Blender Text datablock, or p
 `--runtime-authoring-text BlendLib.runtime.json` to the strict CLI. The versioned Text
 maps Actions to states and pose-marker visual events, exact node-path sockets and an optional
 separate locomotion-rule resource. Disabled export retains automatic loop states.
+The **Runtime State / Event Editor** offers explicit draft/apply controls for state-to-Action
+mappings and Action-pose-marker events. Other fields stay in the same Text.
 See [authoring guide and working example](../docs/blender-runtime-authoring.md).
 Legacy X5 authoring metadata is not silently reinterpreted.

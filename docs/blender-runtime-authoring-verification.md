@@ -59,3 +59,31 @@ GitHub CI uses normal toolchains. Exact-head workflow/job evidence is included i
 The sidebar was exercised through real Blender registration and operator execution, not an
 interactive visual screenshot review. No merge, release/tag, CurseForge publication, EULA
 acceptance or security-setting change is part of this checkpoint.
+
+## State/event editor checkpoint
+
+The bounded state/event editor adds eight pure roundtrip tests (18 total methods),
+plus `verify_authoring_editor.py` on the same official Blender 5.1.2 binary. The
+real registered operators create all three state mappings and marker events;
+advanced fields are authored in the canonical Text and survive subsequent UI
+roundtrips. The editor then overwrites the acceptance assets with byte-identical
+GLB/descriptor/PNG/rules output, exports a second time and saves/reopens its Text.
+Existing Java loader/event/socket/locomotion acceptance consumes these actual bytes.
+
+Covered interrupted/repeated flows include starting a second draft, discard,
+apply without draft, duplicate-state add, switched identical-content Text,
+renamed same Text, externally changed Text, invalid markers/speed/locomotion loops,
+changed export collection, explicit initial selection and creating a new Text
+without changing opt-in. Camera-bound and fake-user-only Actions are excluded.
+The draft is retained during Save but discarded on file load/add-on restart.
+
+Independent critical review found and verified three fixes:
+- Use the exporter's filtered object set, excluding camera/light-only Actions
+- Explicit lifecycle cleanup because Blender serializes Scene draft properties
+  despite `SKIP_SAVE`; repeated registration leaves exactly one load handler
+- Catch oversized numeric input as a bounded operator error, without traceback
+
+Review additionally exercised linked Scene cleanup, repeated panel draw callbacks
+without canonical Text mutation and new-Text preservation through save/reopen.
+This remains headless real-Blender operator testing, not a rendered sidebar or
+Minecraft graphics claim. No production Java/runtime API/schema changes.

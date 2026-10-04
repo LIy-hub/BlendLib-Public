@@ -9,9 +9,11 @@ its state/marker/socket metadata is not imported or reinterpreted.
 
 1. Save the `.blend`, use a single export-root collection and attach each Action to an object
    or an NLA strip. Unattached/fake-user-only Actions are not runtime clips.
-2. In Blender's Text Editor, create a Text datablock called `BlendLib.runtime.json` and paste
-   the [complete working configuration](../test-assets/blender-authoring/runtime-authoring.json).
-   Edit exact Action names, namespaced state/event/socket keys and exported node paths.
+2. Open **Runtime State / Event Editor** under the export panel. **Start New Text**
+   prepares a first-state draft. Choose a namespaced state key and attached Action, then
+   **Create New Text**. This creates a uniquely named `BlendLib.runtime.json` without
+   overwriting any existing Text or enabling export. Alternatively create a Text in Blender's
+   Text Editor and paste the [complete working configuration](../test-assets/blender-authoring/runtime-authoring.json).
 3. In the BlendLib sidebar set project root, namespace, model ID, collection and profile.
    Enable **Runtime Animation Authoring** and pick that Text in **Runtime Authoring Text**.
    Blender-relative `//` project roots resolve relative to the saved `.blend`.
@@ -19,7 +21,8 @@ its state/marker/socket metadata is not imported or reinterpreted.
    replaced when authoring validation fails. This does not promise transactional filesystem
    recovery for I/O failures. Uncheck the toggle to retain historical automatic loop states.
 
-There is deliberately no automatic Text-name discovery, hidden migration or separate giant UI.
+There is no automatic Text-name discovery or hidden migration. The state/event editor is a small
+front end for the same strict Text, not a second asset or export format.
 The Text is stored in the `.blend`; it is not a runtime resource. Selecting an absent Text fails.
 CLI uses only its explicit flag, regardless of saved sidebar settings:
 
@@ -35,6 +38,38 @@ Omit `--runtime-authoring-text` for the historical automatic Action-to-loop mapp
 export/batch controls retain their prior metadata and behavior; this new Text picker applies
 only to the strict **Export BlendLib Model** button and explicit strict CLI flag. Passing the
 new flag to X5 is rejected explicitly rather than silently discarded.
+
+## State and event editor
+
+- Choose a Text, select a **State**, then **Load State**. Changes to Action, Loop, Speed
+  and event rows are drafts until **Apply to Selected Text**. **Add State** creates a draft
+  with a new key; an existing state key cannot be renamed or overwritten through that flow.
+- Action choices use exactly the exporter's supported object set and attached/NLA Actions.
+  Camera/light-only and unattached/fake-user-only Actions are excluded. Marker search reads
+  **Action pose markers** from the chosen Action. Create those markers in the Action Editor;
+  the editor assigns them to namespaced visual event keys and never creates/moves markers.
+  Use the arrows to retain intentional equal-time event ordering. Changing Action does not
+  silently remap existing events; incompatible markers fail Apply.
+- **Make Initial State** explicitly chooses the edited/added state. Unchecked means keep the
+  existing initial state, including when editing that initial state itself. A new Text's first
+  state is its initial state. The draft shows both the Action and state key before creation.
+- Existing `next`, `blend_seconds`, other states, sockets and locomotion remain in the Text.
+  Edit these advanced fields in the Text Editor. Apply may reformat JSON whitespace, but
+  preserves all untouched values (including double-precision numbers and absent fields).
+  Unknown fields fail the same strict validation; they are never silently discarded.
+- Speed accepts a JSON number such as `1` or `1.25` in (0,64]. Text input preserves precision
+  that Blender float sliders would round. Invalid source references, events, loops targeted
+  by locomotion, limits and other strict constraints fail without replacing the Text.
+- Switching Text datablocks or editing Text contents while a draft is open makes Apply fail.
+  **Discard** then reload to reconcile. Renaming the same Text is safe. A second load/new draft
+  is blocked until Apply/Discard, so repeated clicks cannot silently throw away working edits.
+- Save the `.blend` after applying. Export always reads the applied Text, never an open draft.
+  Working drafts are discarded on file load or add-on restart. Blender can serialize Scene
+  properties despite `SKIP_SAVE`, so explicit lifecycle cleanup enforces this boundary.
+- Apply validates source facts only. Export still verifies actual GLB clip membership/bounds
+  and exact socket paths. A successful Apply is not an export-success guarantee.
+- The editor does not enable **Runtime Animation Authoring** by itself. The historical strict
+  CLI opt-out and all X5 controls remain unchanged.
 
 ## Text contract
 
@@ -95,12 +130,16 @@ client locomotion/layered playback. It does not claim a rendered Minecraft graph
 ```sh
 python3 -m unittest discover -s blender-addon/tests -v
 blender --background --python-exit-code 1 --python blender-addon/scripts/verify_runtime_authoring.py -- --project-root .
+blender --background --python-exit-code 1 --python blender-addon/scripts/verify_authoring_editor.py -- --project-root .
 ```
 
 The second command genuinely creates/saves a Blender source and exports twice, checks byte
 identity, executes the registered sidebar operator, rejects invalid markers/stale rules while
 preserving previous assets, and tests disabled behavior with malformed unselected Text.
-Existing P2 and X5 Blender verification scripts remain separate regression gates.
+The third command exercises real state/event editor operators, stale/renamed Text, explicit
+initial state, new-Text opt-out, failed validation, draft lifecycle and editor-produced
+exports byte-identical to the Java acceptance fixture. Existing P2 and X5 Blender
+verification scripts remain separate regression gates.
 
 All `blender-addon/` sources are GPL-3.0-or-later; Java runtime and first-party test assets retain
 root Apache-2.0 scope. No Blender/Python/GPL source is linked into the runtime JAR.

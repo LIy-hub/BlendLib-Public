@@ -1714,6 +1714,14 @@ def _x5_toolchain() -> Any:
     return x5
 
 
+def _authoring_ui() -> Any:
+    try:
+        from . import blendlib_authoring_ui as module
+    except ImportError:
+        import blendlib_authoring_ui as module
+    return module
+
+
 def register() -> None:
     """Register the Blender 5.x sidebar panel when installed as an extension."""
 
@@ -1796,10 +1804,12 @@ def register() -> None:
         name="Runtime Authoring Text", type=blender.types.Text)
     globals()["_REGISTERED_CLASSES"] = classes
     _x5_toolchain().register_blender_ui(blender)
+    _authoring_ui().register(blender, sys.modules[__name__])
 
 
 def unregister() -> None:
     blender = _require_blender()
+    _authoring_ui().unregister(blender)
     _x5_toolchain().unregister_blender_ui(blender)
     for property_name in (
         "blendlib_collection",

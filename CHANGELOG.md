@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased: Blender state/event editor
+
+- Add explicit state drafts with attached Action selection and pose-marker event assignment
+- Create new Text/configurations and add states without overwriting existing state keys or silently changing the initial state
+- Preserve advanced Text fields; reject stale Text, invalid mappings and missing markers before applying
+- Verify actual Blender operator lifecycle and editor-produced exports against Java consumer fixtures
+
 ## Unreleased: explicit Blender runtime authoring
 
 - Add opt-in versioned Blender Text mapping for exact Action states, pose-marker visual events and exact node-path sockets

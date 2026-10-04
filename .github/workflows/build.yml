@@ -104,6 +104,7 @@ jobs:
           blender --version
           blender --background --python-exit-code 1 --python blender-addon/scripts/verify_runtime_authoring.py -- --project-root .
           blender --background --python-exit-code 1 --python blender-addon/scripts/export_blendlib.py -- --blend test-assets/blender-authoring/source.blend --project-root build/authoring-cli-reopen --namespace blendlib_authoring --model-id actor --profile blendlib:rigid_v1 --collection BlendLibExport --runtime-authoring-text BlendLib.runtime.json --report report.json
+          blender --background --python-exit-code 1 --python blender-addon/scripts/verify_authoring_editor.py -- --project-root .
           git diff --exit-code -- test-assets/blender-authoring/exported
           blender --background --python-exit-code 1 --python blender-addon/scripts/verify_p2_fixtures.py -- --project-root .
           blender --background --python-exit-code 1 --python blender-addon/scripts/verify_x5_toolchain.py

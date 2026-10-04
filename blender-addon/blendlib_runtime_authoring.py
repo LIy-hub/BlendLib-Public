@@ -83,6 +83,21 @@ def compile_authoring(config: dict, actions: dict, clips: dict, node_paths: set[
     actions maps name to (start_frame, end_frame, [(marker_name, frame), ...]);
     clips maps name to (first_sample_seconds, last_sample_seconds).
     """
+    return _compile_authoring(config, actions, clips, node_paths, fps)
+
+
+def validate_source(config: dict, actions: dict, fps: float) -> None:
+    """Validate authoring against source Actions, without claiming GLB verification.
+
+    The editor shares every schema/state/event/rule check with the exporter.
+    Actual exported clip membership, sample bounds and socket paths remain export
+    checks because source-only editing cannot establish those facts.
+    """
+    _compile_authoring(config, actions, None, None, fps)
+
+
+def _compile_authoring(config: dict, actions: dict, clips: dict | None,
+                       node_paths: set[str] | None, fps: float) -> tuple[dict, dict | None]:
     fps = _number(fps, 'effective FPS')
     if fps <= 0:
         raise ValueError('effective FPS must be positive')
@@ -96,7 +111,7 @@ def compile_authoring(config: dict, actions: dict, clips: dict, node_paths: set[
         _resource(key, 'state key')
         state = _object(raw, {'clip', 'loop', 'speed', 'next', 'blend_seconds', 'events'}, {'clip', 'loop', 'speed'}, 'state')
         clip = _name(state['clip'], 'clip')
-        if clip not in actions or clip not in clips:
+        if clip not in actions or (clips is not None and clip not in clips):
             raise ValueError(f"clip '{clip}' is not an attached Action exported to the GLB")
         if type(state['loop']) is not bool:
             raise ValueError('loop must be boolean')
@@ -113,7 +128,7 @@ def compile_authoring(config: dict, actions: dict, clips: dict, node_paths: set[
             item['blend_seconds'] = _number(state['blend_seconds'], 'blend_seconds', 0)
         start, end, markers = actions[clip]
         duration = (end - start) / fps
-        first, last = clips[clip]
+        first, last = clips[clip] if clips is not None else (0., duration)
         if not math.isfinite(duration) or duration <= 0 or duration > 600 or abs(first) > 1e-6 or not math.isclose(last, duration, abs_tol=1e-5, rel_tol=1e-6):
             raise ValueError(f"clip '{clip}' must export its full Action range at time zero (duration <=600s)")
         if 'events' in state:
@@ -147,7 +162,7 @@ def compile_authoring(config: dict, actions: dict, clips: dict, node_paths: set[
             _resource(key, 'socket key')
             value = _object(raw, {'node'}, {'node'}, 'socket')
             node = _name(value['node'], 'socket node')
-            if node not in node_paths or node.startswith('/') or node.endswith('/') or '//' in node:
+            if (node_paths is not None and node not in node_paths) or node.startswith('/') or node.endswith('/') or '//' in node:
                 raise ValueError(f"socket '{key}' must name an exact full exported node path")
             descriptor['sockets'][key] = {'node': node}
     rules = validate_locomotion(config['locomotion'], output) if 'locomotion' in config else None
