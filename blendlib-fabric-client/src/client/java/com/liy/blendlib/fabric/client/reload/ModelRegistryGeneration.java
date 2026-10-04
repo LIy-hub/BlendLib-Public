@@ -1,6 +1,7 @@
 package com.liy.blendlib.fabric.client.reload;
 
 import com.liy.blendlib.api.BlendModelKey;
+import com.liy.blendlib.core.animation.rules.LocomotionRules;
 import com.liy.blendlib.core.diagnostic.BlendDiagnostic;
 import com.liy.blendlib.fabric.client.render.ModelRenderHandle;
 import java.util.ArrayList;
@@ -22,6 +23,7 @@ import java.util.concurrent.atomic.AtomicReference;
 public final class ModelRegistryGeneration {
     private final long generationId;
     private final Map<BlendModelKey, ModelHandle> handles;
+    private final Map<BlendModelKey, LocomotionRules> locomotionRules;
     private final Map<BlendModelKey, BlendDiagnostic> primaryDiagnostics;
     private final List<BlendDiagnostic> diagnostics;
     private final int loadedBackendHandleCount;
@@ -40,11 +42,22 @@ public final class ModelRegistryGeneration {
             Map<BlendModelKey, ? extends ModelHandle> handles,
             Map<BlendModelKey, BlendDiagnostic> primaryDiagnostics,
             List<BlendDiagnostic> globalDiagnostics) {
+        this(generationId, handles, primaryDiagnostics, globalDiagnostics, Map.of());
+    }
+
+    /** Creates one immutable handle-and-rules snapshot; rules may reference only its loaded handles. */
+    public ModelRegistryGeneration(
+            long generationId,
+            Map<BlendModelKey, ? extends ModelHandle> handles,
+            Map<BlendModelKey, BlendDiagnostic> primaryDiagnostics,
+            List<BlendDiagnostic> globalDiagnostics,
+            Map<BlendModelKey, LocomotionRules> locomotionRules) {
         if (generationId < 0L) {
             throw new IllegalArgumentException("generationId must be non-negative");
         }
         this.generationId = generationId;
         this.handles = immutableHandles(handles, generationId);
+        this.locomotionRules = immutableRules(locomotionRules, this.handles);
         this.loadedBackendHandleCount = countLoadedHandles(this.handles);
         this.missingBackendHandleCount = this.handles.size() - loadedBackendHandleCount;
         this.primaryDiagnostics = immutableDiagnostics(primaryDiagnostics);
@@ -74,6 +87,11 @@ public final class ModelRegistryGeneration {
      */
     public Optional<ModelHandle> find(BlendModelKey key) {
         return Optional.ofNullable(handles.get(Objects.requireNonNull(key, "key")));
+    }
+
+    /** Hot-path-safe lookup of optional locomotion rules from this exact immutable model generation. */
+    public Optional<LocomotionRules> locomotionRules(BlendModelKey key) {
+        return Optional.ofNullable(locomotionRules.get(Objects.requireNonNull(key, "key")));
     }
 
     public Optional<BlendDiagnostic> primaryDiagnostic(BlendModelKey key) {
@@ -192,6 +210,21 @@ public final class ModelRegistryGeneration {
                 throw new IllegalArgumentException("Every handle must belong to this generation and map key");
             }
             copy.put(checkedKey, checkedHandle);
+        });
+        return Collections.unmodifiableMap(copy);
+    }
+
+    private static Map<BlendModelKey, LocomotionRules> immutableRules(
+            Map<BlendModelKey, LocomotionRules> input, Map<BlendModelKey, ModelHandle> handles) {
+        Objects.requireNonNull(input, "locomotionRules");
+        Map<BlendModelKey, LocomotionRules> copy = new LinkedHashMap<>();
+        input.forEach((key, rules) -> {
+            BlendModelKey checkedKey = Objects.requireNonNull(key, "locomotion rules key");
+            ModelHandle handle = handles.get(checkedKey);
+            if (handle == null || handle.missing()) {
+                throw new IllegalArgumentException("Locomotion rules must belong to a loaded handle in this generation");
+            }
+            copy.put(checkedKey, Objects.requireNonNull(rules, "locomotion rules"));
         });
         return Collections.unmodifiableMap(copy);
     }

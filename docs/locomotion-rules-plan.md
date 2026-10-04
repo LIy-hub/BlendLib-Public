@@ -19,16 +19,16 @@ Keep all existing APIs, strict-v1 descriptors and experimental X6 rules unchange
 - Strict unknown/duplicate keys and invalid types rejected. Bounds: 64 KiB sidecar, 32 rules,
   8 conditions per rule, 32 immutable named boolean/double inputs, name length <=64 ASCII
   identifier characters, minimum interval integer 0..200 ticks. Reject non-finite numbers.
-  Missing/wrong-type inputs do not match. Malformed optional resources produce one bounded
+  Missing/wrong-type/non-finite inputs preserve current playback with a bounded diagnostic. Malformed optional resources produce one bounded
   warning per model/reload and disable only rules, preserving ordinary model/layer behavior.
 - Add `animationLocomotionRules(controllerId, inputs)` after standard entity layers/cues.
   Require a declared target controller. Rules own its sequence domain; competing explicit
-  commands to that controller fail before capture mutation. Other controllers keep their cues.
+  commands to that controller fail before rule selection/controller mutation. Other controllers keep their cues.
   This drives the actual layered evaluator, not only its legacy selector.
 - Typed immutable input snapshot captures booleans and finite doubles once per extraction.
   Runtime state is scoped to exact owner and source identities, connection key, model and
   generation. A selected animation change emits a new increasing command at playhead zero;
-  unchanged animation does not restart. Ordered-rule identity can change without restarting
+  unchanged animation replays the same immutable command/sequence and does not restart. Ordered-rule identity can change without restarting
   the same target. Minimum interval is a selected-state hold, not candidate debounce.
   Clock rollback cannot move its watermark backwards or defeat the hold.
 - Existing unload, disconnect, play init, generation and explicit retirement clear rule state.

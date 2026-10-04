@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "default": "blendlib_runnable_examples:idle",
+  "minimum_interval_ticks": 6,
+  "rules": [
+    {
+      "animation": "blendlib_runnable_examples:run",
+      "conditions": [
+        { "input": "grounded", "equals": true },
+        { "input": "speed", "enter_min": 0.13, "exit_min": 0.10 }
+      ]
+    },
+    {
+      "animation": "blendlib_runnable_examples:walk",
+      "conditions": [
+        { "input": "grounded", "equals": true },
+        { "input": "speed", "enter_min": 0.04, "exit_min": 0.025 }
+      ]
+    }
+  ]
+}

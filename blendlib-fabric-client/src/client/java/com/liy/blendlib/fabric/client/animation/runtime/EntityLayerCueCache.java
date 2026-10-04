@@ -70,6 +70,26 @@ final class EntityLayerCueCache {
         owners.values().removeIf(Map::isEmpty);
     }
 
+    /** Keeps only exact cue commands captured by a successful replacement frame. */
+    void retireExceptCaptured(BlendInstanceKey instance, Object owner, List<AnimationV2Command> retained) {
+        var accepted = java.util.Collections.newSetFromMap(new IdentityHashMap<AnimationV2Command, Boolean>());
+        accepted.addAll(retained);
+        for (var entry : owners.entrySet()) {
+            var captures = entry.getValue();
+            if (entry.getKey() != owner) {
+                captures.values().removeIf(c -> c.instance().equals(instance));
+            } else {
+                for (var capture : captures.values()) {
+                    if (capture.instance().equals(instance)) {
+                        capture.commands().values().removeIf(command -> !accepted.contains(command));
+                    }
+                }
+                captures.values().removeIf(c -> c.instance().equals(instance) && c.commands().isEmpty());
+            }
+        }
+        owners.values().removeIf(Map::isEmpty);
+    }
+
     void retainGeneration(long generation) {
         owners.values().forEach(sources -> sources.values().removeIf(c -> c.generation() != generation));
         owners.values().removeIf(Map::isEmpty);

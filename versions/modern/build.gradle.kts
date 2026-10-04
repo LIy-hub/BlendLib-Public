@@ -256,6 +256,8 @@ if (minecraftVersion == "26.3") {
             "**/SkinnedAnimationRuntimeTest.java",
             "**/SkinnedAnimationRuntimeSourceBoundaryTest.java",
             "**/EntityLayerCueCacheTest.java",
+            "**/*Locomotion*Test.java",
+            "**/entity/consumer/LocomotionRulesConsumerSample.java",
             "**/MaterialAppearanceSubmissionTest.java",
             "**/MaterialAppearanceCaptureTest.java",
             "**/*NamedSkin*Test.java",
@@ -440,7 +442,7 @@ if (providers.gradleProperty("runnable_examples").orNull == "true") {
                         it.startsWith("com/liy/blendlib/core/") || it.startsWith("com/liy/blendlib/api/") }) {
                     "Example JAR must not embed library implementation or API classes"
                 }
-                listOf("ExampleContent", "LayeredActor", "ExampleClient", "ExampleItemCommands", "ExampleAnimationScene", "ExampleInspectionCommands", "ExampleLayerInspection", "ExampleItemInspection", "ExampleLayerVisualEvents", "ExampleMaterialAppearance", "ExampleItemMaterialAppearance", "ExampleNamedSkins", "ExampleAttachmentScene", "ExampleAttachmentOwners", "ExampleTwoBoneIkScene").forEach {
+                listOf("ExampleContent", "LayeredActor", "ExampleClient", "ExampleItemCommands", "ExampleAnimationScene", "ExampleInspectionCommands", "ExampleLayerInspection", "ExampleItemInspection", "ExampleLayerVisualEvents", "ExampleMaterialAppearance", "ExampleItemMaterialAppearance", "ExampleNamedSkins", "ExampleAttachmentScene", "ExampleAttachmentOwners", "ExampleTwoBoneIkScene", "ExampleLocomotionScene").forEach {
                     check("com/liy/blendlib/examples/runnable/$it.class" in names) { "Missing example class: $it" }
                 }
                 val metadata = zip.getInputStream(zip.getEntry("fabric.mod.json")).reader().readText()
@@ -461,9 +463,12 @@ if (providers.gradleProperty("runnable_examples").orNull == "true") {
                         "Example binary must be the documented repository-local asset: $destination"
                     }
                 }
+                check(namespace + "blend_animation_rules/locomotion_actor.json" in names) {
+                    "Missing packaged locomotion sidecar"
+                }
                 val slurper = groovy.json.JsonSlurper()
                 listOf("actor", "appearance_actor", "wand", "appearance_wand", "marker",
-                        "mechanical_arm", "ik_target_marker", "ik_end_marker").forEach { model ->
+                        "mechanical_arm", "ik_target_marker", "ik_end_marker", "locomotion_actor").forEach { model ->
                     val path = namespace + "blend_models/$model.json"
                     val descriptor = slurper.parseText(zip.getInputStream(zip.getEntry(path)).reader().readText()) as Map<*, *>
                     val mesh = descriptor["mesh"] as String

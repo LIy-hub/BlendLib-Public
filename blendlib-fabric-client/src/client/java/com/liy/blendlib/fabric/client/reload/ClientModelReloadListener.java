@@ -3,6 +3,7 @@ package com.liy.blendlib.fabric.client.reload;
 import com.liy.blendlib.api.BlendModelKey;
 import com.liy.blendlib.api.BlendResourceId;
 import com.liy.blendlib.core.asset.AssetBytes;
+import com.liy.blendlib.core.animation.rules.LocomotionRules;
 import com.liy.blendlib.core.diagnostic.BlendAssetLoadException;
 import com.liy.blendlib.core.diagnostic.BlendDiagnostic;
 import com.liy.blendlib.core.diagnostic.BlendDiagnosticCodes;
@@ -123,7 +124,11 @@ public final class ClientModelReloadListener extends SimpleReloadListener<Prepar
                     if (asset != null) namedSkins.put(entry.getKey(), validateNamedSkins(
                             resourceManager, entry.getKey(), asset, entry.getValue(), globalDiagnostics));
                 });
-        return new PreparedModelGeneration(generationId, loadedAssets, primaryDiagnostics, globalDiagnostics, namedSkins);
+        Map<BlendModelKey, LocomotionRules> locomotionRules = new LinkedHashMap<>();
+        loadedAssets.forEach((model, asset) -> LocomotionRulesReload.prepare(
+                resourceManager, model, asset, globalDiagnostics).ifPresent(rules -> locomotionRules.put(model, rules)));
+        return new PreparedModelGeneration(
+                generationId, loadedAssets, primaryDiagnostics, globalDiagnostics, namedSkins, locomotionRules);
     }
 
     @Override
@@ -203,6 +208,7 @@ public final class ClientModelReloadListener extends SimpleReloadListener<Prepar
         long generationId = prepared.generationId();
         List<BlendDiagnostic> globalDiagnostics = new ArrayList<>(prepared.globalDiagnostics());
         Map<BlendModelKey, ModelHandle> handles = new LinkedHashMap<>();
+        Map<BlendModelKey, LocomotionRules> locomotionRules = new LinkedHashMap<>();
         Map<BlendModelKey, BlendDiagnostic> primaryDiagnostics = new LinkedHashMap<>(prepared.primaryDiagnostics());
 
         primaryDiagnostics.forEach((key, diagnostic) -> handles.put(
@@ -222,6 +228,7 @@ public final class ClientModelReloadListener extends SimpleReloadListener<Prepar
                     }
                 });
                 handles.put(modelKey, new LoadedModelHandle(modelKey, asset, render));
+                prepared.locomotionRules(modelKey).ifPresent(rules -> locomotionRules.put(modelKey, rules));
             } catch (UnsupportedRenderMaterialException exception) {
                 recordBackendMissing(
                         modelKey,
@@ -240,7 +247,7 @@ public final class ClientModelReloadListener extends SimpleReloadListener<Prepar
                 recordBackendMissing(modelKey, generationId, diagnostic, handles, primaryDiagnostics);
             }
         }
-        return new ModelRegistryGeneration(generationId, handles, primaryDiagnostics, globalDiagnostics);
+        return new ModelRegistryGeneration(generationId, handles, primaryDiagnostics, globalDiagnostics, locomotionRules);
     }
 
     /** Selects a complete immutable adapter handle at reload time before a generation becomes visible. */

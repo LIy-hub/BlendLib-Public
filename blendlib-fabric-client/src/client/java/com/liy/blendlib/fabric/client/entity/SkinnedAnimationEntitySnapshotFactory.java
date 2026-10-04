@@ -180,8 +180,14 @@ final class SkinnedAnimationEntitySnapshotFactory<E extends Entity> implements B
                     }
                     return poseComponents == null ? current : poseComponents.modify(animationContext, current);
                 };
+        long capturedLifecycle = animationRuntime.captureExtractionLifecycleRevision();
         var layerFrame = animationLayers == null ? null
                 : captureLayerFrame(animationLayers, layerWeights, layerCommands, checkedEntity, checkedRequest);
+        if (capturedLifecycle != animationRuntime.captureExtractionLifecycleRevision()
+                || !instanceKey.equals(animationRuntime.activeEntityKey(checkedEntity.getId()))
+                || model.generationId() != BlendLibClientServices.models().resolve(modelKey).generationId()) {
+            return missingSnapshot(model, checkedRequest, rootTransform);
+        }
         var extraction = layerFrame == null
                 ? animationRuntime.extract(runtimeInput, combinedModifier)
                 : animationRuntime.extractLayered(runtimeInput, animationLayers,

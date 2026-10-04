@@ -61,6 +61,11 @@ public final class SkinnedAnimationRuntime {
 
     private final EntityLayerCueCache entityLayerCues = new EntityLayerCueCache();
 
+    private final EntityLocomotionRuleCache entityLocomotionRules = new EntityLocomotionRuleCache();
+    private final java.util.Set<ModelGenerationKey> invalidLocomotionInputs = new java.util.HashSet<>();
+    private boolean capturingLocomotion;
+    private long locomotionEpoch;
+
     private long observedGeneration = NO_OBSERVED_GENERATION;
 
     /**
@@ -95,6 +100,8 @@ public final class SkinnedAnimationRuntime {
         if (entityId < 0) {
             return 0;
         }
+        locomotionEpoch++;
+        entityLocomotionRules.retireEntity(entityId);
         entityLayerCues.retireEntity(entityId);
         int removed = lifecycle.onEntityUnload(entityId);
         Iterator<BlendInstanceKey> keys = clocks.keySet().iterator();
@@ -119,6 +126,79 @@ public final class SkinnedAnimationRuntime {
                         cue -> cueStateSpeed(model, generation, cue.animationKey())))
                 .orElseGet(List::of);
     }
+
+    /**
+     * Captures optional generation-published locomotion rules for the standard entity layers.
+     * Valid rules exclusively own one controller. Other commands remain independent. Repeated
+     * captures return the same immutable command/sequence, so failed extractions can retry without
+     * restarting accepted playback. Incomplete inputs retain the last selection with one warning
+     * per model/generation. Missing rules retain the complete original command source.
+     */
+    public List<AnimationV2Command> captureEntityLocomotionRules(Object source, Object owner, int entityId,
+            BlendModelKey model, long generation, double clientTicks, com.liy.blendlib.api.BlendResourceId controller,
+            java.util.function.Supplier<com.liy.blendlib.core.animation.rules.LocomotionInputs> inputs,
+            java.util.function.Supplier<List<AnimationV2Command>> commands) {
+        Objects.requireNonNull(source, "source"); Objects.requireNonNull(owner, "owner");
+        Objects.requireNonNull(model, "model"); Objects.requireNonNull(controller, "controller");
+        Objects.requireNonNull(inputs, "inputs"); Objects.requireNonNull(commands, "commands");
+        if (!Double.isFinite(clientTicks) || generation < 0) throw new IllegalArgumentException("Invalid rule clock/generation");
+        if (capturingLocomotion) throw new IllegalStateException("Recursive locomotion capture is not supported");
+        var active = activeEntityKey(entityId);
+        var current = modelRegistry.current();
+        if (active.isEmpty() || current.isRetired() || current.generationId() != generation) return List.of();
+        if (observedGeneration != generation) onActiveGeneration(generation);
+        var rules = current.locomotionRules(model);
+        boolean replacement = rules.isPresent()
+                && ((!entityLocomotionRules.contains(active.get()) && clocks.containsKey(active.get()))
+                || entityLocomotionRules.replaced(active.get(), source, owner, model,
+                        generation, controller, rules.get()));
+        long epoch = locomotionEpoch;
+        capturingLocomotion = true;
+        try {
+            var supplied = List.copyOf(commands.get());
+            if (epoch != locomotionEpoch || modelRegistry.current() != current
+                    || !active.equals(activeEntityKey(entityId))) return List.of();
+            if (rules.isEmpty()) return supplied;
+            for (var command : supplied) {
+                if (command.controllerId().equals(controller))
+                    throw new IllegalArgumentException("Locomotion rules exclusively own controller " + controller);
+            }
+            var captured = Objects.requireNonNull(inputs.get(), "captured locomotion inputs");
+            if (epoch != locomotionEpoch || modelRegistry.current() != current
+                    || !active.equals(activeEntityKey(entityId))) return List.of();
+            if (replacement) {
+                // A legitimate new owner must not inherit accepted sequences. Stage this until
+                // callbacks/conflict validation pass, so a rejected request preserves old playback.
+                entityLocomotionRules.retire(active.get());
+                entityLayerCues.retireExceptCaptured(active.get(), owner, supplied);
+                clocks.remove(active.get());
+                lifecycle.registry().remove(active.get());
+            }
+            if (!rules.get().inputsComplete(captured)
+                    && invalidLocomotionInputs.add(new ModelGenerationKey(model, generation))) {
+                System.getLogger(SkinnedAnimationRuntime.class.getName()).log(System.Logger.Level.WARNING,
+                        "Incomplete or non-finite locomotion inputs for " + model + "; preserving current playback");
+            }
+            return entityLocomotionRules.capture(active.get(), source, owner, model, generation, clientTicks,
+                    controller, rules.get(), captured, supplied);
+        } finally {
+            capturingLocomotion = false;
+        }
+    }
+
+    /**
+     * Internal entity extraction fence. Capture before invoking frame callbacks and compare
+     * again before extraction; a changed value abandons the whole frame, including empty commands.
+     * Synchronizes the active resource generation before returning its current lifecycle revision.
+     */
+    public long captureExtractionLifecycleRevision() {
+        long generation = modelRegistry.current().generationId();
+        if (generation != observedGeneration) onActiveGeneration(generation);
+        return locomotionEpoch;
+    }
+
+    int trackedLocomotionCount() { return entityLocomotionRules.size(); }
+    int invalidLocomotionInputDiagnosticCount() { return invalidLocomotionInputs.size(); }
 
     private double cueStateSpeed(BlendModelKey model, long generation, BlendAnimationKey animation) {
         var handle = modelRegistry.current().find(model);
@@ -180,6 +260,9 @@ public final class SkinnedAnimationRuntime {
         if (activeGeneration < 0L) {
             throw new IllegalArgumentException("activeGeneration must be non-negative");
         }
+        locomotionEpoch++;
+        entityLocomotionRules.retainGeneration(activeGeneration);
+        invalidLocomotionInputs.removeIf(key -> key.generation() != activeGeneration);
         entityLayerCues.retainGeneration(activeGeneration);
         lifecycle.registry().retireOtherGenerations(activeGeneration);
         preparedAssets.keySet().removeIf(key -> key.generation() != activeGeneration);
@@ -248,6 +331,8 @@ public final class SkinnedAnimationRuntime {
     /** Retires explicit item/ephemeral owners as soon as their bounded registry evicts them. */
     public void retire(BlendInstanceKey key) {
         Objects.requireNonNull(key, "key");
+        locomotionEpoch++;
+        entityLocomotionRules.retire(key);
         entityLayerCues.retire(key);
         clocks.remove(key);
         lifecycle.registry().remove(key);
@@ -558,6 +643,9 @@ public final class SkinnedAnimationRuntime {
     }
 
     private void clearRuntimeState() {
+        locomotionEpoch++;
+        entityLocomotionRules.clear();
+        invalidLocomotionInputs.clear();
         entityLayerCues.clear();
         preparedAssets.clear();
         preparedLayerPlans.clear();

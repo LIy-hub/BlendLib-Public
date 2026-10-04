@@ -314,6 +314,19 @@ class X7ResourceIslandBoundaryTest {
         String compositionAddition = "  public com.liy.blendlib.fabric.client.entity.BlendEntityAttachmentComposition attachmentComposition();\n    descriptor: ()Lcom/liy/blendlib/fabric/client/entity/BlendEntityAttachmentComposition;\n";
         assertTrue(actualManifest.contains(compositionAddition));
         actualManifest = actualManifest.replace("\n" + compositionAddition, "");
+        // Locomotion is additive: explicitly pin only these additions; never regenerate the retained manifest.
+        for (String addition : List.of(
+                "  public java.util.List<com.liy.blendlib.core.animation.v2.AnimationV2Command> captureEntityLocomotionRules(java.lang.Object, java.lang.Object, int, com.liy.blendlib.api.BlendModelKey, long, double, com.liy.blendlib.api.BlendResourceId, java.util.function.Supplier<com.liy.blendlib.core.animation.rules.LocomotionInputs>, java.util.function.Supplier<java.util.List<com.liy.blendlib.core.animation.v2.AnimationV2Command>>);\n    descriptor: (Ljava/lang/Object;Ljava/lang/Object;ILcom/liy/blendlib/api/BlendModelKey;JDLcom/liy/blendlib/api/BlendResourceId;Ljava/util/function/Supplier;Ljava/util/function/Supplier;)Ljava/util/List;\n\n",
+                "  public long captureExtractionLifecycleRevision();\n    descriptor: ()J\n\n",
+                "  public com.liy.blendlib.fabric.client.entity.BlendEntityRendererBuilder<E> animationLocomotionRules(com.liy.blendlib.api.BlendResourceId, com.liy.blendlib.fabric.client.entity.BlendEntityLocomotionInputs<? super E>);\n    descriptor: (Lcom/liy/blendlib/api/BlendResourceId;Lcom/liy/blendlib/fabric/client/entity/BlendEntityLocomotionInputs;)Lcom/liy/blendlib/fabric/client/entity/BlendEntityRendererBuilder;\n\n",
+                "  public com.liy.blendlib.fabric.client.reload.ModelRegistryGeneration(long, java.util.Map<com.liy.blendlib.api.BlendModelKey, ? extends com.liy.blendlib.fabric.client.reload.ModelHandle>, java.util.Map<com.liy.blendlib.api.BlendModelKey, com.liy.blendlib.core.diagnostic.BlendDiagnostic>, java.util.List<com.liy.blendlib.core.diagnostic.BlendDiagnostic>, java.util.Map<com.liy.blendlib.api.BlendModelKey, com.liy.blendlib.core.animation.rules.LocomotionRules>);\n    descriptor: (JLjava/util/Map;Ljava/util/Map;Ljava/util/List;Ljava/util/Map;)V\n\n",
+                "  public java.util.Optional<com.liy.blendlib.core.animation.rules.LocomotionRules> locomotionRules(com.liy.blendlib.api.BlendModelKey);\n    descriptor: (Lcom/liy/blendlib/api/BlendModelKey;)Ljava/util/Optional;\n\n",
+                "  public com.liy.blendlib.fabric.client.reload.PreparedModelGeneration(long, java.util.Map<com.liy.blendlib.api.BlendModelKey, com.liy.blendlib.core.model.ModelAsset>, java.util.Map<com.liy.blendlib.api.BlendModelKey, com.liy.blendlib.core.diagnostic.BlendDiagnostic>, java.util.Map<com.liy.blendlib.api.BlendModelKey, com.liy.blendlib.core.animation.rules.LocomotionRules>, java.util.List<com.liy.blendlib.core.diagnostic.BlendDiagnostic>);\n    descriptor: (JLjava/util/Map;Ljava/util/Map;Ljava/util/Map;Ljava/util/List;)V\n\n")) {
+            int expectedOccurrences = addition.contains(" locomotionRules(") ? 2 : 1;
+            assertEquals(expectedOccurrences,
+                    actualManifest.split(java.util.regex.Pattern.quote(addition), -1).length - 1, addition);
+            actualManifest = actualManifest.replace(addition, "");
+        }
         assertEquals(expectedManifest, actualManifest, "b3660bb javap -protected -s descriptor manifest");
         for (String requiredPin : List.of(
                 "public final class com.liy.blendlib.fabric.client.reload.ClientModelRegistry",

@@ -69,6 +69,7 @@ default; `-Prunnable_examples=true` separately opts the build into the demo mod.
 | `-Dblendlib.examples.namedSkins=true` | `/function blendlib_runnable_examples:named_skins` creates Ember/Frost actors and wands |
 | `-Dblendlib.examples.itemAppearance=true` | `/function blendlib_runnable_examples:item_appearance` gives Orange and Blue bare wands |
 | `-Dblendlib.examples.itemVisualEvents=true` | Hold a wand, run `item attack`, then `/blendlib_example item events` |
+| `-Dblendlib.examples.locomotionRules=true` | Summon an actor tagged `blendlib_locomotion`; [resource-pack rules](locomotion-rules.md) select idle/walk/run |
 | `-Dblendlib.examples.twoBoneIk=true` | Summon an actor to use the [mechanical-arm scene](../versions/modern/showcase/README.md) with moving target/final socket markers |
 | `-Dblendlib.examples.extendedAttachments=true` | Summon an actor; the extended assembly exercises explicit conservative culling bounds |
 
@@ -157,6 +158,7 @@ live example use the demo's real slots/textures instead of inventing assets.
 | --- | --- |
 | Descriptor clips and server-driven animation | [Handbook](developer-handbook.md#synchronization), [synchronized visual events](synchronized-visual-events.md), [recovery](animation-recovery-runnable-examples.md) |
 | Independent entity controllers, masks and tick-based cues | [Layered animation](layered-animation.md), including dynamic weights and per-layer callbacks |
+| Resource-pack continuous locomotion, typed inputs and threshold hysteresis | [Locomotion rules](locomotion-rules.md) |
 | Standard three-joint two-bone IK, model-space target/pole, diagnostics | [Two-bone IK](standard-two-bone-ik.md) |
 | Look-at, rotation limits, springs, weighted/masked procedural stages | [Procedural components](procedural-components.md) |
 | Final-pose sockets and real attached models | [Sockets](final-pose-sockets.md), [nested attachments](nested-entity-attachments.md), [explicit culling envelopes](entity-culling-envelope.md) |

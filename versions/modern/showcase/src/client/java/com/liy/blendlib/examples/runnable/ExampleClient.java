@@ -24,6 +24,7 @@ public final class ExampleClient implements ClientModInitializer {
     public void onInitializeClient() {
         boolean itemAppearance = Boolean.getBoolean("blendlib.examples.itemAppearance");
         boolean namedSkins = Boolean.getBoolean("blendlib.examples.namedSkins");
+        boolean locomotionRules = ExampleLocomotionScene.enabled();
         if (namedSkins) ExampleNamedSkins.register();
         if (ITEM_VISUAL_EVENTS_ENABLED) {
             ExampleItemMaterialAppearance.register(itemAppearance, namedSkins, ITEM_VISUAL_EVENTS::accept);
@@ -43,17 +44,22 @@ public final class ExampleClient implements ClientModInitializer {
                                 .shadowRadius(0.45F)
                                 .build();
                     }
-                    var builder = BlendEntityRenderer.<LayeredActor>builder(context, ExampleContent.APPEARANCE_ACTOR_MODEL)
+                    var builder = BlendEntityRenderer.<LayeredActor>builder(context, locomotionRules
+                            ? ExampleLocomotionScene.MODEL : ExampleContent.APPEARANCE_ACTOR_MODEL)
                         .materialAppearance((entity, request) -> ExampleMaterialAppearance.forName(
                                 appearanceName(entity, namedSkins)))
                         .skinnedAnimation((entity, request) -> ExampleContent.WALK)
-                        .animationLayerCues(ExampleAnimationScene.layers(), ExampleClient::cues)
+                        .animationLayerCues(locomotionRules ? ExampleLocomotionScene.layers() : ExampleAnimationScene.layers(),
+                                ExampleClient::cues)
                         .onAnimationLayerVisualEvent((entity, event) -> entity.visualEvents().accept(event))
                         .animationLayerWeights((entity, request) -> ExampleAnimationScene.clipLayerWeights(
                                 request.clientGameTick() + (double) request.partialTick() + entity.getId() % 8 * 10.0))
                         .poseComponents(ExampleAnimationScene.procedural())
                         .attachments(ExampleClient::attachments)
                         .shadowRadius(0.45F);
+                    if (locomotionRules) builder.animationLocomotionRules(ExampleAnimationScene.BASE,
+                            (entity, request) -> ExampleLocomotionScene.inputs(
+                                    entity.locomotionGrounded(), entity.locomotionSpeed()));
                     if (namedSkins) builder.skin((entity, request) -> ExampleNamedSkins.forName(
                             entity.getCustomName() == null ? null : entity.getCustomName().getString()));
                     ATTACHMENT_MODE.cullingEnvelope().ifPresent(builder::cullingEnvelope);
@@ -68,7 +74,7 @@ public final class ExampleClient implements ClientModInitializer {
                     ITEM_VISUAL_EVENTS.clear();
                 });
         ExampleItemCommands.register(ITEM_VISUAL_EVENTS_ENABLED, ITEM_VISUAL_EVENTS);
-        ExampleInspectionCommands.register();
+        ExampleInspectionCommands.register(locomotionRules && !ExampleTwoBoneIkScene.enabled());
     }
 
     private static String appearanceName(LayeredActor entity, boolean namedSkins) {

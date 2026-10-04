@@ -71,6 +71,79 @@ each client actor. Use `/blendlib_example inspect` to find the actor's ID, then
 and upper controllers. This consumer counts callbacks; it does not play sounds or particles.
 Server gameplay and authoritative cues never depend on those counts.
 
+## Opt-in resource-pack locomotion rules
+
+The default stationary layered actor is unchanged. Enable the locomotion **client JVM property**
+and summon a tagged actor on an open, level floor:
+
+```sh
+JAVA_TOOL_OPTIONS="-Dblendlib.examples.locomotionRules=true" ./gradlew -p versions/modern -Pminecraft_version=26.3 -Prunnable_examples=true runRunnableExamplesClient
+```
+
+```mcfunction
+/summon blendlib_runnable_examples:layered_actor ~ ~ ~3 {Tags:["blendlib_locomotion"]}
+```
+
+For a packaged install, add `-Dblendlib.examples.locomotionRules=true` to the launcher's Java
+arguments and restart with both example and library JARs installed. This is not a Gradle `-P`
+property. The server needs the example mod but no matching JVM property. Clearing the property
+restores the original renderer. The per-actor tag separately opts into movement, so remove the
+actor or its tag when returning to the stationary demo:
+
+```mcfunction
+/tag @e[type=blendlib_runnable_examples:layered_actor,tag=blendlib_locomotion] remove blendlib_locomotion
+```
+
+A tagged actor repeats a twelve-second cycle: two seconds idle, two walking at 0.065 blocks/tick,
+two running at 0.18, then the same three phases in the opposite X direction. It uses ordinary
+server collision and gravity. Leave roughly ten blocks clear beside it; walls reduce actual
+speed and ledges can make it fall. Animation never drives collision, position or gameplay.
+Untagged actors stay stationary. The client property alone does not move any actor.
+
+`LayeredActor` measures horizontal position displacement **after collision resolution** on each
+server tick, then sends this speed and grounded flag using ordinary tracked entity data. These
+are measurements, not the scripted target speed or client interpolation deltas. The renderer
+captures one immutable `LocomotionInputs` snapshot per extraction through
+`.animationLocomotionRules(ExampleAnimationScene.BASE, ...)`. No input callback reads resources.
+
+The opt-in selects the separate `locomotion_actor` strict-v1 descriptor. Its real `idle`, `walk`
+and authored half-second `run` clips are continuous loops without `next`. The corresponding
+resource-pack sidecar is:
+
+```text
+assets/blendlib_runnable_examples/blend_animation_rules/locomotion_actor.json
+```
+
+It declares ordered `run` then `walk` rules, both requiring `grounded=true`; speed is in blocks
+per server tick. Run enters at 0.13 and exits below 0.10; walk enters at 0.04 and exits below
+0.025. Boundaries are inclusive. The default is `blendlib_runnable_examples:idle`, including when
+not grounded. Its six-tick minimum interval holds the selected animation before another change;
+it is not a candidate debounce. A change restarts that base state once at zero, while repeated
+inputs retain the command sequence and continue the loop. Resource packs can replace the JSON
+and reload with F3+T. Missing/invalid sidecars leave the ordinary declared base idle layer intact;
+invalid JSON produces a bounded reload diagnostic, while the model and upper controller remain
+usable.
+
+The existing masked upper `attack -> idle` remains a separately sequenced server cue every five
+seconds, with its existing independent weight fade. Material appearance, named texture skins,
+procedural tip pose and compact/extended attachments still work. The mechanical-arm opt-in has
+precedence when both properties are enabled, so leave `blendlib.examples.twoBoneIk` off for this
+demo. Item examples are unchanged.
+
+Use `/blendlib_example inspect` then `/blendlib_example inspect <entity-id>` to compare received
+speed/grounded values with the last sampled base and upper states, playheads and sequences.
+Inspection is read-only and can lag while culled. Try two actors, stop one against a wall, reload,
+unload/re-enter and reconnect. Stable inputs must advance playback; a base change must not restart
+the upper attack. Native graphical acceptance remains deferred, and no client session is implied.
+
+`verifyRunnableExamples` loads the new descriptor, GLB and sidecar from the **built example JAR**
+through the production reload prepare/apply path. It then uses the same consumer input/layer
+helpers and `SkinnedAnimationRuntime.extractLayered`, verifies different final CPU-skinned poses
+for idle/walk/run, increasing playheads under unchanged rules, hold/hysteresis, independent upper
+cues and owners, no extraction resource reads, immutable retained geometry, missing/invalid-rule
+fallback and recovery, reload, unload, explicit retirement and disconnect/reconnect. This is
+headless integration evidence, not a GPU/display check.
+
 ## Opt-in standard two-bone IK mechanical arm
 
 The existing layered actor remains the default. To use the three-joint mechanical arm instead,

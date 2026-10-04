@@ -55,6 +55,14 @@ Keep it aligned with your full-body layer if using `onSkinnedVisualEvent`. That 
 unchanged and independent of the opt-in layer-event callback below. Registering both can
 intentionally deliver a base descriptor marker through both independent presentation paths.
 
+## Resource-pack locomotion selection
+
+The additive `animationLocomotionRules(controllerId, inputs)` opt-in drives one declared
+layer from reload-validated idle/walk/run rules. It owns that controller’s sequence domain;
+other controllers retain their commands/cues. Missing or invalid sidecars preserve the
+original behavior. See [locomotion rules](locomotion-rules.md) for hysteresis, input validity,
+priority, state intervals and lifecycle.
+
 ## Tick-based cues without a consumer cache
 
 For entity action state carrying a sequence and start tick, prefer the additive

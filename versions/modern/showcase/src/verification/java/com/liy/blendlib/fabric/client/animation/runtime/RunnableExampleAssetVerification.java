@@ -30,6 +30,7 @@ public final class RunnableExampleAssetVerification {
     public static void main(String[] args) {
         RunnableAttachmentVerification.verify();
         RunnableTwoBoneIkVerification.verify();
+        com.liy.blendlib.fabric.client.reload.RunnableLocomotionVerification.verify();
         ModelAsset actor = load("actor");
         ModelAsset wand = load("wand");
         ModelAsset marker = load("marker");

@@ -20,6 +20,7 @@ public final class ExampleNamedSkins {
     /** Called once during client initialization, before the first model reload. */
     public static void register() {
         BlendLibModelSkins.register(ExampleContent.APPEARANCE_ACTOR_MODEL, definitions(false));
+        BlendLibModelSkins.register(ExampleLocomotionScene.MODEL, definitions(false));
         BlendLibModelSkins.register(ExampleContent.APPEARANCE_WAND_MODEL, definitions(true));
     }
 

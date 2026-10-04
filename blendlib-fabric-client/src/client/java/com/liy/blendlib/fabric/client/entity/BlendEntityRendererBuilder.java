@@ -24,6 +24,8 @@ public final class BlendEntityRendererBuilder<E extends Entity> {
     private java.util.List<com.liy.blendlib.core.animation.v2.ModelAnimationLayers.Layer> animationLayers;
     private BlendEntityLayerCommands<? super E> layerCommands;
     private BlendEntityLayerWeights<? super E> layerWeights;
+    private BlendResourceId locomotionController;
+    private BlendEntityLocomotionInputs<? super E> locomotionInputs;
     private BlendEntityLayerVisualEventHandler<? super E> layerVisualEventHandler;
     private com.liy.blendlib.fabric.client.animation.runtime.ClientAnimationPoseModifier poseComponents;
     private BlendEntitySocketHandler<? super E> socketHandler;
@@ -198,6 +200,7 @@ public final class BlendEntityRendererBuilder<E extends Entity> {
             BlendEntityLayerCommands<? super E> commands) {
         requireAnimated();
         if (layers.isEmpty()) throw new IllegalArgumentException("At least one layer is required");
+        if (locomotionInputs != null) throw new IllegalStateException("Configure layers before locomotion rules");
         this.animationLayers = java.util.List.copyOf(layers);
         this.layerCommands = Objects.requireNonNull(commands, "commands");
         return this;
@@ -208,6 +211,25 @@ public final class BlendEntityRendererBuilder<E extends Entity> {
             java.util.List<com.liy.blendlib.core.animation.v2.ModelAnimationLayers.Layer> layers,
             BlendEntityLayerCues<? super E> cues) {
         return animationLayers(layers, BlendEntityLayerCommands.fromCues(cues));
+    }
+
+    /**
+     * Opts one declared layer into its model's optional resource-pack locomotion rules.
+     * Configure layers/cues first. With valid rules this controller must receive no explicit
+     * commands/cues; other controllers remain independent. Missing/invalid resources keep the
+     * original commands unchanged. Inputs are captured only during extraction, once per frame.
+     */
+    public BlendEntityRendererBuilder<E> animationLocomotionRules(
+            BlendResourceId controllerId, BlendEntityLocomotionInputs<? super E> inputs) {
+        requireAnimated();
+        if (animationLayers == null) throw new IllegalStateException("Configure animation layers or cues first");
+        if (locomotionInputs != null) throw new IllegalStateException("Only one locomotion controller may be configured");
+        Objects.requireNonNull(controllerId, "controllerId");
+        if (animationLayers.stream().noneMatch(layer -> layer.id().equals(controllerId)))
+            throw new IllegalArgumentException("Undeclared locomotion controller: " + controllerId);
+        this.locomotionController = controllerId;
+        this.locomotionInputs = Objects.requireNonNull(inputs, "inputs");
+        return this;
     }
 
     /**
@@ -291,7 +313,7 @@ public final class BlendEntityRendererBuilder<E extends Entity> {
                     skinnedAnimationVisualEventHandler,
                     poseModifier,
                     rootRotationSelector,
-                    skinnedSocketMarkerKey, animationLayers, layerCommands, poseComponents, socketHandler, attachmentProvider, layerWeights, layerVisualEventHandler);
+                    skinnedSocketMarkerKey, animationLayers, captureLocomotionCommands(layerCommands, locomotionController, locomotionInputs), poseComponents, socketHandler, attachmentProvider, layerWeights, layerVisualEventHandler);
         }
         if (snapshotFactory == null) {
             throw new IllegalStateException("A BlendEntityRenderer requires an extraction-only snapshotFactory");
@@ -306,6 +328,22 @@ public final class BlendEntityRendererBuilder<E extends Entity> {
                 cullingEnvelope,
                 shadowRadius,
                 shadowStrength);
+    }
+
+    /** Keeps source identity stable and does not retain the mutable builder. */
+    static <E extends Entity> BlendEntityLayerCommands<E> captureLocomotionCommands(
+            BlendEntityLayerCommands<? super E> commands, BlendResourceId controller,
+            BlendEntityLocomotionInputs<? super E> inputs) {
+        if (inputs == null) return commands == null ? null : (entity, request) -> commands.commands(entity, request);
+        Object source = new Object();
+        return (entity, request) -> {
+            var runtime = BlendLibClientServices.skinnedAnimationRuntime();
+            var model = BlendLibClientServices.models().resolve(request.modelKey());
+            if (model.missing()) return java.util.List.of();
+            return runtime.captureEntityLocomotionRules(source, entity, entity.getId(), request.modelKey(),
+                    model.generationId(), request.clientGameTick() + (double) request.partialTick(), controller,
+                    () -> inputs.capture(entity, request), () -> commands.commands(entity, request));
+        };
     }
 
     /** Captures configuration once; the returned extraction factory retains no mutable builder. */

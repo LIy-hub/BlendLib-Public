@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased: resource-pack locomotion rules
+
+- Add strict versioned optional model sidecars, typed extraction inputs, ordered threshold hysteresis and optional minimum-state intervals
+- Integrate one explicitly owned standard entity layer with stable command sequences; keep independent sequenced action cues and all prior fallback behavior
+- Publish immutable rules with reload generations and retire exact entity/source/session state through existing lifecycle hooks
+- Add a separate opt-in idle/walk/run consumer with genuine run clip and packaged final-pose verification; native graphics remains deferred
+
 ## Unreleased: standard two-bone IK
 
 - Add a stateless ordinary pose component with immutable model-space target/pole snapshots and optional per-invocation diagnostics

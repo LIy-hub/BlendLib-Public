@@ -11,13 +11,13 @@ import net.minecraft.network.chat.Component;
 final class ExampleInspectionCommands {
     private ExampleInspectionCommands() { }
 
-    static void register() {
+    static void register(boolean locomotionRules) {
         ClientCommandRegistrationCallback.EVENT.register((dispatcher, registry) -> dispatcher.register(
                 ClientCommands.literal("blendlib_example").then(ClientCommands.literal("inspect")
                         .executes(context -> listActors(context.getSource()))
                         .then(ClientCommands.argument("entity-id", IntegerArgumentType.integer(0))
                                 .executes(context -> inspect(context.getSource(),
-                                        IntegerArgumentType.getInteger(context, "entity-id")))))));
+                                        IntegerArgumentType.getInteger(context, "entity-id"), locomotionRules))))));
     }
 
     private static int listActors(FabricClientCommandSource source) {
@@ -31,7 +31,7 @@ final class ExampleInspectionCommands {
         return ids.isEmpty() ? 0 : 1;
     }
 
-    private static int inspect(FabricClientCommandSource source, int id) {
+    private static int inspect(FabricClientCommandSource source, int id, boolean locomotionRules) {
         var client = source.getClient();
         var entity = client.level == null ? null : client.level.getEntity(id);
         if (!(entity instanceof LayeredActor actor)) {
@@ -54,7 +54,11 @@ final class ExampleInspectionCommands {
         }
         source.sendFeedback(Component.literal("Actor " + actor.getId() + " received cueSequence=" + actor.cueSequence()
                 + " cueTick=" + actor.cueTick() + " (received cue may be newer than the sampled layers)"));
-        ExampleLayerInspection.format(ExampleAnimationScene.layers(), sampled.orElseThrow())
+        if (locomotionRules) source.sendFeedback(Component.literal(String.format(java.util.Locale.ROOT,
+                "Received locomotion grounded=%s speed=%.4f blocks/tick (may be newer than sampled layers)",
+                actor.locomotionGrounded(), actor.locomotionSpeed())));
+        ExampleLayerInspection.format(locomotionRules ? ExampleLocomotionScene.layers() : ExampleAnimationScene.layers(),
+                sampled.orElseThrow())
                 .forEach(line -> source.sendFeedback(Component.literal(line)));
         return 1;
     }
