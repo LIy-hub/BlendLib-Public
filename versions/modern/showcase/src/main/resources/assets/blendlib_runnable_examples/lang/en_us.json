@@ -1,4 +1,5 @@
 {
   "entity.blendlib_runnable_examples.layered_actor": "BlendLib Layered Actor",
-  "item.blendlib_runnable_examples.animated_wand": "BlendLib Animated Wand"
+  "item.blendlib_runnable_examples.animated_wand": "BlendLib Animated Wand",
+  "entity.blendlib_runnable_examples.cpu_morph_actor": "BlendLib CPU Morph Actor"
 }

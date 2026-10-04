@@ -18,6 +18,7 @@ public final class ModelDescriptor {
     private final AnimationDefinition animation;
     private final Map<BlendResourceId, String> sockets;
     private final List<String> extensionsUsed;
+    private final Map<BlendResourceId, MorphControlDefinition> morphControls;
 
     public ModelDescriptor(
             BlendResourceId descriptorId,
@@ -28,6 +29,13 @@ public final class ModelDescriptor {
             AnimationDefinition animation,
             Map<BlendResourceId, String> sockets,
             List<String> extensionsUsed) {
+        this(descriptorId, profile, meshId, unitsPerBlock, materials, animation, sockets, extensionsUsed, Map.of());
+    }
+
+    public ModelDescriptor(BlendResourceId descriptorId, ModelProfile profile, BlendResourceId meshId,
+            double unitsPerBlock, Map<String, MaterialDefinition> materials, AnimationDefinition animation,
+            Map<BlendResourceId, String> sockets, List<String> extensionsUsed,
+            Map<BlendResourceId, MorphControlDefinition> morphControls) {
         this.descriptorId = Objects.requireNonNull(descriptorId, "descriptorId");
         this.profile = Objects.requireNonNull(profile, "profile");
         this.meshId = Objects.requireNonNull(meshId, "meshId");
@@ -43,6 +51,16 @@ public final class ModelDescriptor {
         this.animation = animation;
         this.sockets = Collections.unmodifiableMap(new LinkedHashMap<>(Objects.requireNonNull(sockets, "sockets")));
         this.extensionsUsed = List.copyOf(Objects.requireNonNull(extensionsUsed, "extensionsUsed"));
+        this.morphControls = Collections.unmodifiableMap(new LinkedHashMap<>(Objects.requireNonNull(morphControls, "morphControls")));
+        if (this.morphControls.size() > 1024 || (profile != ModelProfile.SKINNED_MORPH_CPU_V1 && !this.morphControls.isEmpty())) {
+            throw new IllegalArgumentException("Morph controls require the bounded CPU morph profile");
+        }
+        java.util.Set<String> pairs = new java.util.HashSet<>();
+        for (var entry : this.morphControls.entrySet()) {
+            Objects.requireNonNull(entry.getKey(), "morph alias");
+            MorphControlDefinition control = Objects.requireNonNull(entry.getValue(), "morph control");
+            if (!pairs.add(control.node() + "\u0000" + control.target())) throw new IllegalArgumentException("Duplicate morph node/target control");
+        }
     }
 
     public BlendResourceId descriptorId() {
@@ -72,6 +90,8 @@ public final class ModelDescriptor {
     public Map<BlendResourceId, String> sockets() {
         return sockets;
     }
+
+    public Map<BlendResourceId, MorphControlDefinition> morphControls() { return morphControls; }
 
     public List<String> extensionsUsed() {
         return extensionsUsed;

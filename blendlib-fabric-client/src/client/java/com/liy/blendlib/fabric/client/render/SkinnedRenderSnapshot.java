@@ -77,6 +77,7 @@ public final class SkinnedRenderSnapshot {
     public static SkinnedRenderSnapshot captureWithT4Provenance(
             SkinnedRenderHandle handle, List<X7SkinnedFrameProvenance.SealedFrame> frames) {
         Objects.requireNonNull(handle, "handle");
+        if (handle.cpuMorphProfile()) throw new IllegalArgumentException("CPU morph generations cannot carry skin-only T4 provenance");
         List<X7SkinnedFrameProvenance.SealedFrame> checkedFrames = List.copyOf(Objects.requireNonNull(frames, "frames"));
         List<PreparedSkinnedRenderPrimitive> primitives = handle.skinnedPrimitives();
         if (checkedFrames.size() != primitives.size()) {

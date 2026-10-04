@@ -5,6 +5,9 @@ import com.liy.blendlib.api.BlendModelKey;
 import com.liy.blendlib.core.animation.runtime.AnimationControllerDefinition;
 import com.liy.blendlib.core.animation.runtime.LocalPose;
 import com.liy.blendlib.core.animation.runtime.PoseSampler;
+import com.liy.blendlib.core.animation.runtime.MorphWeightSampler;
+import com.liy.blendlib.core.animation.runtime.MorphWeights;
+import com.liy.blendlib.core.animation.runtime.MorphFrameOverrides;
 import com.liy.blendlib.core.model.Quaternion;
 import com.liy.blendlib.core.model.Transform;
 import com.liy.blendlib.fabric.client.animation.runtime.ClientAnimationPoseContext;
@@ -175,6 +178,24 @@ public final class ClientAnimationInstanceRegistry {
         return ClientAnimationPoseSnapshot.from(key, sampleAndCache(key, sampler));
     }
 
+    /** Pairs a cached transform pose with weights from the same controller clocks and sample revision.
+     * Frame overrides are never cached, so a held transform cadence still captures every new input. */
+    public ClientAnimationPoseSnapshot preparePoseSnapshot(PoseCacheKey key, PoseSampler sampler,
+            MorphWeightSampler morphSampler) {
+        var current = requireCurrentBinding(key);
+        LocalPose pose = sampleAndCache(key, sampler);
+        return ClientAnimationPoseSnapshot.from(key, pose, current.controller().sampleMorphWeights(morphSampler));
+    }
+
+    /** Captures immutable frame weights without altering the cached clip result. */
+    public ClientAnimationPoseSnapshot withMorphWeights(ClientAnimationPoseSnapshot base, MorphWeights weights) {
+        requireCurrentPoseSnapshot(Objects.requireNonNull(base, "base"));
+        Objects.requireNonNull(weights, "weights");
+        if (base.morphWeights().bindings() != weights.bindings())
+            throw new IllegalArgumentException("Morph weights belong to a different generation binding");
+        return ClientAnimationPoseSnapshot.from(base.poseCacheKey(), base.localPose(), weights);
+    }
+
     /**
      * Applies one procedural rotation modifier to an already cached immutable base-pose snapshot.
      *
@@ -205,7 +226,7 @@ public final class ClientAnimationInstanceRegistry {
             throw new IllegalArgumentException("Pose modifier must return a non-null LocalPose");
         }
         validateRotationOnlyPose(basePose, modifiedPose);
-        return ClientAnimationPoseSnapshot.from(checkedBase.poseCacheKey(), modifiedPose);
+        return ClientAnimationPoseSnapshot.from(checkedBase.poseCacheKey(), modifiedPose, checkedBase.morphWeights());
     }
 
     /**
@@ -229,7 +250,7 @@ public final class ClientAnimationInstanceRegistry {
         if (!base.localPose().transforms().keySet().equals(pose.transforms().keySet())) {
             throw new IllegalArgumentException("Evaluated pose must preserve the model node domain");
         }
-        return ClientAnimationPoseSnapshot.from(base.poseCacheKey(), pose);
+        return ClientAnimationPoseSnapshot.from(base.poseCacheKey(), pose, base.morphWeights());
     }
 
     public PoseCacheMetrics poseCacheMetrics() {

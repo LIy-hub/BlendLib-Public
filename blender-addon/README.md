@@ -117,3 +117,71 @@ Native cubic eligibility also rejects connected-child bone location channels and
 non-CONSTANT F-curve extrapolation. Both use explicit baked fallback; this prevents
 ignored Blender bone translations or extrapolated motion from being mislabeled as exact.
 Run `blender --background --python-exit-code 1 --python blender-addon/scripts/verify_native_cubic_edge_cases.py -- --project-root .` for these regressions.
+
+## Explicit bounded CPU morph profile (format 2)
+
+Select **Skinned CPU morph v1 (format 2)** or pass
+`--profile blendlib:skinned_morph_cpu_v1`. This is a separate CPU-only profile;
+strict-v1, native-cubic defaults and X5's profile allowlist do not change.
+Blender **5.1.2** is the verified source boundary. The new mode uses
+`export_apply=False`, morph positions/normals/animation enabled, morph tangents
+disabled, and dense (never sparse) target accessors.
+
+The selected runtime-authoring Text must contain `morph_controls`, mapping each
+namespaced control to exactly `node`, `target`, `min_weight`, and `max_weight`.
+`node` is the exact exported full node path; `target` is the exact case-sensitive
+shape-key name. Every exported node/target pair needs one control. Intervals must
+be finite, include zero and fit `[-2,2]`; values are rejected rather than clamped.
+For example, the sample's `cpu_morph:breath` names
+`MorphRoot/MorphRig/FaceBody`, target `Breath`, range `[-0.5,1]`.
+An `animation` block is optional for a data-only/manual morph export; no dummy clip is
+needed. Existing state/event/socket/rules edits preserve the controls, and the
+Action picker includes attached Key datablock Actions in this profile only.
+The standard animated entity builder still requires a real animation declaration.
+Animation-free exports currently require explicit lower-level CPU consumption
+(`MorphWeights.defaults` plus `CpuMorphSkinner`); high-level animation-free
+rendering is deferred.
+
+Supported source shapes are relative to the first reference/Basis key, with at
+most eight non-muted targets. Absolute or chained keys, per-key vertex-group
+masks, drivers, active NLA mixing, Key Action layering, FCurve modifiers and
+nonconstant extrapolation reject. Each mesh must have exactly one ordinary
+Armature modifier using normalized vertex groups: preserve-volume, envelopes,
+modifier masks, multi-modifier behavior, disabled modifiers and any non-Armature
+modifier reject. Muted NLA tracks are Action storage, not exported strip timing
+or mixing. Every Action uses its explicitly associated datablock slot; shared
+object/Key Actions retain both channel kinds (the inherited native-TRS analyzer
+may select its reported baked fallback for a multi-slot Action).
+
+LINEAR and CONSTANT Key curves use the union of their source times and become
+complete glTF LINEAR or STEP weight vectors. Unkeyed targets use captured source
+defaults. Weight-only Actions remain real clips with their full duration and no
+synthetic TRS tracks. Bezier or mixed interpolation uses an explicit approximate
+LINEAR bake at one scene frame plus all authored key times; `cpu_morph` in the
+export report records the reason and effective cadence. Native cubic TRS remains
+independent and no weight channel is lost during native replacement or fallback.
+Blender slider limits must contain exported source curve values. glTF FLOAT time
+quantization applies, particularly at STEP boundaries; this is not arbitrary
+Blender/Bezier exactness.
+
+Validation checks stable `extras.targetNames` order, dense POSITION/NORMAL deltas,
+material-split counts, defaults, keyed ranges, normal nondegeneracy throughout the
+full declared intervals, and aggregate source/export budgets before decoding
+morph arrays. The conservative normal proof uses the base-normal norm minus the
+sum of maximum weighted delta norms. A valid shape that cannot satisfy that
+proof is rejected. The CPU profile additionally requires an exactly affine
+inverse-bind fourth row [0,0,0,1] and mirrors the runtime's cumulative storage
+reservation, including palette and CPU-capture copies. Blender's exporter resets unanimated shape-key values while
+visiting Actions; the new path restores their original defaults after export.
+
+Reproduce [the editable face/breath sample](../test-assets/cpu-morph/README.md):
+
+```sh
+blender --background --python-exit-code 1 --python blender-addon/scripts/create_cpu_morph_fixture.py -- --project-root .
+blender --background --python-exit-code 1 --python blender-addon/scripts/verify_cpu_morph_edge_cases.py -- --project-root .
+python -m unittest discover -s blender-addon/tests -v
+```
+
+The sample includes a real Blender render, evaluated position/weight oracles,
+a separately labeled glTF-delta/skin normal oracle, and strict rejection/fallback
+checks. It is not native Minecraft visual acceptance.

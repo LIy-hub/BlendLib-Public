@@ -214,3 +214,7 @@ Opt existing entity layers into [fixed-cycle 1D blendspaces](docs/synchronized-b
 for adjacent idle/walk/run mixtures with phase-synchronized unequal clip durations. Includes a
 separate [smooth-speed actor demo](versions/modern/showcase/README.md#opt-in-synchronized-continuous-1d-blendspace);
 existing discrete locomotion rules remain available. Headless verification is separate from native graphics acceptance.
+
+## CPU shape-key preview
+
+See [bounded CPU shape keys](docs/cpu-morph-profile.md) and the [runnable consumer](examples/cpu-morph-profile/README.md).

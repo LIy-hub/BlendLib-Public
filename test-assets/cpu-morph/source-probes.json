@@ -1,0 +1,32 @@
+{
+  "blender_version": "5.1.2",
+  "build_hash": "ec6e62d40fa9",
+  "probes": [
+    {
+      "finding": "__gather_extras preserves get_sk_exported targetNames order; __gather_weights reads current Key defaults",
+      "path": "blender/exp/obj_data.py",
+      "sha256": "7bb5d31a552219e2e52e8b08fcd9236a1308d6bcabf59ee315c9a32a5825f9b4"
+    },
+    {
+      "finding": "__get_positions reads reference-key positions; __get_normals reads relative-key split normals and target split normals before delta conversion",
+      "path": "blender/exp/primitive_extract.py",
+      "sha256": "7e202e20a9416bd900934a176030e4bb52356f10886278805fe3d29444b5850a"
+    },
+    {
+      "finding": "reset_sk_data sets exported shape-key values to zero; repeated real export revealed defaults need restoration",
+      "path": "blender/exp/animation/anim_utils.py",
+      "sha256": "b470f252b675c8e7c31aede89dba7e2fede44daa152c637e3a52f2cf3316460f"
+    },
+    {
+      "finding": "Action export discovers object and shape-key Action-slot associations",
+      "path": "blender/exp/animation/action.py",
+      "sha256": "6ac087e860dc11fe12b736f04474189fe43062ec1b4ebab15588610084a04c9c"
+    },
+    {
+      "finding": "export_apply and morph normal/tangent/animation/sparse flags are independent options",
+      "path": "__init__.py",
+      "sha256": "c37950a4be79e084c1991d6627a19300c285b1253a37988e397ac0ab2d5af090"
+    }
+  ],
+  "root": "5.1/scripts/addons_core/io_scene_gltf2"
+}

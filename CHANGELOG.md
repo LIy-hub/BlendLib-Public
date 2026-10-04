@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased: bounded CPU shape-key profile
+
+- Add explicit format-2 skinned_morph_cpu_v1 with dense POSITION/NORMAL deltas, named bounded controls and unchanged strict old profiles
+- Sample complete defaults, LINEAR/STEP weight-only clips and same-clock full-body transitions; capture atomic frame overrides
+- Fuse morph-before-skin with immutable topology, interval-normal/bounds proofs and aggregate allocation preflight; keep all morph frames CPU-only
+- Export a bounded Blender 5.1.2 Basis-relative subset with Key Actions, retained native cubic TRS and reported sampled weight fallback
+- Add editable face/breathing fixture, independent Blender/Java oracles and separate runnable preview; Minecraft visual acceptance remains deferred
+- Correct the inherited inverse-transpose determinant in CPU skinning and its existing X7 mirrors, and prevent repeated loop events at floating-point boundary times
+
 ## Unreleased: explicit native cubic animation profile
 
 - Add format-2 skinned_cubic_v1 opt-in runtime dispatch while preserving strict-v1 decoders, schemas and exporter defaults

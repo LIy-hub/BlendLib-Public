@@ -23,7 +23,7 @@ class CpuSkinnerHotPathRegressionTest {
     private static final double EPSILON = 1.0e-8;
 
     @Test
-    void preservesLegacyColumnMajorAndInverseTransposeNumerics() {
+    void preservesColumnMajorAndCorrectInverseTransposeNumerics() {
         float halfRoot = (float) Math.sqrt(0.5d);
         Transform rotatedScaledJoint = new Transform(
                 new Vec3(2.0f, -1.0f, 0.5f),
@@ -63,16 +63,18 @@ class CpuSkinnerHotPathRegressionTest {
                     1.0f, 0.0f, 0.0f, 0.0f
                 }));
 
-        CpuSkinnedMesh expectedLegacyOutput = legacySkin(geometry, palette);
+        CpuSkinnedMesh expectedReferenceOutput = referenceSkin(geometry, palette);
         CpuSkinnedMesh actual = CpuSkinner.skin(geometry, palette);
 
-        assertArrayEquals(expectedLegacyOutput.positions(), actual.positions());
-        assertArrayEquals(expectedLegacyOutput.normals(), actual.normals());
+        assertArrayEquals(expectedReferenceOutput.positions(), actual.positions());
+        assertArrayEquals(expectedReferenceOutput.normals(), actual.normals());
         assertEquals(-2.0f, actual.positions()[0], 1.0e-5f);
         assertEquals(1.0f, actual.positions()[1], 1.0e-5f);
         assertEquals(6.5f, actual.positions()[2], 1.0e-5f);
-        assertEquals((float) (1.0d / Math.sqrt(2.0d)), actual.normals()[0], 1.0e-5f);
-        assertEquals((float) (-1.0d / Math.sqrt(2.0d)), actual.normals()[1], 1.0e-5f);
+        // A +90 degree Z rotation sends (1,1,0) to (-1,1,0). The inherited
+        // incorrect determinant had reversed this expected direction.
+        assertEquals((float) (-1.0d / Math.sqrt(2.0d)), actual.normals()[0], 1.0e-5f);
+        assertEquals((float) (1.0d / Math.sqrt(2.0d)), actual.normals()[1], 1.0e-5f);
         assertEquals(0.0f, actual.normals()[2], 1.0e-5f);
 
         CpuSkinnedMesh repeated = CpuSkinner.skin(geometry, palette);
@@ -127,7 +129,7 @@ class CpuSkinnerHotPathRegressionTest {
         return values;
     }
 
-    private static CpuSkinnedMesh legacySkin(PreparedSkinnedGeometry geometry, SkinPalette palette) {
+    private static CpuSkinnedMesh referenceSkin(PreparedSkinnedGeometry geometry, SkinPalette palette) {
         float[] sourcePositions = geometry.positionsForSkinning();
         float[] sourceNormals = geometry.normalsForSkinning();
         int[] joints = geometry.jointsForSkinning();
@@ -224,7 +226,7 @@ class CpuSkinnerHotPathRegressionTest {
         double c20 = a01 * a12 - a02 * a11;
         double c21 = a02 * a10 - a00 * a12;
         double c22 = a00 * a11 - a01 * a10;
-        double determinant = a00 * c00 + a01 * c10 + a02 * c20;
+        double determinant = a00 * c00 + a01 * c01 + a02 * c02;
         if (!Double.isFinite(determinant) || Math.abs(determinant) <= 1.0e-12) {
             throw new IllegalArgumentException("Skin normal transform requires an invertible joint matrix");
         }

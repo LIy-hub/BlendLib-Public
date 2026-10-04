@@ -353,10 +353,12 @@ class EntityAdapterContractsTest {
         assertTrue(source.contains("BlendEntityRotationPoseAdapter.capture(current)"));
         assertTrue(source.contains("BlendEntityRotationPoseAdapter.apply(current, capturedBase, modified)"));
         assertTrue(source.contains("poseComponents.modify(animationContext, current)"));
-        assertTrue(source.contains("animationRuntime.extract(runtimeInput, combinedModifier)"));
-        assertTrue(source.contains("animationRuntime.extractLayered(runtimeInput, animationLayers,"));
+        assertTrue(source.contains("animationRuntime.extractMorph(runtimeInput, capturedMorphs, combinedModifier)"));
+        assertTrue(source.contains("animationRuntime.extractLayeredMorph(runtimeInput, animationLayers,"));
         assertTrue(source.indexOf("BlendEntitySockets.capture(checkedRequest, result.frame())")
-                > source.indexOf("animationRuntime.extractLayered("));
+                > source.indexOf("animationRuntime.extractLayeredMorph("));
+        assertTrue(source.indexOf("validateMorphControls(modelKey, model.generationId(), capturedMorphs)")
+                < source.indexOf("var layerFrame ="), "all named morph values preflight before stateful cue capture");
         assertTrue(source.contains("RenderVisibility.CULLED"));
         assertTrue(source.contains("OverlayTexture.NO_OVERLAY"));
     }

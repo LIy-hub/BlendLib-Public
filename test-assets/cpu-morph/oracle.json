@@ -1,0 +1,58 @@
+{
+  "blender_version": "5.1.2",
+  "build_hash": "ec6e62d40fa9",
+  "cpu_morph": {
+    "channels": [
+      {
+        "clip": "Blink",
+        "interpolation": "STEP",
+        "key_count": 4,
+        "node": "FaceBody"
+      },
+      {
+        "clip": "Breath",
+        "interpolation": "LINEAR",
+        "key_count": 4,
+        "node": "FaceBody"
+      },
+      {
+        "clip": "Smile",
+        "interpolation": "LINEAR",
+        "key_count": 4,
+        "node": "FaceBody"
+      }
+    ],
+    "effective_fps": 24.0,
+    "fallback_reasons": [],
+    "morph_control_count": 3,
+    "morph_node_count": 1,
+    "profile": "blendlib:skinned_morph_cpu_v1",
+    "reserved_float_slots": 42592,
+    "vertex_target_pairs": 792,
+    "weight_mode": "native_linear_step"
+  },
+  "deterministic_glb_and_descriptor": true,
+  "maximum_bone_world_matrix_error": 1.1920928955078125e-07,
+  "maximum_skinned_position_error": 2.436009455363723e-07,
+  "maximum_weight_error": 1.0170042585855299e-07,
+  "native_cubic": {
+    "channels": [
+      {
+        "clip": "Nod",
+        "interpolation": "CUBICSPLINE",
+        "key_count": 3,
+        "node": "Face",
+        "path": "rotation"
+      }
+    ],
+    "effective_fps": 24.0,
+    "exact_native_subset": true,
+    "fallback_reasons": [],
+    "mode": "native_fcurves",
+    "profile": "blendlib:skinned_cubic_v1",
+    "scope": "Native eligibility applies to TRS only. Unsupported TRS sources bake at scene-frame cadence; morph weights remain governed by the independent cpu_morph report."
+  },
+  "preview": "Actual Blender render; no native Minecraft visual acceptance is claimed",
+  "profile": "blendlib:skinned_morph_cpu_v1",
+  "sample_count": 60
+}

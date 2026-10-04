@@ -41,6 +41,7 @@ final class SkinnedAnimationEntitySnapshotFactory<E extends Entity> implements B
     private final java.util.List<com.liy.blendlib.core.animation.v2.ModelAnimationLayers.Layer> animationLayers;
     private final BlendEntityLayerCommands<? super E> layerCommands;
     private final BlendEntityLayerWeights<? super E> layerWeights;
+    private final BlendEntityMorphControls<? super E> morphControls;
     private final com.liy.blendlib.core.animation.v2.AnimationBlendSpaceSyncGroup blendSpace;
     private final java.util.function.BiFunction<E, BlendEntitySnapshotRequest, com.liy.blendlib.core.animation.v2.AnimationV2LayerWeights> blendSpaceWeights;
     private final BlendEntityBlendSpaceCadence<? super E> blendSpaceCadence;
@@ -177,6 +178,30 @@ final class SkinnedAnimationEntitySnapshotFactory<E extends Entity> implements B
             com.liy.blendlib.core.animation.v2.AnimationBlendSpaceSyncGroup blendSpace,
             java.util.function.BiFunction<E, BlendEntitySnapshotRequest, com.liy.blendlib.core.animation.v2.AnimationV2LayerWeights> blendSpaceWeights,
             BlendEntityBlendSpaceCadence<? super E> blendSpaceCadence) {
+        this(modelKey, stateSelector, syncedStateSelector, visualEventHandler, poseModifier, rootRotationSelector,
+                presentationSocketMarkerKey, animationLayers, layerCommands, poseComponents, socketHandler,
+                attachmentProvider, layerWeights, layerVisualEventHandler, blendSpace, blendSpaceWeights, blendSpaceCadence, null);
+    }
+
+    SkinnedAnimationEntitySnapshotFactory(BlendModelKey modelKey,
+            SkinnedAnimationStateSelector<? super E> stateSelector,
+            SyncedSkinnedAnimationStateSelector<? super E> syncedStateSelector,
+            SkinnedAnimationVisualEventHandler<? super E> visualEventHandler,
+            BlendEntityPoseModifier<? super E> poseModifier,
+            BlendEntityRootRotationSelector<? super E> rootRotationSelector,
+            BlendResourceId presentationSocketMarkerKey,
+            java.util.List<com.liy.blendlib.core.animation.v2.ModelAnimationLayers.Layer> animationLayers,
+            BlendEntityLayerCommands<? super E> layerCommands,
+            com.liy.blendlib.fabric.client.animation.runtime.ClientAnimationPoseModifier poseComponents,
+            BlendEntitySocketHandler<? super E> socketHandler,
+            BlendEntityAttachmentProvider<? super E> attachmentProvider,
+            BlendEntityLayerWeights<? super E> layerWeights,
+            BlendEntityLayerVisualEventHandler<? super E> layerVisualEventHandler,
+            com.liy.blendlib.core.animation.v2.AnimationBlendSpaceSyncGroup blendSpace,
+            java.util.function.BiFunction<E, BlendEntitySnapshotRequest, com.liy.blendlib.core.animation.v2.AnimationV2LayerWeights> blendSpaceWeights,
+            BlendEntityBlendSpaceCadence<? super E> blendSpaceCadence,
+            BlendEntityMorphControls<? super E> morphControls) {
+        this.morphControls = morphControls;
         this.blendSpaceCadence = blendSpaceCadence;
         this.blendSpace = blendSpace;
         this.blendSpaceWeights = blendSpaceWeights;
@@ -272,6 +297,15 @@ final class SkinnedAnimationEntitySnapshotFactory<E extends Entity> implements B
             if (!animationRuntime.validateBlendSpaceCadence(modelKey, model.generationId(), animationLayers, blendSpace, cadence))
                 return missingSnapshot(model, checkedRequest, rootTransform);
         }
+        var capturedMorphs = morphControls == null
+                ? com.liy.blendlib.core.animation.runtime.MorphFrameOverrides.empty()
+                : Objects.requireNonNull(morphControls.weights(checkedEntity, checkedRequest), "captured morph controls");
+        if (capturedLifecycle != animationRuntime.captureExtractionLifecycleRevision()
+                || !instanceKey.equals(animationRuntime.activeEntityKey(checkedEntity.getId()))
+                || !animationRuntime.validateMorphControls(modelKey, model.generationId(), capturedMorphs))
+            return missingSnapshot(model, checkedRequest, rootTransform);
+        if (animationLayers != null && !animationRuntime.validateBoneLayerBinding(modelKey, model.generationId(), animationLayers))
+            return missingSnapshot(model, checkedRequest, rootTransform);
         var layerFrame = animationLayers == null ? null
                 : captureBlendGroupFrame(animationLayers, layerWeights, layerCommands, checkedEntity, checkedRequest,
                         blendSpace, animationRuntime);
@@ -281,14 +315,14 @@ final class SkinnedAnimationEntitySnapshotFactory<E extends Entity> implements B
             return missingSnapshot(model, checkedRequest, rootTransform);
         }
         var extraction = layerFrame == null
-                ? animationRuntime.extract(runtimeInput, combinedModifier)
+                ? animationRuntime.extractMorph(runtimeInput, capturedMorphs, combinedModifier)
                 : blendSpace != null
-                ? animationRuntime.extractBlendSpaceFrame(runtimeInput, animationLayers, layerFrame.commands(),
+                ? animationRuntime.extractBlendSpaceFrameMorph(runtimeInput, animationLayers, layerFrame.commands(),
                         layerFrame.weights(), blendSpace, memberWeights, cadence, this, checkedEntity, combinedModifier,
                         layerVisualEventHandler == null ? null
-                                : event -> layerVisualEventHandler.onVisualEvent(checkedEntity, event))
-                : animationRuntime.extractLayered(runtimeInput, animationLayers,
-                        layerFrame.commands(), layerFrame.weights(), combinedModifier,
+                                : event -> layerVisualEventHandler.onVisualEvent(checkedEntity, event), capturedMorphs)
+                : animationRuntime.extractLayeredMorph(runtimeInput, animationLayers,
+                        layerFrame.commands(), layerFrame.weights(), capturedMorphs, combinedModifier,
                         layerVisualEventHandler == null ? null
                                 : event -> layerVisualEventHandler.onVisualEvent(checkedEntity, event));
         ModelRenderSnapshot extracted = extraction

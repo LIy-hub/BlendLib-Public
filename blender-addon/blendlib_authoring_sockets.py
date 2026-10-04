@@ -29,19 +29,26 @@ _ANIMATION_FIELDS = ('action', 'action_slot', 'use_nla', 'action_blend_type', 'a
 def _capture_objects(objects):
     # glTF ACTIONS export resets unkeyed pose channels and may lose an active
     # Action with no slot. Discovery must restore them even after export failure.
-    transforms, animations, tracks = [], [], []
+    transforms, animations, tracks, shape_values = [], [], [], []
     for obj in objects:
         for value in [obj] + (list(obj.pose.bones) if obj.pose else []):
             transforms.append((value, {field: tuple(getattr(value, field)) for field in _TRANSFORM_FIELDS}))
-        if obj.animation_data:
-            data = obj.animation_data
-            animations.append((data, {field: getattr(data, field) for field in _ANIMATION_FIELDS}))
-            tracks.extend((track, track.mute, track.is_solo) for track in data.nla_tracks)
-    return transforms, animations, tracks
+        owners = [obj]
+        if obj.type == 'MESH' and obj.data.shape_keys:
+            owners.append(obj.data.shape_keys)
+            shape_values.extend((key, key.value) for key in obj.data.shape_keys.key_blocks)
+        for owner in owners:
+            if owner.animation_data:
+                data = owner.animation_data
+                animations.append((data, {field: getattr(data, field) for field in _ANIMATION_FIELDS}))
+                tracks.extend((track, track.mute, track.is_solo) for track in data.nla_tracks)
+    return transforms, animations, tracks, shape_values
 
 
 def _restore_objects(snapshot):
-    transforms, animations, tracks = snapshot
+    transforms, animations, tracks, shape_values = snapshot
+    for key, value in shape_values:
+        key.value = value
     for data, values in animations:
         for field, value in values.items():
             if getattr(data, field) != value:
@@ -91,7 +98,7 @@ def discover(scene, exporter):
     try:
         with tempfile.TemporaryDirectory(prefix='blendlib-socket-discovery-') as directory:
             path = Path(directory)/'nodes.glb'
-            exporter._export_raw_glb(collection, path, runtime_authoring=True)
+            exporter._export_raw_glb(collection, path, runtime_authoring=True, cpu_morph=scene.blendlib_profile == 'blendlib:skinned_morph_cpu_v1')
             gltf, _ = exporter.read_glb(path, allowed_roots=(Path(directory),))
             paths = exporter._exported_node_paths(gltf)
     finally:

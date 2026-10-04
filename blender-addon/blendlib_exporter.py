@@ -100,7 +100,7 @@ def parse_blender_arguments(argv: Sequence[str]) -> ExportOptions:
     parser.add_argument(
         "--profile",
         required=True,
-        choices=("blendlib:rigid_v1", "blendlib:skinned_v1", "blendlib:skinned_cubic_v1"),
+        choices=("blendlib:rigid_v1", "blendlib:skinned_v1", "blendlib:skinned_cubic_v1", "blendlib:skinned_morph_cpu_v1"),
     )
     parser.add_argument("--collection")
     parser.add_argument("--runtime-authoring-text", help="Explicit opt-in Blender Text datablock containing runtime authoring v1 JSON")
@@ -233,13 +233,29 @@ def export_open_blend(options: ExportOptions) -> dict[str, Any]:
     collection = _select_collection(options.collection_name)
     objects, warnings = _collect_export_objects(collection)
     _validate_source_objects(objects, options.profile)
-    action_names = _discover_actions(objects)
+    morph = options.profile == "blendlib:skinned_morph_cpu_v1"
+    authoring_text = getattr(options, "runtime_authoring_text", None)
+    authoring = _read_runtime_authoring(authoring_text, morph=morph)
+    morph_meshes, morph_clips, morph_reasons, morph_actions = None, {}, [], None
+    if morph:
+        try:
+            if blender.app.version != (5, 1, 2):
+                raise ValueError('CPU morph source conversion is verified only for Blender 5.1.2')
+            if authoring is None or 'morph_controls' not in authoring:
+                raise ValueError("CPU morph profile requires explicit runtime authoring Text with morph_controls")
+            module = _cpu_morph_module()
+            morph_meshes = module.validate_source(objects, authoring['morph_controls'])
+            bindings = module.discover_bindings(objects)
+            morph_actions = module.actions(bindings)
+            morph_clips, morph_reasons = module.weight_plan(bindings, morph_meshes,
+                blender.context.scene.render.fps / blender.context.scene.render.fps_base)
+        except ValueError as error:
+            raise ExportError("BLENDLIB-MORPH-001", str(error)) from error
+    action_names = tuple(action.name for action in morph_actions) if morph else _discover_actions(objects)
     native_plan = None
-    if options.profile == "blendlib:skinned_cubic_v1":
+    if options.profile in {"blendlib:skinned_cubic_v1", "blendlib:skinned_morph_cpu_v1"}:
         native_plan = _native_cubic_module().analyze(objects, _discover_action_objects(objects),
             _action_fcurves, blender.context.scene)
-    authoring_text = getattr(options, "runtime_authoring_text", None)
-    authoring = _read_runtime_authoring(authoring_text)
     source_bounds = _source_world_bounds(objects)
 
     resource_root = _resolve_under(
@@ -261,11 +277,14 @@ def export_open_blend(options: ExportOptions) -> dict[str, Any]:
     mesh_path.parent.mkdir(parents=True, exist_ok=True)
     descriptor_path.parent.mkdir(parents=True, exist_ok=True)
     raw_path = mesh_path.with_suffix(".raw.glb")
+    # Blender 5.1.2 zeroes unanimated Key values while iterating stored Actions
+    # and does not restore them. Preserve the authored defaults for the caller.
+    morph_defaults = [(info['object'].data.shape_keys, tuple(info['defaults'])) for info in morph_meshes.values()] if morph else []
     try:
         if native_plan is None:
             _export_raw_glb(collection, raw_path, runtime_authoring=authoring is not None)
         else:
-            _export_raw_glb(collection, raw_path, runtime_authoring=True, native_curves=native_plan.native)
+            _export_raw_glb(collection, raw_path, runtime_authoring=True, native_curves=native_plan.native, cpu_morph=morph)
         raw_gltf, raw_binary = read_glb(raw_path, allowed_roots=(options.project_root,))
         gltf, binary = strip_runtime_images(raw_gltf, raw_binary)
         if native_plan is not None:
@@ -277,9 +296,21 @@ def export_open_blend(options: ExportOptions) -> dict[str, Any]:
                 raise ExportError("BLENDLIB-ANIM-006", str(error)) from error
         elif authoring is not None or native_plan is not None:
             binary = _retime_runtime_authoring(objects, gltf, binary)
-        authored, locomotion = _compile_runtime_authoring(authoring, objects, gltf, binary)
+        if morph:
+            try:
+                binary = _cpu_morph_module().append_weight_animations(gltf, binary, morph_clips)
+                morph_validation = _cpu_morph_module().validate_gltf(gltf, binary, authoring['morph_controls'],
+                    _exported_node_paths(gltf), _read_accessor, morph_meshes)
+            except ValueError as error:
+                raise ExportError("BLENDLIB-MORPH-001", str(error)) from error
+        authored, locomotion = _compile_runtime_authoring(authoring, objects, gltf, binary, actions=morph_actions)
         write_glb(mesh_path, gltf, binary)
     finally:
+        for key, values in morph_defaults:
+            for block, value in zip(list(key.key_blocks)[1:], values):
+                block.value = value
+        if morph_defaults:
+            blender.context.view_layer.update()
         if raw_path.exists():
             raw_path.unlink()
 
@@ -287,6 +318,8 @@ def export_open_blend(options: ExportOptions) -> dict[str, Any]:
     descriptor = _build_descriptor(options, action_names if authoring is None else (), textures)
     if authored is not None:
         descriptor.update(authored)
+    if morph:
+        descriptor["morph_controls"] = authoring["morph_controls"]
     validation = validate_glb(
         mesh_path,
         profile=options.profile,
@@ -294,6 +327,7 @@ def export_open_blend(options: ExportOptions) -> dict[str, Any]:
         expected_bounds=source_bounds,
         expected_material_names=tuple(textures),
         expected_source_node_names=_source_node_names(objects),
+        morph_controls=authoring["morph_controls"] if morph else None,
     )
     validate_descriptor(descriptor, assets_root, tuple(textures))
     _write_json(descriptor_path, descriptor)
@@ -335,12 +369,27 @@ def export_open_blend(options: ExportOptions) -> dict[str, Any]:
     }
     if native_plan is not None:
         result["native_cubic"] = native_plan.report()
+    if morph:
+        result["native_cubic"]["scope"] = "Native eligibility applies to TRS only. Unsupported TRS sources bake at scene-frame cadence; morph weights remain governed by the independent cpu_morph report."
+        result["cpu_morph"] = dict(morph_validation, profile=options.profile,
+            weight_mode="sampled_linear_fallback" if morph_reasons else "native_linear_step",
+            fallback_reasons=morph_reasons, effective_fps=blender.context.scene.render.fps / blender.context.scene.render.fps_base,
+            channels=[{"clip": name, "node": c["node"], "interpolation": c["interpolation"], "key_count": len(c["times"])}
+                      for name, channels in sorted(morph_clips.items()) for c in channels])
     if authored is not None:
         result["runtime_authoring"] = {"schema_version": 1, "text": authoring_text}
         if locomotion is not None:
             result["locomotion_path"] = str(rules_path)
             result["sha256"]["locomotion"] = sha256_file(rules_path, maximum_bytes=65536, allowed_roots=(options.project_root,))
     return result
+
+
+def _cpu_morph_module() -> Any:
+    try:
+        from . import blendlib_cpu_morph as module
+    except ImportError:
+        import blendlib_cpu_morph as module
+    return module
 
 
 def _native_cubic_module() -> Any:
@@ -359,7 +408,7 @@ def _runtime_authoring_module() -> Any:
     return module
 
 
-def _read_runtime_authoring(text_name: str | None) -> dict | None:
+def _read_runtime_authoring(text_name: str | None, *, morph: bool = False) -> dict | None:
     if text_name is None:
         return None
     blender = _require_blender()
@@ -367,7 +416,7 @@ def _read_runtime_authoring(text_name: str | None) -> dict | None:
     if text is None:
         raise ExportError("BLENDLIB-AUTHOR-001", "Select an existing runtime authoring Text datablock.")
     try:
-        return _runtime_authoring_module().parse(text.as_string())
+        return _runtime_authoring_module().parse(text.as_string(), allow_morph_controls=morph)
     except (ValueError, OverflowError) as error:
         raise ExportError("BLENDLIB-AUTHOR-001", str(error)[:300]) from error
 
@@ -418,13 +467,13 @@ def _retime_runtime_authoring(objects: Sequence[Any], gltf: dict, binary: bytes)
     return bytes(output)
 
 
-def _compile_runtime_authoring(config: dict | None, objects: Sequence[Any], gltf: dict, binary: bytes) -> tuple[dict | None, dict | None]:
+def _compile_runtime_authoring(config: dict | None, objects: Sequence[Any], gltf: dict, binary: bytes, *, actions=None) -> tuple[dict | None, dict | None]:
     if config is None:
         return None, None
     blender = _require_blender()
     actions = {action.name: (float(action.frame_range[0]), float(action.frame_range[1]),
                [(marker.name, marker.frame) for marker in action.pose_markers])
-               for action in _discover_action_objects(objects)}
+               for action in (actions if actions is not None else _discover_action_objects(objects))}
     clips = {}
     for clip in gltf.get("animations", []):
         times = [float(row[0]) for sampler in clip.get("samplers", [])
@@ -573,7 +622,7 @@ def _validate_source_objects(objects: Sequence[Any], profile: str) -> None:
                     )
                 skin_meshes += 1
                 _validate_skin_weights(obj, bone_names)
-            elif profile in {"blendlib:skinned_v1", "blendlib:skinned_cubic_v1"}:
+            elif profile in {"blendlib:skinned_v1", "blendlib:skinned_cubic_v1", "blendlib:skinned_morph_cpu_v1"}:
                 raise ExportError(
                     "BLENDLIB-EXPORT-005",
                     f"Skinned profile requires an Armature modifier on mesh '{obj.name}'.",
@@ -591,7 +640,7 @@ def _validate_source_objects(objects: Sequence[Any], profile: str) -> None:
         raise ExportError(
             "BLENDLIB-EXPORT-005", "Rigid profile cannot contain Armature-modified meshes."
         )
-    if profile in {"blendlib:skinned_v1", "blendlib:skinned_cubic_v1"} and skin_meshes == 0:
+    if profile in {"blendlib:skinned_v1", "blendlib:skinned_cubic_v1", "blendlib:skinned_morph_cpu_v1"} and skin_meshes == 0:
         raise ExportError(
             "BLENDLIB-EXPORT-005", "Skinned profile requires at least one skinned mesh."
         )
@@ -762,7 +811,7 @@ def _find_layer_collection(layer_collection: Any, collection: Any) -> Any | None
     return None
 
 
-def _export_raw_glb(collection: Any, output_path: Path, *, runtime_authoring: bool = False, native_curves: bool = False) -> None:
+def _export_raw_glb(collection: Any, output_path: Path, *, runtime_authoring: bool = False, native_curves: bool = False, cpu_morph: bool = False) -> None:
     blender = _require_blender()
     layer_collection = _find_layer_collection(blender.context.view_layer.layer_collection, collection)
     if layer_collection is None:
@@ -771,15 +820,17 @@ def _export_raw_glb(collection: Any, output_path: Path, *, runtime_authoring: bo
         )
     blender.context.view_layer.active_layer_collection = layer_collection
     timing = {"export_frame_range": False, "export_anim_slide_to_zero": True, "export_negative_frame": "SLIDE"} if runtime_authoring else {}
+    morph_options = {"export_morph_normal": True, "export_morph_tangent": False,
+                     "export_try_sparse_sk": False, "export_try_omit_sparse_sk": False} if cpu_morph else {}
     result = blender.ops.export_scene.gltf(
-        **timing,
+        **timing, **morph_options,
         filepath=str(output_path),
         export_format="GLB",
         use_selection=False,
         use_active_collection=True,
         use_active_collection_with_nested=True,
         export_yup=True,
-        export_apply=True,
+        export_apply=not cpu_morph,
         export_texcoords=True,
         export_normals=True,
         export_materials="EXPORT",
@@ -793,8 +844,8 @@ def _export_raw_glb(collection: Any, output_path: Path, *, runtime_authoring: bo
         export_skins=True,
         export_influence_nb=4,
         export_all_influences=False,
-        export_morph=False,
-        export_morph_animation=False,
+        export_morph=cpu_morph,
+        export_morph_animation=cpu_morph,
         export_draco_mesh_compression_enable=False,
         export_vertex_color="NONE",
     )
@@ -954,7 +1005,7 @@ def _build_descriptor(
     options: ExportOptions, action_names: Sequence[str], materials: dict[str, str]
 ) -> dict[str, Any]:
     descriptor: dict[str, Any] = {
-        "format_version": 2 if options.profile == "blendlib:skinned_cubic_v1" else 1,
+        "format_version": 2 if options.profile in {"blendlib:skinned_cubic_v1", "blendlib:skinned_morph_cpu_v1"} else 1,
         "profile": options.profile,
         "mesh": f"{options.namespace}:models3d/{options.model_id}.glb",
         "units_per_block": 1.0,
@@ -993,7 +1044,7 @@ def validate_descriptor(
     descriptor: dict[str, Any], assets_root: Path, material_names: Sequence[str]
 ) -> None:
     profile = descriptor.get("profile")
-    if profile == "blendlib:skinned_cubic_v1":
+    if profile in {"blendlib:skinned_cubic_v1", "blendlib:skinned_morph_cpu_v1"}:
         if type(descriptor.get("format_version")) is not int or descriptor.get("format_version") != 2:
             raise ExportError("BLENDLIB-DESC-001", "Native cubic descriptor version must be exactly 2.")
     else:
@@ -1001,6 +1052,13 @@ def validate_descriptor(
             raise ExportError("BLENDLIB-DESC-001", "Descriptor version must be exactly 1.")
         if profile not in {"blendlib:rigid_v1", "blendlib:skinned_v1"}:
             raise ExportError("BLENDLIB-DESC-001", "Descriptor profile is not supported by v1.")
+    if profile == "blendlib:skinned_morph_cpu_v1":
+        try:
+            _cpu_morph_module().validate_controls(descriptor.get('morph_controls'))
+        except ValueError as error:
+            raise ExportError("BLENDLIB-MORPH-001", str(error)) from error
+    elif 'morph_controls' in descriptor:
+        raise ExportError("BLENDLIB-DESC-001", "morph_controls are exclusive to the CPU morph profile.")
     materials = descriptor.get("materials")
     if not isinstance(materials, dict) or tuple(sorted(materials)) != tuple(sorted(material_names)):
         raise ExportError(
@@ -1234,6 +1292,7 @@ def validate_glb(
     expected_bounds: dict[str, Sequence[float]],
     expected_material_names: Sequence[str],
     expected_source_node_names: Sequence[str],
+    morph_controls: dict | None = None,
 ) -> dict[str, Any]:
     gltf, binary = read_glb(path)
     asset = gltf.get("asset")
@@ -1282,6 +1341,12 @@ def validate_glb(
         )
 
     meshes = _expect_list(gltf, "meshes")
+    if profile == "blendlib:skinned_morph_cpu_v1":
+        try:
+            _cpu_morph_module().validate_gltf(gltf, binary, morph_controls,
+                _exported_node_paths(gltf), _read_accessor)
+        except (ValueError, KeyError, IndexError, TypeError) as error:
+            raise ExportError("BLENDLIB-MORPH-001", str(error)) from error
     vertex_count = 0
     index_count = 0
     skinned_attribute_seen = False
@@ -1294,7 +1359,7 @@ def validate_glb(
                 raise ExportError("BLENDLIB-GLB-001", "Only TRIANGLES primitives are accepted.")
             if "indices" not in primitive:
                 raise ExportError("BLENDLIB-GLB-001", "TRIANGLES primitive requires an index accessor.")
-            if primitive.get("targets"):
+            if primitive.get("targets") and profile != "blendlib:skinned_morph_cpu_v1":
                 raise ExportError("BLENDLIB-GLB-001", "Morph targets are not supported in v1.")
             attributes = primitive.get("attributes")
             if not isinstance(attributes, dict):
@@ -1359,7 +1424,7 @@ def validate_glb(
             "BLENDLIB-ANIM-006",
             f"Exported animation names {animation_names} do not match expected {list(expected_animation_names)}.",
         )
-    actual_bounds = _gltf_world_bounds(gltf, binary)
+    actual_bounds = _gltf_world_bounds(gltf, binary, morph_defaults=profile == "blendlib:skinned_morph_cpu_v1")
     _assert_bounds_close(actual_bounds, expected_bounds)
     return {
         "node_count": len(nodes),
@@ -1482,19 +1547,23 @@ def _validate_animations(gltf: dict[str, Any], *, binary: bytes = b"", profile: 
             raise ExportError("BLENDLIB-ANIM-006", "Animation channels/samplers must be arrays.")
         for sampler in samplers:
             interpolation = sampler.get("interpolation", "LINEAR") if isinstance(sampler, dict) else None
-            if interpolation not in ({"LINEAR", "STEP", "CUBICSPLINE"} if profile == "blendlib:skinned_cubic_v1" else {"LINEAR", "STEP"}):
+            if interpolation not in ({"LINEAR", "STEP", "CUBICSPLINE"} if profile in {"blendlib:skinned_cubic_v1", "blendlib:skinned_morph_cpu_v1"} else {"LINEAR", "STEP"}):
                 raise ExportError(
                     "BLENDLIB-ANIM-006", "CUBICSPLINE or another unsupported interpolation was exported."
                 )
         for channel in channels:
             target = channel.get("target", {}) if isinstance(channel, dict) else {}
-            if target.get("path") not in {"translation", "rotation", "scale"}:
+            if target.get("path") not in ({"translation", "rotation", "scale", "weights"} if profile == "blendlib:skinned_morph_cpu_v1" else {"translation", "rotation", "scale"}):
                 raise ExportError("BLENDLIB-ANIM-006", "Only node TRS animation channels are supported.")
-            if profile == "blendlib:skinned_cubic_v1":
+            if profile in {"blendlib:skinned_cubic_v1", "blendlib:skinned_morph_cpu_v1"}:
                 index = channel.get("sampler")
                 if type(index) is not int or not 0 <= index < len(samplers):
                     raise ExportError("BLENDLIB-ANIM-006", "Animation channel sampler index is invalid.")
                 sampler = samplers[index]
+                if target.get("path") == "weights":
+                    if sampler.get("interpolation", "LINEAR") not in {"LINEAR", "STEP"}:
+                        raise ExportError("BLENDLIB-ANIM-006", "Morph weight channels require LINEAR or STEP.")
+                    continue
                 if sampler.get("interpolation") == "CUBICSPLINE":
                     inputs = _read_accessor(gltf, binary, sampler["input"])
                     outputs = _read_accessor(gltf, binary, sampler["output"])
@@ -1510,7 +1579,7 @@ def _validate_animations(gltf: dict[str, Any], *, binary: bytes = b"", profile: 
     return names
 
 
-def _gltf_world_bounds(gltf: dict[str, Any], binary: bytes) -> dict[str, list[float]]:
+def _gltf_world_bounds(gltf: dict[str, Any], binary: bytes, *, morph_defaults: bool = False) -> dict[str, list[float]]:
     nodes = _expect_list(gltf, "nodes")
     meshes = _expect_list(gltf, "meshes")
     parentless = set(range(len(nodes)))
@@ -1539,10 +1608,13 @@ def _gltf_world_bounds(gltf: dict[str, Any], binary: bytes) -> dict[str, list[fl
             for primitive in _expect_list(mesh, "primitives"):
                 attributes = primitive.get("attributes", {})
                 positions = _read_accessor(gltf, binary, attributes["POSITION"])
-                points.extend(
-                    _transform_point(matrix, tuple(float(value) for value in point))
-                    for point in positions["values"]
-                )
+                values = positions["values"]
+                if morph_defaults and primitive.get('targets'):
+                    weights = node.get('weights', mesh.get('weights', [0.0]*len(primitive['targets'])))
+                    deltas = [_read_accessor(gltf, binary, target['POSITION'])['values'] for target in primitive['targets']]
+                    values = [tuple(float(point[c]) + sum(weight * delta[i][c] for weight, delta in zip(weights, deltas))
+                                    for c in range(3)) for i, point in enumerate(values)]
+                points.extend(_transform_point(matrix, tuple(float(value) for value in point)) for point in values)
         for child in node.get("children", []):
             walk(child, matrix)
         visiting.remove(node_index)
@@ -1852,6 +1924,7 @@ def register() -> None:
             ("blendlib:rigid_v1", "Rigid v1", "Static or rigid node animation"),
             ("blendlib:skinned_v1", "Skinned v1", "Four-weight skeletal skinning"),
             ("blendlib:skinned_cubic_v1", "Skinned native cubic v1 (format 2)", "Explicit opt-in: eligible native curves, reported baked fallback"),
+            ("blendlib:skinned_morph_cpu_v1", "Skinned CPU morph v1 (format 2)", "Explicit bounded CPU-only morphs and native cubic TRS"),
         ),
         default="blendlib:rigid_v1",
     )

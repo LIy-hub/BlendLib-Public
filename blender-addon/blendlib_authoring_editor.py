@@ -17,20 +17,20 @@ except ImportError:
 _UNCHANGED = object()
 
 
-def load(text: str, actions: dict, fps: float) -> dict:
-    config = authoring.parse(text)
+def load(text: str, actions: dict, fps: float, *, allow_morph_controls: bool = False) -> dict:
+    config = authoring.parse(text, allow_morph_controls=allow_morph_controls)
     authoring.validate_source(copy.deepcopy(config), actions, fps)
     return config
 
 
 def apply(text: str, *, mode: str, key: str, clip: str, loop: bool,
           speed: str, events: list, make_initial: bool, actions: dict, fps: float,
-          next_state=_UNCHANGED, blend_seconds=_UNCHANGED) -> str:
+          next_state=_UNCHANGED, blend_seconds=_UNCHANGED, allow_morph_controls: bool = False) -> str:
     """Return validated replacement bytes; callers own identity/conflict checks."""
     if mode not in {'EDIT', 'ADD', 'CREATE'}:
         raise ValueError('Unknown authoring draft mode')
     config = ({'schema_version': 1, 'animation': {'initial_state': key, 'states': {}}}
-              if mode == 'CREATE' else authoring.parse(text))
+              if mode == 'CREATE' else authoring.parse(text, allow_morph_controls=allow_morph_controls))
     animation = config['animation']
     states = animation['states']
     if mode == 'EDIT' and key not in states:
@@ -67,16 +67,16 @@ def apply(text: str, *, mode: str, key: str, clip: str, loop: bool,
         animation['initial_state'] = key
     authoring.validate_source(copy.deepcopy(config), actions, fps)
     result = json.dumps(config, ensure_ascii=False, indent=2, allow_nan=False) + '\n'
-    authoring.parse(result)  # Enforce canonical Text size after expansion as well.
+    authoring.parse(result, allow_morph_controls=allow_morph_controls)  # Enforce canonical Text size after expansion as well.
     return result
 
 
 def apply_socket(text: str, *, mode: str, key: str, node: str,
-                 node_paths: set[str], actions: dict, fps: float) -> str:
+                 node_paths: set[str], actions: dict, fps: float, allow_morph_controls: bool = False) -> str:
     """Patch one node-only socket through the same strict source compiler."""
     if mode not in {'ADD', 'EDIT'}:
         raise ValueError('Unknown socket draft mode')
-    config = load(text, actions, fps)
+    config = load(text, actions, fps, allow_morph_controls=allow_morph_controls)
     sockets = config.setdefault('sockets', {})
     if not isinstance(sockets, dict):
         raise ValueError('sockets must be an object')
@@ -89,7 +89,7 @@ def apply_socket(text: str, *, mode: str, key: str, node: str,
     sockets[key] = {'node': node}
     authoring.validate_source(copy.deepcopy(config), actions, fps, node_paths=node_paths)
     result = json.dumps(config, ensure_ascii=False, indent=2, allow_nan=False) + '\n'
-    authoring.parse(result)
+    authoring.parse(result, allow_morph_controls=allow_morph_controls)
     return result
 
 
@@ -108,9 +108,9 @@ def condition(*, kind: str, input_name: str, equals: bool, enter: str, exit: str
 
 
 def apply_locomotion(text: str, *, default: str, interval: int, rules: list,
-                     actions: dict, fps: float) -> str:
+                     actions: dict, fps: float, allow_morph_controls: bool = False) -> str:
     """Patch only locomotion, preserving source numeric tokens and optional absence."""
-    config = load(text, actions, fps)
+    config = load(text, actions, fps, allow_morph_controls=allow_morph_controls)
     prior = config.get('locomotion', {})
     locomotion = {'schema_version': 1, 'default': default, 'rules': copy.deepcopy(rules)}
     # Zero is the existing runtime default; no-op editing must not add an absent key.
@@ -122,5 +122,5 @@ def apply_locomotion(text: str, *, default: str, interval: int, rules: list,
     config['locomotion'] = locomotion
     authoring.validate_source(copy.deepcopy(config), actions, fps)
     result = json.dumps(config, ensure_ascii=False, indent=2, allow_nan=False) + '\n'
-    authoring.parse(result)
+    authoring.parse(result, allow_morph_controls=allow_morph_controls)
     return result

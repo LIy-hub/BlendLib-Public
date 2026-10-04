@@ -21,10 +21,14 @@ _LOOP_ITEMS = {}
 _NEXT_ITEMS = {}
 
 
+def _morph(scene):
+    return getattr(scene, 'blendlib_profile', None) == 'blendlib:skinned_morph_cpu_v1'
+
+
 def _source(scene, exporter):
     collection = exporter._select_collection(scene.blendlib_collection.name if scene.blendlib_collection else None)
     objects, _ = exporter._collect_export_objects(collection)
-    actions = exporter._discover_action_objects(objects)
+    actions = exporter._cpu_morph_module().actions(exporter._cpu_morph_module().discover_bindings(objects)) if _morph(scene) else exporter._discover_action_objects(objects)
     facts = {action.name: (float(action.frame_range[0]), float(action.frame_range[1]),
              [(marker.name, marker.frame) for marker in action.pose_markers]) for action in actions}
     return actions, facts, scene.render.fps / scene.render.fps_base
@@ -56,7 +60,7 @@ def register(blender, exporter):
         text = context.scene.blendlib_runtime_authoring_text if context else None
         if text:
             try:
-                config = editor.authoring.parse(text.as_string())
+                config = editor.authoring.parse(text.as_string(), allow_morph_controls=_morph(context.scene))
                 states = config['animation']['states']
                 if isinstance(states, dict) and len(states) <= 256:
                     result = [(key, key, 'Load this state into an explicit draft') for key in states]
@@ -71,7 +75,7 @@ def register(blender, exporter):
         text = context.scene.blendlib_runtime_authoring_text if context else None
         if text:
             try:
-                values = editor.authoring.parse(text.as_string()).get('sockets', {})
+                values = editor.authoring.parse(text.as_string(), allow_morph_controls=_morph(context.scene)).get('sockets', {})
                 if isinstance(values, dict) and len(values) <= 512:
                     result = [(key, key, 'Load this socket into an explicit draft') for key in values]
             except (ValueError, KeyError, TypeError):
@@ -91,7 +95,7 @@ def register(blender, exporter):
         result = [('/', 'Choose continuous loop state', '')]
         if context:
             try:
-                config = editor.authoring.parse(context.scene.blendlib_authoring_draft.source_content)
+                config = editor.authoring.parse(context.scene.blendlib_authoring_draft.source_content, allow_morph_controls=_morph(context.scene))
                 result += [(key, key, 'Authored loop without next')
                            for key, state in config['animation']['states'].items()
                            if state.get('loop') is True and 'next' not in state]
@@ -107,7 +111,7 @@ def register(blender, exporter):
                   ('//SELF', 'This State', 'Non-loop restarts this state on completion')]
         if self.mode != 'CREATE':
             try:
-                config = editor.authoring.parse(self.source_content)
+                config = editor.authoring.parse(self.source_content, allow_morph_controls=_morph(context.scene))
                 result += [(key, key, 'Enter this state when a non-loop finishes')
                            for key in config['animation']['states']
                            if self.mode != 'EDIT' or key != self.loaded_key]
@@ -197,7 +201,7 @@ def register(blender, exporter):
                     raise ValueError('Attach an Action to an exported object or NLA strip first')
                 text = scene.blendlib_runtime_authoring_text
                 content = text.as_string() if text else ''
-                config = editor.load(content, facts, fps) if self.mode != 'CREATE' else None
+                config = editor.load(content, facts, fps, allow_morph_controls=_morph(scene)) if self.mode != 'CREATE' else None
                 key = scene.blendlib_authoring_state if self.mode == 'EDIT' else scene.blendlib_namespace + ':new_state'
                 state = config['animation']['states'][key] if self.mode == 'EDIT' else {'clip': actions[0].name, 'loop': True, 'speed': 1}
                 draft.source = text
@@ -244,7 +248,7 @@ def register(blender, exporter):
                     raise ValueError('Select a local editable Text datablock')
                 content = text.as_string()
                 _, facts, fps = _source(scene, exporter)
-                config = editor.load(content, facts, fps)
+                config = editor.load(content, facts, fps, allow_morph_controls=_morph(scene))
                 key = scene.blendlib_authoring_socket if self.mode == 'EDIT' else scene.blendlib_namespace + ':new_socket'
                 node = config.get('sockets', {})[key]['node'] if self.mode == 'EDIT' else '/'
                 rows, signature = _socket_source(scene, exporter)
@@ -281,7 +285,7 @@ def register(blender, exporter):
                     raise ValueError('Select a local editable Text datablock')
                 content = text.as_string()
                 _, facts, fps = _source(scene, exporter)
-                config = editor.load(content, facts, fps)
+                config = editor.load(content, facts, fps, allow_morph_controls=_morph(scene))
                 rules = config.get('locomotion', {})
                 draft.source, draft.source_content = text, content
                 draft.kind, draft.mode = 'RULES', 'RULES'
@@ -418,18 +422,18 @@ def register(blender, exporter):
                     if signature != draft.source_signature:
                         raise ValueError('Export source identity or node paths changed; discard and reload the draft')
                     replacement = editor.apply_socket(content, mode=draft.mode, key=draft.key,
-                        node=draft.socket_node, node_paths={row['path'] for row in rows}, actions=facts, fps=fps)
+                        node=draft.socket_node, node_paths={row['path'] for row in rows}, actions=facts, fps=fps, allow_morph_controls=_morph(scene))
                 elif draft.kind == 'RULES':
                     replacement = editor.apply_locomotion(content, default=draft.default_loop,
                         interval=draft.minimum_interval, rules=[{'animation': rule.animation,
                             'conditions': [editor.condition(kind=row.kind, input_name=row.input_name,
                                 equals=row.equals, enter=row.enter, exit=row.exit) for row in rule.conditions]}
-                            for rule in draft.rules], actions=facts, fps=fps)
+                            for rule in draft.rules], actions=facts, fps=fps, allow_morph_controls=_morph(scene))
                 elif draft.kind == 'STATE':
                     replacement = editor.apply(content, mode=draft.mode, key=draft.key,
                         clip=draft.action.name if draft.action else '', loop=draft.loop,
                         speed=draft.speed, events=[{'marker': row.marker, 'event': row.event} for row in draft.events],
-                        make_initial=draft.make_initial, actions=facts, fps=fps,
+                        make_initial=draft.make_initial, actions=facts, fps=fps, allow_morph_controls=_morph(scene),
                         next_state=None if draft.next_state == '/' else draft.key if draft.next_state == '//SELF' else draft.next_state,
                         blend_seconds=draft.blend_seconds if draft.use_blend else None)
                 else:

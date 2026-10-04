@@ -4,6 +4,8 @@ import com.liy.blendlib.api.BlendAnimationKey;
 import com.liy.blendlib.api.BlendInstanceKey;
 import com.liy.blendlib.api.BlendModelKey;
 import com.liy.blendlib.core.animation.runtime.LocalPose;
+import com.liy.blendlib.core.animation.runtime.MorphWeights;
+import com.liy.blendlib.core.model.MorphBindingTable;
 import java.util.Objects;
 
 /**
@@ -17,15 +19,24 @@ import java.util.Objects;
 public final class ClientAnimationPoseSnapshot {
     private final PoseCacheKey poseCacheKey;
     private final LocalPose localPose;
+    private final MorphWeights morphWeights;
 
-    private ClientAnimationPoseSnapshot(PoseCacheKey poseCacheKey, LocalPose localPose) {
+    private ClientAnimationPoseSnapshot(PoseCacheKey poseCacheKey, LocalPose localPose, MorphWeights morphWeights) {
         this.poseCacheKey = Objects.requireNonNull(poseCacheKey, "poseCacheKey");
         this.localPose = Objects.requireNonNull(localPose, "localPose");
+        this.morphWeights = Objects.requireNonNull(morphWeights, "morphWeights");
     }
 
     static ClientAnimationPoseSnapshot from(PoseCacheKey poseCacheKey, LocalPose localPose) {
-        return new ClientAnimationPoseSnapshot(poseCacheKey, localPose);
+        return new ClientAnimationPoseSnapshot(poseCacheKey, localPose, MorphWeights.defaults(MorphBindingTable.empty()));
     }
+
+    static ClientAnimationPoseSnapshot from(PoseCacheKey key, LocalPose pose, MorphWeights weights) {
+        return new ClientAnimationPoseSnapshot(key, pose, weights);
+    }
+
+    /** Complete immutable weights sampled at this pose's exact controller clocks. */
+    public MorphWeights morphWeights() { return morphWeights; }
 
     /** Immutable identity of the sampled instance, model, generation, state, and sample revision. */
     public PoseCacheKey poseCacheKey() {

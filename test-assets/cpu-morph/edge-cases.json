@@ -1,0 +1,237 @@
+{
+  "blender_version": "5.1.2",
+  "cases": [
+    {
+      "case": "absolute_keys",
+      "code": "BLENDLIB-MORPH-001",
+      "reason": "FaceBody: only relative-to-Basis shape keys are supported",
+      "rejected": true
+    },
+    {
+      "case": "chained_keys",
+      "code": "BLENDLIB-MORPH-001",
+      "reason": "FaceBody/Smile: chained keys, per-key masks and muted targets are unsupported",
+      "rejected": true
+    },
+    {
+      "case": "masked_key",
+      "code": "BLENDLIB-MORPH-001",
+      "reason": "FaceBody/Blink: chained keys, per-key masks and muted targets are unsupported",
+      "rejected": true
+    },
+    {
+      "case": "muted_target",
+      "code": "BLENDLIB-MORPH-001",
+      "reason": "FaceBody/Blink: chained keys, per-key masks and muted targets are unsupported",
+      "rejected": true
+    },
+    {
+      "case": "key_driver",
+      "code": "BLENDLIB-MORPH-001",
+      "reason": "Key: drivers are unsupported in the CPU morph source subset",
+      "rejected": true
+    },
+    {
+      "case": "object_driver",
+      "code": "BLENDLIB-MORPH-001",
+      "reason": "MorphRig: drivers are unsupported in the CPU morph source subset",
+      "rejected": true
+    },
+    {
+      "case": "active_nla",
+      "code": "BLENDLIB-MORPH-001",
+      "reason": "Key: active NLA mixing is unsupported; use muted tracks only as Action storage",
+      "rejected": true
+    },
+    {
+      "case": "key_action_influence",
+      "code": "BLENDLIB-MORPH-001",
+      "reason": "Key: Action blending/influence is unsupported",
+      "rejected": true
+    },
+    {
+      "case": "subdivision_modifier",
+      "code": "BLENDLIB-MORPH-001",
+      "reason": "FaceBody: CPU morph export supports only one Armature modifier; apply other modifiers first",
+      "rejected": true
+    },
+    {
+      "case": "triangulate_modifier",
+      "code": "BLENDLIB-MORPH-001",
+      "reason": "FaceBody: CPU morph export supports only one Armature modifier; apply other modifiers first",
+      "rejected": true
+    },
+    {
+      "case": "armature_rest_display",
+      "code": "BLENDLIB-MORPH-001",
+      "reason": "FaceBody: Armature must evaluate in pose position",
+      "rejected": true
+    },
+    {
+      "case": "preserve_volume",
+      "code": "BLENDLIB-MORPH-001",
+      "reason": "FaceBody: unsupported Armature modifier deformation settings",
+      "rejected": true
+    },
+    {
+      "case": "armature_mask",
+      "code": "BLENDLIB-MORPH-001",
+      "reason": "FaceBody: unsupported Armature modifier deformation settings",
+      "rejected": true
+    },
+    {
+      "case": "armature_envelopes",
+      "code": "BLENDLIB-MORPH-001",
+      "reason": "FaceBody: unsupported Armature modifier deformation settings",
+      "rejected": true
+    },
+    {
+      "case": "target_limit",
+      "code": "BLENDLIB-MORPH-001",
+      "reason": "FaceBody: CPU morph meshes require 1..8 targets",
+      "rejected": true
+    },
+    {
+      "case": "key_extrapolation",
+      "code": "BLENDLIB-MORPH-001",
+      "reason": "Smile: modified, muted, invalid or nonconstant-extrapolated Key FCurve",
+      "rejected": true
+    },
+    {
+      "case": "key_noise",
+      "code": "BLENDLIB-MORPH-001",
+      "reason": "Smile: modified, muted, invalid or nonconstant-extrapolated Key FCurve",
+      "rejected": true
+    },
+    {
+      "case": "default_out_of_range",
+      "code": "BLENDLIB-MORPH-001",
+      "reason": "morph default lies outside its declared interval",
+      "rejected": true
+    },
+    {
+      "case": "key_out_of_range",
+      "code": "BLENDLIB-MORPH-001",
+      "reason": "Smile/Smile: animated morph weight exceeds the Blender slider range; expand the source slider explicitly",
+      "rejected": true
+    },
+    {
+      "approximate": true,
+      "case": "bezier_weights",
+      "cpu_morph": {
+        "channels": [
+          {
+            "clip": "Blink",
+            "interpolation": "STEP",
+            "key_count": 4,
+            "node": "FaceBody"
+          },
+          {
+            "clip": "Breath",
+            "interpolation": "LINEAR",
+            "key_count": 4,
+            "node": "FaceBody"
+          },
+          {
+            "clip": "Smile",
+            "interpolation": "LINEAR",
+            "key_count": 37,
+            "node": "FaceBody"
+          }
+        ],
+        "effective_fps": 24.0,
+        "fallback_reasons": [
+          {
+            "action": "Smile",
+            "node": "FaceBody",
+            "reason": "Bezier or mixed weight interpolation requires sampled LINEAR fallback",
+            "sample_cadence_frames": 1,
+            "sample_cadence_seconds": 0.041666666666666664
+          }
+        ],
+        "morph_control_count": 3,
+        "morph_node_count": 1,
+        "profile": "blendlib:skinned_morph_cpu_v1",
+        "reserved_float_slots": 42955,
+        "vertex_target_pairs": 792,
+        "weight_mode": "sampled_linear_fallback"
+      },
+      "oracle": {
+        "maximum_bone_world_matrix_error": 1.1920928955078125e-07,
+        "maximum_skinned_position_error": 0.00021136587169762433,
+        "maximum_weight_error": 0.0043622563282350035,
+        "sample_count": 60
+      }
+    },
+    {
+      "case": "trs_fallback_preserves_weight_only_clips",
+      "native_cubic": {
+        "channels": [],
+        "effective_fps": 24.0,
+        "exact_native_subset": false,
+        "fallback_reasons": [
+          {
+            "action": "Nod",
+            "node": "Face",
+            "reason": "Bezier outgoing time handle is not one third of segment"
+          }
+        ],
+        "mode": "baked_linear_fallback",
+        "profile": "blendlib:skinned_cubic_v1",
+        "scope": "Native eligibility applies to TRS only. Unsupported TRS sources bake at scene-frame cadence; morph weights remain governed by the independent cpu_morph report."
+      },
+      "oracle": {
+        "maximum_bone_world_matrix_error": 0.0014451704919338226,
+        "maximum_skinned_position_error": 0.001132866175625999,
+        "maximum_weight_error": 1.0170042585855299e-07,
+        "sample_count": 60
+      }
+    },
+    {
+      "case": "fractional_fps",
+      "oracle": {
+        "maximum_bone_world_matrix_error": 1.1920928955078125e-07,
+        "maximum_skinned_position_error": 2.457562461863554e-07,
+        "maximum_weight_error": 1.3790520836387543e-07,
+        "sample_count": 60
+      }
+    },
+    {
+      "case": "associated_object_and_key_slots",
+      "channel_paths": [
+        "rotation",
+        "scale",
+        "translation",
+        "weights"
+      ],
+      "native_cubic": {
+        "channels": [],
+        "effective_fps": 24.0,
+        "exact_native_subset": false,
+        "fallback_reasons": [
+          {
+            "action": "Nod",
+            "node": "MorphRig",
+            "reason": "multiple Action layers, strips, or slots require baking"
+          }
+        ],
+        "mode": "baked_linear_fallback",
+        "profile": "blendlib:skinned_cubic_v1",
+        "scope": "Native eligibility applies to TRS only. Unsupported TRS sources bake at scene-frame cadence; morph weights remain governed by the independent cpu_morph report."
+      }
+    },
+    {
+      "case": "sidebar_state_editor_and_socket_discovery",
+      "defaults_restored": true,
+      "weight_only_action_edit": true
+    },
+    {
+      "animations": 0,
+      "case": "manual_only_without_dummy_clip"
+    },
+    {
+      "case": "strict_authoring_rejects_morph_controls",
+      "rejected": true
+    }
+  ]
+}

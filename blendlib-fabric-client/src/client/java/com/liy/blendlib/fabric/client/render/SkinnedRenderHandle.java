@@ -27,6 +27,7 @@ import java.util.Objects;
 public final class SkinnedRenderHandle implements ModelRenderHandle {
     private final BlendModelKey modelKey;
     private final long generation;
+    private final boolean cpuMorphProfile;
     private final List<Transform> nodeWorldTransforms;
     private final List<PreparedSkinnedRenderPrimitive> skinnedPrimitives;
     private final int[][] skinJointNodeIndexes;
@@ -38,6 +39,7 @@ public final class SkinnedRenderHandle implements ModelRenderHandle {
     private SkinnedRenderHandle(
             BlendModelKey modelKey,
             long generation,
+            boolean cpuMorphProfile,
             List<Transform> nodeWorldTransforms,
             List<PreparedSkinnedRenderPrimitive> skinnedPrimitives,
             int[][] skinJointNodeIndexes,
@@ -52,6 +54,7 @@ public final class SkinnedRenderHandle implements ModelRenderHandle {
             throw new IllegalArgumentException("generation must be non-negative");
         }
         this.generation = generation;
+        this.cpuMorphProfile = cpuMorphProfile;
         this.nodeWorldTransforms = List.copyOf(Objects.requireNonNull(nodeWorldTransforms, "nodeWorldTransforms"));
         this.skinnedPrimitives = List.copyOf(Objects.requireNonNull(skinnedPrimitives, "skinnedPrimitives"));
         this.skinJointNodeIndexes = copySkinJointNodeIndexes(skinJointNodeIndexes);
@@ -133,8 +136,11 @@ public final class SkinnedRenderHandle implements ModelRenderHandle {
                     ((MaterialMapping.Supported) mapping).material()));
         }
         return new SkinnedRenderHandle(
-                modelKey, asset.generation(), transforms, prepared, skinJointNodeIndexes, asset.primitives().stream().map(p -> p.geometry().materialSlot()).toList(), asset.materials().keySet(), bounds, unitsToBlocksScale, validDefinitions, invalidDiagnostics);
+                modelKey, asset.generation(), asset.profile() == ModelProfile.SKINNED_MORPH_CPU_V1, transforms, prepared, skinJointNodeIndexes, asset.primitives().stream().map(p -> p.geometry().materialSlot()).toList(), asset.materials().keySet(), bounds, unitsToBlocksScale, validDefinitions, invalidDiagnostics);
     }
+
+    /** Explicit generation eligibility gate, independent of frame weights or platform capability. */
+    public boolean cpuMorphProfile() { return cpuMorphProfile; }
 
     @Override
     public BlendModelKey modelKey() {

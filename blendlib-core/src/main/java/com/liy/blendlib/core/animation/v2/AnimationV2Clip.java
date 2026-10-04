@@ -22,6 +22,8 @@ public final class AnimationV2Clip {
             List<Integer> nodeIndices) {
         Objects.requireNonNull(sampler, "sampler");
         Objects.requireNonNull(state, "state");
+        if (state.clip().hasMorphChannels())
+            throw new IllegalArgumentException("Morph weight clips are unsupported in transforms-only layers and blendspaces");
         List<Integer> nodes = List.copyOf(nodeIndices);
         List<Transform> zero = nodes.stream().map(i -> sampler.sampleNode(state, 0.0D, i)).toList();
         List<AnimationV2Keyframe> keys = new ArrayList<>();

@@ -1,0 +1,28 @@
+{
+  "baseline_commit": "18717aa5871e587ccebeacc5824beb4a89aba17e",
+  "blender_version": "5.1.2",
+  "comparison": "baseline exporter vs CPU morph change, independent real Blender processes",
+  "hashes": {
+    "native-cubic": {
+      "descriptor": "c8fd419545638fc2a92438bba6199b99d5b3881b64bc40dd0e04fe754683d36e",
+      "mesh_glb": "269bfec0fe204cc88892a1eaaa46bd78e1fe6f37dc5220d41a201aa5d03bd9b7",
+      "normalized_structure": "57219af7b73217d4d9484f7015f73e3bc14e4856d646b771fce1961132500597"
+    },
+    "rigid": {
+      "descriptor": "3087a6ff5ccda62f5aacdffa4c12f1f4744075f61a3acc15a9b85f841974fb7a",
+      "mesh_glb": "a2b7f063c8806f3e3eceec2533ed8fe84c91f967ac71c25ca59faf4349a21764",
+      "normalized_structure": "adcac8f7c0ffed179708d68344ac094959c022be66ebffa93f64531fd7367dc8"
+    },
+    "skinned": {
+      "descriptor": "11097d33f049ee043196cdea18a4e0f864f1f836d8900a638a0eef225e1baf75",
+      "mesh_glb": "fe780ca51db01961bf492279ccd46cebc55688cc1ad64e67ce98a87596948db9",
+      "normalized_structure": "837f3fc4088e4666df00dfae4478c823923d45bc17944fab3071eb02cc310869"
+    },
+    "static": {
+      "descriptor": "8b5bd23213e09591c48150fe3f9f0400275c54c0fe56edb73e573b7597c2dc5c",
+      "mesh_glb": "68747b5c6076728dc1ad367608e9fe5e95c621a2da5ed02271e0fb021a4a365c",
+      "normalized_structure": "3197d881fd10cad5de7d67c9fec48d392aef0343ecd4b8bc02a424bf799b6047"
+    }
+  },
+  "identical": true
+}

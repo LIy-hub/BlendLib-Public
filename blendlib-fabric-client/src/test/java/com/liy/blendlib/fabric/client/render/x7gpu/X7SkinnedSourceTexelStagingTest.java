@@ -49,6 +49,22 @@ class X7SkinnedSourceTexelStagingTest {
     }
 
     @Test
+    void fortyFiveDegreeRotationUsesTheCorrectCofactorDeterminantInBothGpuMirrors() {
+        float c=(float)Math.sqrt(.5);
+        float[] rotation=matrix(1,1,1,1);rotation[0]=c;rotation[1]=c;rotation[4]=-c;rotation[5]=c;
+        var palette=palette(rotation);
+        var captured=snapshot(palette);
+        var bytes=captured.bytesForUpload();
+        assertEquals(c,bytes.getFloat(X7GpuSkinPaletteSnapshot.POSITION_PALETTE_BYTES),2e-7);
+        assertEquals(c,bytes.getFloat(X7GpuSkinPaletteSnapshot.POSITION_PALETTE_BYTES+Float.BYTES),2e-7);
+        var attempt=X7SkinnedSourceTexelStaging.tryStage(source(0,0,0,1,0,0,oneWeight()),captured);
+        assertTrue(attempt.eligible());
+        assertEquals(c,attempt.stagingOrNull().cpuNormalsForTest()[0],2e-7);
+        assertEquals(c,attempt.stagingOrNull().gpuNormalsForTest()[1],2e-7);
+        attempt.stagingOrNull().close();captured.close();
+    }
+
+    @Test
     void determinantThresholdUsesStrictAbsWithBothSigns() {
         assertPaletteEligibility(MATRIX_EPSILON, false);
         assertPaletteEligibility(Math.nextDown(MATRIX_EPSILON), false);

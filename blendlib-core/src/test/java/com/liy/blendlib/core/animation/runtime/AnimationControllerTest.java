@@ -236,6 +236,19 @@ class AnimationControllerTest {
         assertEquals((float) Math.sqrt(0.5), Math.abs(halfway.w()), 1.0e-5f);
     }
 
+    @Test
+    void fractionalFrameAccumulationEmitsEachLoopMarkerOnlyOnce() {
+        var marker = event(.5, "half");
+        var controller = new AnimationController(BlendInstanceKey.entity("fractional", 1),
+                definition(state(IDLE, translationClip("loop",0,1), true,1,0,null,List.of(marker))));
+        int events = 0;
+        controller.advance(.25);
+        for (int i=0;i<7;i++) events += controller.advance(.05).visualEvents().size();
+        assertEquals(1, events, "upper and lower event boundaries must share the same epsilon");
+        for (int i=0;i<20;i++) events += controller.advance(.05).visualEvents().size();
+        assertEquals(2, events, "the following loop still emits its marker once");
+    }
+
     private static AnimationControllerDefinition definition(AnimationState... states) {
         return new AnimationControllerDefinition(IDLE, java.util.Arrays.stream(states)
                 .collect(java.util.stream.Collectors.toMap(AnimationState::key, state -> state, (left, right) -> left, java.util.LinkedHashMap::new)));

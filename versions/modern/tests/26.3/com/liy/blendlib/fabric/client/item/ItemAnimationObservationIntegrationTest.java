@@ -480,6 +480,13 @@ class ItemAnimationObservationIntegrationTest {
         return actual;
     }
 
+    private static com.liy.blendlib.core.model.MorphBindingTable morphBindings() {
+        var binding = new com.liy.blendlib.core.model.MorphBindingTable.Binding(0, List.of("Preview"), 0,
+                new float[] {0}, new float[] {0}, new float[] {1});
+        return new com.liy.blendlib.core.model.MorphBindingTable(List.of(binding), Map.of(
+                BlendResourceId.parse("test:preview"), new com.liy.blendlib.core.model.MorphBindingTable.Control(0, 0, 0, 0, 1)));
+    }
+
     private static LoadedModelHandle fixture(long generation) {
         return fixture(generation, ModelProfile.SKINNED_V1, IDLE, 1);
     }
@@ -506,7 +513,12 @@ class ItemAnimationObservationIntegrationTest {
                 List.of(0), List.of(new ModelPrimitive(0, 0, 0, mesh)),
                 skinned ? new Skeleton(List.of(new Skin("ItemSkin", 1, List.of(1),
                         new float[] {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}))) : null,
-                List.of(clip), new SocketTable(Map.of()), Bounds.fromPositions(mesh.positions()), List.of());
+                List.of(clip), new SocketTable(Map.of()), Bounds.fromPositions(mesh.positions()), List.of(),
+                profile == ModelProfile.SKINNED_MORPH_CPU_V1 ? morphBindings()
+                        : com.liy.blendlib.core.model.MorphBindingTable.empty(),
+                profile == ModelProfile.SKINNED_MORPH_CPU_V1 ? Map.of(mesh,
+                        new com.liy.blendlib.core.model.MorphTargetSet(List.of("Preview"), 3,
+                                new float[][] {new float[9]}, new float[][] {new float[9]})) : Map.of());
         return new LoadedModelHandle(MODEL, asset, skinned ? SkinnedRenderHandle.prepare(MODEL, asset)
                 : StaticRigidRenderHandle.prepare(MODEL, asset));
     }

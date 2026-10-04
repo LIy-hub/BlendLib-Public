@@ -9,6 +9,8 @@ import com.liy.blendlib.core.animation.runtime.AnimationCorrection;
 import com.liy.blendlib.core.animation.runtime.AnimationCorrectionResult;
 import com.liy.blendlib.core.animation.runtime.AnimationControllerDefinition;
 import com.liy.blendlib.core.animation.runtime.PoseSampler;
+import com.liy.blendlib.core.animation.runtime.MorphWeightSampler;
+import com.liy.blendlib.core.animation.runtime.MorphFrameOverrides;
 import com.liy.blendlib.core.model.ModelAsset;
 import com.liy.blendlib.core.model.ModelProfile;
 import com.liy.blendlib.fabric.client.animation.AnimationUpdateBucket;
@@ -129,6 +131,8 @@ public final class SkinnedAnimationRuntime {
     public List<AnimationV2Command> captureEntityLayerCues(Object source, Object owner, int entityId,
             BlendModelKey model, long generation, double clientTicks,
             List<com.liy.blendlib.fabric.client.entity.BlendEntityLayerCue> cues) {
+        // Preflight every cue before EntityLayerCueCache can accept any sequence in the batch.
+        for (var cue : List.copyOf(cues)) requireBoneOnlyAnimation(model, generation, cue.animationKey());
         if (capturingBlendSpace != null) {
             for (var cue : List.copyOf(cues)) {
                 if (capturingBlendSpace.memberLayerIds().contains(cue.controllerId()))
@@ -164,6 +168,10 @@ public final class SkinnedAnimationRuntime {
         if (active.isEmpty() || current.isRetired() || current.generationId() != generation) return List.of();
         if (observedGeneration != generation) onActiveGeneration(generation);
         var rules = current.locomotionRules(model);
+        rules.ifPresent(value -> {
+            requireBoneOnlyAnimation(model, generation, value.defaultAnimation());
+            for (var rule : value.rules()) requireBoneOnlyAnimation(model, generation, rule.animation());
+        });
         boolean replacement = rules.isPresent()
                 && ((!entityLocomotionRules.contains(active.get()) && clocks.containsKey(active.get()))
                 || entityLocomotionRules.replaced(active.get(), source, owner, model,
@@ -172,6 +180,7 @@ public final class SkinnedAnimationRuntime {
         capturingLocomotion = true;
         try {
             var supplied = List.copyOf(commands.get());
+            for (var command : supplied) requireBoneOnlyAnimation(model, generation, command.animationKey());
             if (capturingBlendSpace != null) {
                 capturingBlendSpace.validateExternalCommands(supplied);
                 int completeCount = supplied.size() + (rules.isPresent() ? 1 : 0);
@@ -221,6 +230,27 @@ public final class SkinnedAnimationRuntime {
 
     int trackedLocomotionCount() { return entityLocomotionRules.size(); }
     int invalidLocomotionInputDiagnosticCount() { return invalidLocomotionInputs.size(); }
+
+    private void requireBoneOnlyAnimation(BlendModelKey model, long generation, BlendAnimationKey animation) {
+        var handle = modelRegistry.current().find(model);
+        if (handle.isPresent() && handle.get() instanceof LoadedModelHandle loaded
+                && loaded.generationId() == generation && loaded.asset().animationDefinition() != null) {
+            var state = preparedAsset(loaded).definition().states().get(animation);
+            if (state != null && state.clip().hasMorphChannels())
+                throw new IllegalArgumentException("Morph weight clips are unsupported in layers and blendspaces");
+        }
+    }
+
+    /** Validates a transforms-only layer state domain before stateful external cue callbacks. */
+    public boolean validateBoneLayerBinding(BlendModelKey model, long generation, List<ModelAnimationLayers.Layer> layers) {
+        var current = modelRegistry.current();
+        if (current.isRetired() || current.generationId() != generation) return false;
+        var handle = current.find(Objects.requireNonNull(model, "model"));
+        if (handle.isEmpty() || !(handle.get() instanceof LoadedModelHandle loaded)
+                || loaded.asset().animationDefinition() == null) return false;
+        preparedLayers(loaded, List.copyOf(layers));
+        return true;
+    }
 
     private double cueStateSpeed(BlendModelKey model, long generation, BlendAnimationKey animation) {
         var handle = modelRegistry.current().find(model);
@@ -306,6 +336,47 @@ public final class SkinnedAnimationRuntime {
      */
     public Optional<SkinnedAnimationRuntimeResult> extract(SkinnedAnimationRuntimeInput input) {
         return extractInternal(input, null, null, null, List.of(), AnimationV2LayerWeights.empty(), null);
+    }
+
+    /** Captures named frame-local morph replacements after full-body clip sampling. */
+    public Optional<SkinnedAnimationRuntimeResult> extractMorph(SkinnedAnimationRuntimeInput input,
+            MorphFrameOverrides overrides, ClientAnimationPoseModifier modifier) {
+        return extractInternal(input, modifier, null, null, List.of(), AnimationV2LayerWeights.empty(), null, null,
+                Objects.requireNonNull(overrides, "overrides"));
+    }
+
+    /** Explicit clip-local sampling with frame-local morph controls. */
+    public Optional<SkinnedAnimationRuntimeResult> extractMorphClipAt(SkinnedAnimationRuntimeInput input,
+            double seconds, MorphFrameOverrides overrides, ClientAnimationPoseModifier modifier) {
+        if (!Double.isFinite(seconds) || seconds < 0) throw new IllegalArgumentException("Invalid clip seconds");
+        return extractInternal(input, modifier, seconds, null, List.of(), AnimationV2LayerWeights.empty(), null, null,
+                Objects.requireNonNull(overrides, "overrides"));
+    }
+
+    /** Bone-only layer plans may use explicit frame controls; weight-bearing layer clips are rejected. */
+    public Optional<SkinnedAnimationRuntimeResult> extractLayeredMorph(SkinnedAnimationRuntimeInput input,
+            List<ModelAnimationLayers.Layer> layers, List<AnimationV2Command> commands,
+            AnimationV2LayerWeights weights, MorphFrameOverrides overrides, ClientAnimationPoseModifier modifier) {
+        return extractLayeredMorph(input, layers, commands, weights, overrides, modifier, null);
+    }
+
+    public Optional<SkinnedAnimationRuntimeResult> extractLayeredMorph(SkinnedAnimationRuntimeInput input,
+            List<ModelAnimationLayers.Layer> layers, List<AnimationV2Command> commands,
+            AnimationV2LayerWeights weights, MorphFrameOverrides overrides, ClientAnimationPoseModifier modifier,
+            java.util.function.Consumer<LayerAnimationVisualEvent> listener) {
+        return extractInternal(input, modifier, null, List.copyOf(layers), List.copyOf(commands),
+                Objects.requireNonNull(weights, "weights"), listener, null, Objects.requireNonNull(overrides, "overrides"));
+    }
+
+    /** Generation-local preflight for control callbacks, before stateful cue capture. */
+    public boolean validateMorphControls(BlendModelKey model, long generation, MorphFrameOverrides overrides) {
+        Objects.requireNonNull(overrides, "overrides");
+        var current = modelRegistry.current();
+        if (current.isRetired() || current.generationId() != generation) return false;
+        var handle = current.find(Objects.requireNonNull(model, "model"));
+        if (handle.isEmpty() || !(handle.get() instanceof LoadedModelHandle loaded)) return false;
+        overrides.validate(loaded.asset().morphBindings());
+        return true;
     }
 
     /**
@@ -514,6 +585,17 @@ public final class SkinnedAnimationRuntime {
             AnimationV2LayerWeights weights, AnimationBlendSpaceSyncGroup definition, AnimationV2LayerWeights memberWeights, double cadence,
             Object source, Object owner, ClientAnimationPoseModifier modifier,
             java.util.function.Consumer<LayerAnimationVisualEvent> listener) {
+        return extractBlendSpaceFrameMorph(input, layers, commands, weights, definition, memberWeights, cadence,
+                source, owner, modifier, listener, MorphFrameOverrides.empty());
+    }
+
+    /** Bone-only blendspace sampling with independently captured manual morph controls. */
+    public Optional<SkinnedAnimationRuntimeResult> extractBlendSpaceFrameMorph(SkinnedAnimationRuntimeInput input,
+            List<ModelAnimationLayers.Layer> layers, List<AnimationV2Command> commands,
+            AnimationV2LayerWeights weights, AnimationBlendSpaceSyncGroup definition, AnimationV2LayerWeights memberWeights, double cadence,
+            Object source, Object owner, ClientAnimationPoseModifier modifier,
+            java.util.function.Consumer<LayerAnimationVisualEvent> listener, MorphFrameOverrides overrides) {
+        Objects.requireNonNull(overrides, "overrides");
         Objects.requireNonNull(definition, "definition");
         definition.validateExternalCommands(commands);
         definition.validateExternalWeights(weights);
@@ -528,7 +610,7 @@ public final class SkinnedAnimationRuntime {
         var request = new BlendSpaceRequest(definition, memberWeights, cadence,
                 Objects.requireNonNull(source, "source"), Objects.requireNonNull(owner, "owner"));
         return extractInternal(input, modifier, null, List.copyOf(layers), List.copyOf(commands),
-                Objects.requireNonNull(weights, "weights"), listener, request);
+                Objects.requireNonNull(weights, "weights"), listener, request, overrides);
     }
 
     private Optional<SkinnedAnimationRuntimeResult> extractInternal(
@@ -544,6 +626,16 @@ public final class SkinnedAnimationRuntime {
             List<ModelAnimationLayers.Layer> layers, List<AnimationV2Command> commands,
             AnimationV2LayerWeights weights,
             java.util.function.Consumer<com.liy.blendlib.core.animation.v2.LayerAnimationVisualEvent> listener, BlendSpaceRequest blendSpace) {
+        return extractInternal(input, poseModifier, clipSeconds, layers, commands, weights, listener, blendSpace,
+                MorphFrameOverrides.empty());
+    }
+
+    private Optional<SkinnedAnimationRuntimeResult> extractInternal(
+            SkinnedAnimationRuntimeInput input, ClientAnimationPoseModifier poseModifier, Double clipSeconds,
+            List<ModelAnimationLayers.Layer> layers, List<AnimationV2Command> commands,
+            AnimationV2LayerWeights weights,
+            java.util.function.Consumer<com.liy.blendlib.core.animation.v2.LayerAnimationVisualEvent> listener,
+            BlendSpaceRequest blendSpace, MorphFrameOverrides morphOverrides) {
         long preparationStartedNanos = ClientRenderMeasurementCollector.startAnimationPreparation();
         try {
             SkinnedAnimationRuntimeInput checkedInput = Objects.requireNonNull(input, "input");
@@ -564,6 +656,8 @@ public final class SkinnedAnimationRuntime {
                 return Optional.empty();
             }
 
+            // Entire batch is checked before binding or advancing any live instance state.
+            morphOverrides.validate(loaded.asset().morphBindings());
             PreparedAnimationAsset prepared = preparedAsset(loaded);
             BlendInstanceKey instanceKey = checkedInput.instanceKey();
             // Validate a complete captured frame before binding/advancing live instance state.
@@ -575,6 +669,11 @@ public final class SkinnedAnimationRuntime {
             double proposedPhase = 0;
             double blendSpaceTick = checkedInput.clientGameTimeInTicks();
             if (layers != null) {
+                for (var command : commands) {
+                    var requested = prepared.definition().states().get(command.animationKey());
+                    if (requested != null && requested.clip().hasMorphChannels())
+                        throw new IllegalArgumentException("Morph weight clips are unsupported in layers and blendspaces");
+                }
                 InstanceClock prior = clocks.get(instanceKey);
                 selectedLayered = prior != null && prior.matches(checkedInput.modelKey(), generation)
                         && prior.layered != null && prior.layered.layers.equals(layers)
@@ -631,7 +730,7 @@ public final class SkinnedAnimationRuntime {
                     generation,
                     instance.controller().currentState(),
                     clock.sampleRevision);
-            ClientAnimationPoseSnapshot basePose = instances.preparePoseSnapshot(poseKey, prepared.sampler());
+            ClientAnimationPoseSnapshot basePose = instances.preparePoseSnapshot(poseKey, prepared.sampler(), prepared.morphSampler());
             List<com.liy.blendlib.core.animation.v2.LayerAnimationVisualEvent> layerEvents = List.of();
             if (layers != null) {
                 LayeredClock layered = selectedLayered;
@@ -662,6 +761,9 @@ public final class SkinnedAnimationRuntime {
                 clock.layered = null;
                 blendSpaceClocks.remove(instanceKey);
             }
+            // Layer evaluation is transforms-only: use declared defaults plus explicit manual controls.
+            var sampledWeights = layers == null ? basePose.morphWeights() : prepared.morphSampler().defaults();
+            basePose = instances.withMorphWeights(basePose, sampledWeights.overridden(morphOverrides));
             ClientAnimationPoseSnapshot effectivePose = basePose;
             if (poseModifier != null) {
                 ClientAnimationPoseContext poseContext = new ClientAnimationPoseContext(
@@ -717,6 +819,7 @@ public final class SkinnedAnimationRuntime {
             return new PreparedAnimationAsset(
                     AnimationControllerDefinition.fromModelAsset(asset),
                     PoseSampler.fromModelAsset(asset),
+                    MorphWeightSampler.fromModelAsset(asset),
                     ClientAnimationRigView.fromNodes(asset.nodes()));
         });
     }
@@ -728,7 +831,7 @@ public final class SkinnedAnimationRuntime {
      */
     private static boolean supportsAnimatedHandle(LoadedModelHandle loaded, BlendModelKey modelKey, long generation) {
         return switch (loaded.asset().profile()) {
-            case SKINNED_V1, SKINNED_CUBIC_V1 -> loaded.renderHandle() instanceof SkinnedRenderHandle skinnedHandle
+            case SKINNED_V1, SKINNED_CUBIC_V1, SKINNED_MORPH_CPU_V1 -> loaded.renderHandle() instanceof SkinnedRenderHandle skinnedHandle
                     && skinnedHandle.modelKey().equals(modelKey)
                     && skinnedHandle.generation() == generation;
             case RIGID_V1 -> loaded.renderHandle() instanceof StaticRigidRenderHandle rigidHandle
@@ -890,10 +993,12 @@ public final class SkinnedAnimationRuntime {
     private record PreparedAnimationAsset(
             AnimationControllerDefinition definition,
             PoseSampler sampler,
+            MorphWeightSampler morphSampler,
             ClientAnimationRigView rig) {
         private PreparedAnimationAsset {
             definition = Objects.requireNonNull(definition, "definition");
             sampler = Objects.requireNonNull(sampler, "sampler");
+            morphSampler = Objects.requireNonNull(morphSampler, "morphSampler");
             rig = Objects.requireNonNull(rig, "rig");
         }
     }

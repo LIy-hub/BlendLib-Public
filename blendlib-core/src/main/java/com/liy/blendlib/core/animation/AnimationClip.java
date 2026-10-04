@@ -8,20 +8,27 @@ public final class AnimationClip {
     private final String name;
     private final List<AnimationChannel> channels;
     private final float durationSeconds;
+    private final List<MorphWeightChannel> morphChannels;
 
     public AnimationClip(String name, List<AnimationChannel> channels) {
+        this(name, channels, List.of());
+    }
+
+    public AnimationClip(String name, List<AnimationChannel> channels, List<MorphWeightChannel> morphChannels) {
         this.name = Objects.requireNonNull(name, "name");
         if (name.isBlank()) {
             throw new IllegalArgumentException("Animation clip name must not be blank");
         }
         this.channels = List.copyOf(Objects.requireNonNull(channels, "channels"));
-        if (this.channels.isEmpty()) {
+        this.morphChannels = List.copyOf(Objects.requireNonNull(morphChannels, "morphChannels"));
+        if (this.channels.isEmpty() && this.morphChannels.isEmpty()) {
             throw new IllegalArgumentException("Animation clip must contain at least one channel");
         }
         float duration = 0.0f;
         for (AnimationChannel channel : this.channels) {
             duration = Math.max(duration, channel.durationSeconds());
         }
+        for (MorphWeightChannel channel : this.morphChannels) duration = Math.max(duration, channel.durationSeconds());
         this.durationSeconds = duration;
     }
 
@@ -32,6 +39,10 @@ public final class AnimationClip {
     public List<AnimationChannel> channels() {
         return channels;
     }
+
+    public List<MorphWeightChannel> morphChannels() { return morphChannels; }
+
+    public boolean hasMorphChannels() { return !morphChannels.isEmpty(); }
 
     public float durationSeconds() {
         return durationSeconds;

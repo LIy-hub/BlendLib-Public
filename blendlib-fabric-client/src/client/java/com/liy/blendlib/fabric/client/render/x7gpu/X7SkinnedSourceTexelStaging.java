@@ -362,7 +362,7 @@ final class X7SkinnedSourceTexelStaging implements AutoCloseable {
         double c20 = a01 * a12 - a02 * a11;
         double c21 = a02 * a10 - a00 * a12;
         double c22 = a00 * a11 - a01 * a10;
-        double determinant = a00 * c00 + a01 * c10 + a02 * c20;
+        double determinant = a00 * c00 + a01 * c01 + a02 * c02;
         if (!Double.isFinite(determinant) || Math.abs(determinant) <= HOMOGENEOUS_W_EPSILON) {
             throw new IllegalArgumentException("GPU skinning requires finite normal abs(det) > 1e-12");
         }

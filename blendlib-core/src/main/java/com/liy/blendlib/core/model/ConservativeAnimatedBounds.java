@@ -49,6 +49,12 @@ final class ConservativeAnimatedBounds {
             List<ModelPrimitive> primitives,
             Skeleton skeleton,
             List<AnimationClip> clips) {
+        return includeAnimations(restBounds, nodes, defaultSceneRoots, primitives, skeleton, clips, MorphBindingTable.empty(), Map.of());
+    }
+
+    static Bounds includeAnimations(Bounds restBounds, List<ModelNode> nodes, List<Integer> defaultSceneRoots,
+            List<ModelPrimitive> primitives, Skeleton skeleton, List<AnimationClip> clips,
+            MorphBindingTable morphBindings, Map<MeshPrimitive, MorphTargetSet> morphTargets) {
         Bounds checkedRestBounds = Objects.requireNonNull(restBounds, "restBounds");
         List<AnimationClip> checkedClips = List.copyOf(Objects.requireNonNull(clips, "clips"));
         List<ModelNode> checkedNodes = List.copyOf(Objects.requireNonNull(nodes, "nodes"));
@@ -127,7 +133,8 @@ final class ConservativeAnimatedBounds {
             if (primitive.geometry().skinned()) {
                 radius = Math.max(radius, skinnedPrimitiveRadius(
                         checkedNodes.get(primitiveNode), primitive.geometry(), skeleton, nodeOrdinals,
-                        worldOffsetRadius, worldScaleMaximum));
+                        worldOffsetRadius, worldScaleMaximum, morphBindings.binding(primitive.nodeIndex()),
+                        morphTargets.get(primitive.geometry())));
             } else {
                 double localRadius = maximumPositionRadius(primitive.geometry().positions());
                 radius = Math.max(radius, safeAdd(
@@ -187,12 +194,14 @@ final class ConservativeAnimatedBounds {
             Skeleton skeleton,
             Map<Integer, Integer> nodeOrdinals,
             double[] worldOffsetRadius,
-            double[] worldScaleMaximum) {
+            double[] worldScaleMaximum, MorphBindingTable.Binding morphBinding, MorphTargetSet morphTargets) {
         if (skeleton == null || primitiveNode.skinIndex() < 0
                 || primitiveNode.skinIndex() >= skeleton.skins().size()) {
             throw invalid("Animated skinned bounds require the primitive's decoded skin");
         }
         Skin skin = skeleton.skins().get(primitiveNode.skinIndex());
+        Matrix4[] inverseBinds = new Matrix4[skin.joints().size()];
+        for (int joint = 0; joint < inverseBinds.length; joint++) inverseBinds[joint] = skin.inverseBindMatrix(joint);
         float[] positions = geometry.positions();
         int[] joints = geometry.joints();
         float[] weights = geometry.weights();
@@ -215,8 +224,21 @@ final class ConservativeAnimatedBounds {
                     throw invalid("Animated bounds skin joint lies outside the canonical scene");
                 }
                 double inverseBoundRadius = inverseBoundRadius(
-                        skin.inverseBindMatrix(jointSlot),
+                        inverseBinds[jointSlot],
                         positions[positionOffset], positions[positionOffset + 1], positions[positionOffset + 2]);
+                if (morphTargets != null) {
+                    Matrix4 inverseBind = inverseBinds[jointSlot];
+                    for (int target = 0; target < morphTargets.targetCount(); target++) {
+                        double dx = morphTargets.positionDelta(target, vertex, 0);
+                        double dy = morphTargets.positionDelta(target, vertex, 1);
+                        double dz = morphTargets.positionDelta(target, vertex, 2);
+                        double deltaRadius = norm(inverseBind.get(0, 0) * dx + inverseBind.get(1, 0) * dy + inverseBind.get(2, 0) * dz,
+                                inverseBind.get(0, 1) * dx + inverseBind.get(1, 1) * dy + inverseBind.get(2, 1) * dz,
+                                inverseBind.get(0, 2) * dx + inverseBind.get(1, 2) * dy + inverseBind.get(2, 2) * dz);
+                        double interval = Math.max(Math.abs(morphBinding.minWeight(target)), Math.abs(morphBinding.maxWeight(target)));
+                        inverseBoundRadius = safeAdd(inverseBoundRadius, safeMultiply(interval, deltaRadius, "inverse-bind morph delta"), "morphed vertex bound");
+                    }
+                }
                 result = Math.max(result, safeAdd(
                         worldOffsetRadius[joint],
                         safeMultiply(worldScaleMaximum[joint], inverseBoundRadius, "skinned vertex bound"),

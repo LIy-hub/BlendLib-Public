@@ -32,18 +32,32 @@ public final class ModelAnimationLayers {
         BoneSchema schema = new BoneSchema(nodes.stream().map(n -> n.name()).toList(),
                 nodes.stream().map(n -> n.localTransform()).toList());
         var definition = AnimationControllerDefinition.fromModelAsset(asset);
+        // Morph clips cannot be represented by the transforms-only v2 evaluator. Keep a real
+        // bone-only state domain instead of dropping weights from otherwise accepted clips.
+        var boneStates = new LinkedHashMap<BlendAnimationKey, com.liy.blendlib.core.animation.runtime.AnimationState>();
+        definition.states().forEach((key, state) -> {
+            if (!state.clip().hasMorphChannels()) boneStates.put(key, state);
+        });
+        for (Layer layer : List.copyOf(layers)) {
+            if (!boneStates.containsKey(layer.initialState()))
+                throw new IllegalArgumentException("Layer initial state must use a bone-only clip");
+        }
+        for (var state : boneStates.values()) {
+            if (state.next() != null && !boneStates.containsKey(state.next()))
+                throw new IllegalArgumentException("Layer next state cannot consume a morph weight clip");
+        }
         Map<BlendAnimationKey, List<AnimationVisualEvent>> events = new LinkedHashMap<>();
-        definition.states().forEach((key, state) -> events.put(key, state.events()));
+        boneStates.forEach((key, state) -> events.put(key, state.events()));
         visualEvents = Collections.unmodifiableMap(events);
         var sampler = PoseSampler.fromModelAsset(asset);
         Map<BlendAnimationKey, AnimationV2Clip> clips = new LinkedHashMap<>();
-        definition.states().forEach((key, state) -> clips.put(key, AnimationV2Clip.fromState(sampler, state, nodeIndices)));
+        boneStates.forEach((key, state) -> clips.put(key, AnimationV2Clip.fromState(sampler, state, nodeIndices)));
         List<AnimationV2ControllerDefinition> controllers = new ArrayList<>();
         for (Layer layer : List.copyOf(layers)) {
             BoneMask mask = layer.bones().isEmpty() ? BoneMask.all(schema) : BoneMask.named(schema, layer.bones());
             var meta = new AnimationV2LayerDefinition(layer.id(), 0, layer.mode(), layer.weight(), mask, false);
             Map<BlendAnimationKey, AnimationV2ControllerState> states = new LinkedHashMap<>();
-            definition.states().forEach((key, state) -> states.put(key, new AnimationV2ControllerState(key,
+            boneStates.forEach((key, state) -> states.put(key, new AnimationV2ControllerState(key,
                     state.loop() ? AnimationV2PlaybackMode.LOOP : AnimationV2PlaybackMode.ONCE,
                     state.speed(), state.blendSeconds(), state.next(), Map.of(layer.id(), clips.get(key)))));
             controllers.add(new AnimationV2ControllerDefinition(layer.id(), layer.priority(), List.of(meta),

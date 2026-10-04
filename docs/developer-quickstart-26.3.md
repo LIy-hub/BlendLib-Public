@@ -257,3 +257,13 @@ The additive [fixed-cycle directional 2D API](directional-blendspace-2d.md) prov
 forward/back/strafe interpolation using local velocity. Use `-Pblendlib_preview=directional-preview`
 for distinct `1.0.0-beta.4+26.3-directional-preview` JARs and the documented separate opt-in actor.
 The published beta.4 baseline and 1D/discrete defaults remain unchanged.
+
+## CPU 形态键预览（第 28 批）
+
+独立 opt-in `format_version: 2` / `blendlib:skinned_morph_cpu_v1` 支持最多八个
+POSITION/NORMAL 目标、命名有界权重、LINEAR/STEP 权重动画与逐帧控制。继承原生 cubic
+骨骼 TRS；始终走 CPU 快照。完整说明见 [CPU 形态键](cpu-morph-profile.md) 和
+[独立双演员示例](../examples/cpu-morph-profile/README.md)。旧 profile、导出默认行为及
+X9 validation-only 边界不变。权重动画暂不进入骨骼分层/混合空间；骨骼层可叠加手动形态控制。
+使用配套 `1.0.0-beta.4+26.3-morph-preview` JAR；Blender 预览和无头测试不代表 Minecraft
+原生画面验收。

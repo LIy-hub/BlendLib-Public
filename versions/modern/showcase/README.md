@@ -926,3 +926,12 @@ with cadence off/on, watch smooth acceleration/deceleration and idle, stop again
 2D sectors, trigger upper attacks, inspect stable member sequences, reload, and unload/reconnect.
 No exporter or private Blender project changes are needed. See the complete
 [dynamic cadence contract](../../../docs/dynamic-blendspace-cadence.md) for bounds and timing.
+
+## CPU shape-key actor
+
+The dedicated `blendlib_runnable_examples:cpu_morph_actor` uses the first-party Blender
+Blink/Smile/Breath fixture with native cubic nod. Build this feature preview with
+`-Pblendlib_preview=morph-preview`, summon two actors, and use `/blendlib_example morph list`
+to find IDs for the client-local control/clip/reset commands. The existing actors and scene
+switches remain unchanged. See the complete [CPU morph walkthrough](../../../examples/cpu-morph-profile/README.md).
+Native Minecraft visual acceptance remains deferred.

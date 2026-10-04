@@ -86,13 +86,66 @@ public final class SkinPalette {
         double c20 = a01 * a12 - a02 * a11;
         double c21 = a02 * a10 - a00 * a12;
         double c22 = a00 * a11 - a01 * a10;
-        double determinant = a00 * c00 + a01 * c10 + a02 * c20;
+        // Expand along row zero using its cofactors (not the transposed cofactor column).
+        double determinant = a00 * c00 + a01 * c01 + a02 * c02;
         if (!Double.isFinite(determinant) || Math.abs(determinant) <= EPSILON) {
             throw new IllegalArgumentException("Skin normal transform requires an invertible joint matrix");
         }
         output[outputOffset] = finite((c00 * normalX + c01 * normalY + c02 * normalZ) / determinant);
         output[outputOffset + 1] = finite((c10 * normalX + c11 * normalY + c12 * normalZ) / determinant);
         output[outputOffset + 2] = finite((c20 * normalX + c21 * normalY + c22 * normalZ) / determinant);
+    }
+
+    // CPU morphs retain double accumulation through the skin transform, then round only final output.
+    void transformPointInto(int jointSlot, double pointX, double pointY, double pointZ, double[] output, int outputOffset) {
+        float[] matrix = matrices[jointSlot];
+        double x = matrix[0] * pointX + matrix[4] * pointY + matrix[8] * pointZ + matrix[12];
+        double y = matrix[1] * pointX + matrix[5] * pointY + matrix[9] * pointZ + matrix[13];
+        double z = matrix[2] * pointX + matrix[6] * pointY + matrix[10] * pointZ + matrix[14];
+        double w = matrix[3] * pointX + matrix[7] * pointY + matrix[11] * pointZ + matrix[15];
+        if (!Double.isFinite(w) || Math.abs(w) <= EPSILON) {
+            throw new IllegalArgumentException("Skin point transform produced a non-finite or zero homogeneous coordinate");
+        }
+        output[outputOffset] = finiteDouble(x / w);
+        output[outputOffset + 1] = finiteDouble(y / w);
+        output[outputOffset + 2] = finiteDouble(z / w);
+    }
+
+    /** Transforms a normal into caller-owned primitive storage using the inverse-transpose matrix. */
+    void transformNormalInto(int jointSlot, double normalX, double normalY, double normalZ, double[] output, int outputOffset) {
+        float[] matrix = matrices[jointSlot];
+        double a00 = matrix[0];
+        double a01 = matrix[4];
+        double a02 = matrix[8];
+        double a10 = matrix[1];
+        double a11 = matrix[5];
+        double a12 = matrix[9];
+        double a20 = matrix[2];
+        double a21 = matrix[6];
+        double a22 = matrix[10];
+        double c00 = a11 * a22 - a12 * a21;
+        double c01 = a12 * a20 - a10 * a22;
+        double c02 = a10 * a21 - a11 * a20;
+        double c10 = a02 * a21 - a01 * a22;
+        double c11 = a00 * a22 - a02 * a20;
+        double c12 = a01 * a20 - a00 * a21;
+        double c20 = a01 * a12 - a02 * a11;
+        double c21 = a02 * a10 - a00 * a12;
+        double c22 = a00 * a11 - a01 * a10;
+        // Expand along row zero using its cofactors (not the transposed cofactor column).
+        double determinant = a00 * c00 + a01 * c01 + a02 * c02;
+        if (!Double.isFinite(determinant) || Math.abs(determinant) <= EPSILON) {
+            throw new IllegalArgumentException("Skin normal transform requires an invertible joint matrix");
+        }
+        output[outputOffset] = finiteDouble((c00 * normalX + c01 * normalY + c02 * normalZ) / determinant);
+        output[outputOffset + 1] = finiteDouble((c10 * normalX + c11 * normalY + c12 * normalZ) / determinant);
+        output[outputOffset + 2] = finiteDouble((c20 * normalX + c21 * normalY + c22 * normalZ) / determinant);
+    }
+
+    private static double finiteDouble(double value) {
+        if (!Double.isFinite(value) || Math.abs(value) > Float.MAX_VALUE)
+            throw new IllegalArgumentException("Skin transform produced a non-finite component");
+        return value;
     }
 
     private static float[] toMatrix(Transform transform) {

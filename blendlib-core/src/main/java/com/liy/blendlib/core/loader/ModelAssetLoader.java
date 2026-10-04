@@ -3,6 +3,7 @@ package com.liy.blendlib.core.loader;
 import com.liy.blendlib.api.BlendResourceId;
 import com.liy.blendlib.core.animation.AnimationChannel;
 import com.liy.blendlib.core.animation.AnimationClip;
+import com.liy.blendlib.core.animation.MorphWeightChannel;
 import com.liy.blendlib.core.animation.AnimationPath;
 import com.liy.blendlib.core.animation.Interpolation;
 import com.liy.blendlib.core.asset.AssetBytes;
@@ -31,6 +32,8 @@ import com.liy.blendlib.core.model.ModelAsset;
 import com.liy.blendlib.core.model.ModelNode;
 import com.liy.blendlib.core.model.ModelPrimitive;
 import com.liy.blendlib.core.model.ModelProfile;
+import com.liy.blendlib.core.model.MorphBindingTable;
+import com.liy.blendlib.core.model.MorphTargetSet;
 import com.liy.blendlib.core.model.Quaternion;
 import com.liy.blendlib.core.model.Skeleton;
 import com.liy.blendlib.core.model.Skin;
@@ -124,9 +127,9 @@ public final class ModelAssetLoader {
             throw LoaderFailure.error(BlendDiagnosticCodes.DESC_002, modelKey, descriptor.descriptorId(), "/mesh",
                     "GLB bytes do not match the descriptor mesh resource");
         }
-        if (!runtimeProfiles && descriptor.profile() == ModelProfile.SKINNED_CUBIC_V1) {
+        if (!runtimeProfiles && descriptor.profile() != ModelProfile.RIGID_V1 && descriptor.profile() != ModelProfile.SKINNED_V1) {
             throw LoaderFailure.error(BlendDiagnosticCodes.DESC_001, modelKey, descriptor.descriptorId(), "/profile",
-                    "Native cubic assets require the explicit runtime-profile loader");
+                    "Version-2 assets require the explicit runtime-profile loader");
         }
         GlbDocument document = glbReader.read(modelKey, glbBytes);
         return new Decoder(modelKey, generation, descriptor, glbBytes.resourceId(), document, limits).decode();
@@ -147,6 +150,13 @@ public final class ModelAssetLoader {
         private final List<BlendDiagnostic> diagnostics = new ArrayList<>();
         // Budget all decoded animation arrays, repeated accessor/channel uses and transient copies.
         private long preparedAnimationFloatSlots;
+        private long preparedMorphFloatSlots;
+        private final Map<MeshPrimitive, MorphTargetSet> morphTargets = new java.util.IdentityHashMap<>();
+        private final List<List<String>> meshTargetNames = new ArrayList<>();
+        private final List<float[]> meshDefaultWeights = new ArrayList<>();
+        private MorphBindingTable morphBindings = MorphBindingTable.empty();
+        private boolean morphProfile() { return descriptor.profile() == ModelProfile.SKINNED_MORPH_CPU_V1; }
+        private boolean cubicTrsProfile() { return descriptor.profile() == ModelProfile.SKINNED_CUBIC_V1 || morphProfile(); }
         private static final long MAX_PREPARED_ANIMATION_FLOAT_SLOTS = 32_000_000L;
 
         Decoder(
@@ -171,6 +181,7 @@ public final class ModelAssetLoader {
             validateRequiredExtensions();
             validateUnsupportedRootFeatures();
             accessors.validateAll();
+            if (morphProfile()) preflightMorphStorage();
             List<String> materialNames = decodeMaterialNames();
             List<List<MeshPrimitive>> meshes = decodeMeshes(materialNames);
             List<NodeData> nodeData = decodeNodes(meshes.size());
@@ -179,6 +190,7 @@ public final class ModelAssetLoader {
             validateAllNodeSkinReferences(nodeData, skeleton);
             emitSkinPerformanceWarning(nodeData, skeleton);
             List<ModelPrimitive> primitives = bindPrimitives(meshes, nodeData, scene.worldTransforms(), skeleton);
+            if (morphProfile()) morphBindings = decodeMorphBindings(nodeData, scene, meshes);
             Bounds bounds = calculateBounds(primitives, scene.worldTransforms());
             List<AnimationClip> clips = decodeAnimations(nodeData);
             validateDescriptorClipReferences(clips);
@@ -191,12 +203,214 @@ public final class ModelAssetLoader {
             try {
                 return new ModelAsset(modelKey, descriptor.descriptorId(), generation, descriptor.profile(), descriptor.unitsPerBlock(),
                         descriptor.materials(), descriptor.animation(), publicNodes, scene.rootNodes(), primitives, skeleton, clips, sockets, bounds,
-                        diagnostics);
+                        diagnostics, morphBindings, morphTargets);
             } catch (IllegalArgumentException exception) {
                 String boundsLocation = clips.isEmpty() && skeleton != null ? "/skins" : "/animations";
                 throw fail(BlendDiagnosticCodes.LIMIT_001, boundsLocation,
                         "Animated culling bounds exceed the finite strict-v1 preparation envelope", exception);
             }
+        }
+
+        /** One metadata-only cumulative pass before any decoded float array allocation. */
+        private void preflightMorphStorage() {
+            JsonArray meshes = array(required(root, "meshes", "/meshes", BlendDiagnosticCodes.GLB_015), "/meshes", BlendDiagnosticCodes.GLB_015);
+            JsonArray nodes = array(required(root, "nodes", "/nodes", BlendDiagnosticCodes.GLB_015), "/nodes", BlendDiagnosticCodes.GLB_015);
+            int[] uses = new int[meshes.size()];
+            long expandedPairs = 0;
+            int morphNodes = 0;
+            budgetMorph((long) nodes.size() * 96, "/nodes");
+            for (int n = 0; n < nodes.size(); n++) {
+                JsonObject node = object(nodes.get(n), "/nodes/" + n, BlendDiagnosticCodes.SCENE_005);
+                if (!node.containsKey("mesh")) continue;
+                int mesh = integer(node.get("mesh"), "/nodes/" + n + "/mesh", BlendDiagnosticCodes.SCENE_005);
+                if (mesh < 0 || mesh >= uses.length) throw fail(BlendDiagnosticCodes.SCENE_005, "/nodes/" + n + "/mesh", "Invalid mesh reference");
+                uses[mesh]++;
+            }
+            for (int m = 0; m < meshes.size(); m++) {
+                String pointer = "/meshes/" + m;
+                JsonObject mesh = object(meshes.get(m), pointer, BlendDiagnosticCodes.GLB_015);
+                JsonArray primitives = array(required(mesh, "primitives", pointer + "/primitives", BlendDiagnosticCodes.GLB_015), pointer + "/primitives", BlendDiagnosticCodes.GLB_015);
+                int expectedTargets = -1;
+                for (int p = 0; p < primitives.size(); p++) {
+                    String pp = pointer + "/primitives/" + p;
+                    JsonObject primitive = object(primitives.get(p), pp, BlendDiagnosticCodes.GLB_015);
+                    int targets = targetCount(primitive, pp);
+                    if (expectedTargets >= 0 && targets != expectedTargets) throw fail(BlendDiagnosticCodes.GLB_015, pp + "/targets", "Mesh target cardinalities disagree");
+                    expectedTargets = targets;
+                    JsonObject attributes = object(required(primitive, "attributes", pp + "/attributes", BlendDiagnosticCodes.GLB_015), pp + "/attributes", BlendDiagnosticCodes.GLB_015);
+                    int vertices = accessors.info(accessorIndex(attributes, "POSITION", pp + "/attributes/POSITION")).count();
+                    long pairs = (long) vertices * targets;
+                    if (uses[m] > 0 && pairs > 1_000_000L / uses[m]) throw fail(BlendDiagnosticCodes.LIMIT_001,
+                            pp + "/targets", "Expanded morph vertex-target pair limit exceeded");
+                    expandedPairs = addBounded(expandedPairs, pairs * uses[m], 1_000_000L, pp + "/targets", "Expanded morph vertex-target pair limit exceeded");
+                    // Base reads/copies (24), with preparation slack (16), plus target reads/copies (12).
+                    // Every expanded node use reserves 80 slots/vertex: envelope/bounds copies (13),
+                    // PreparedSkinnedGeometry and topology reads/copies (24), fused output plus
+                    // CpuSkinnedMesh and SkinnedMeshSnapshot capture/copies (28), and slack (15).
+                    budgetMorph(40L * vertices + 12L * pairs + 80L * vertices * uses[m], pp);
+                    if (targets > 0) {
+                        JsonArray targetArray = array(primitive.get("targets"), pp + "/targets", BlendDiagnosticCodes.GLB_015);
+                        for (int t = 0; t < targets; t++) validateTargetAccessors(object(targetArray.get(t), pp + "/targets/" + t,
+                                BlendDiagnosticCodes.GLB_015), vertices, pp + "/targets/" + t);
+                    }
+                }
+                if (expectedTargets > 0) {
+                    morphNodes += uses[m];
+                    if (morphNodes > 128) throw fail(BlendDiagnosticCodes.LIMIT_001, pointer, "Morph node limit exceeded (128)");
+                    // Mesh defaults, node defaults, interval arrays and immutable binding copies.
+                    budgetMorph((long) expectedTargets * (2L + 12L * uses[m]), pointer);
+                }
+            }
+            if (root.containsKey("skins")) {
+                JsonArray skins = array(root.get("skins"), "/skins", BlendDiagnosticCodes.SKIN_001);
+                for (int i = 0; i < skins.size(); i++) {
+                    JsonObject skin = object(skins.get(i), "/skins/" + i, BlendDiagnosticCodes.SKIN_001);
+                    int joints = array(required(skin, "joints", "/skins/" + i + "/joints", BlendDiagnosticCodes.SKIN_001),
+                            "/skins/" + i + "/joints", BlendDiagnosticCodes.SKIN_001).size();
+                    budgetMorph(64L * joints, "/skins/" + i);
+                    for (int n = 0; n < nodes.size(); n++) {
+                        JsonObject node = object(nodes.get(n), "/nodes/" + n, BlendDiagnosticCodes.SCENE_005);
+                        if (node.containsKey("skin") && integer(node.get("skin"), "/nodes/" + n + "/skin", BlendDiagnosticCodes.SKIN_001) == i
+                                && node.containsKey("mesh")) {
+                            int m = integer(node.get("mesh"), "/nodes/" + n + "/mesh", BlendDiagnosticCodes.SCENE_005);
+                            JsonObject mesh = object(meshes.get(m), "/meshes/" + m, BlendDiagnosticCodes.GLB_015);
+                            int primitiveCount = array(mesh.get("primitives"), "/meshes/" + m + "/primitives", BlendDiagnosticCodes.GLB_015).size();
+                            // 32 slots for cached bounds matrices, plus 96 for first-capture
+                            // SkinPalette matrix conversion, inverse-bind views, products and defensive copies.
+                            budgetMorph(128L * joints * primitiveCount, "/nodes/" + n);
+                        }
+                    }
+                }
+            }
+            if (root.containsKey("animations")) {
+                JsonArray animations = array(root.get("animations"), "/animations", BlendDiagnosticCodes.ANIM_007);
+                for (int a = 0; a < animations.size(); a++) {
+                    String ap = "/animations/" + a;
+                    JsonObject animation = object(animations.get(a), ap, BlendDiagnosticCodes.ANIM_007);
+                    JsonArray samplers = array(required(animation, "samplers", ap + "/samplers", BlendDiagnosticCodes.ANIM_007), ap + "/samplers", BlendDiagnosticCodes.ANIM_007);
+                    for (int i = 0; i < samplers.size(); i++) {
+                        JsonObject sampler = object(samplers.get(i), ap + "/samplers/" + i, BlendDiagnosticCodes.ANIM_007);
+                        int input = integer(required(sampler, "input", ap + "/samplers/" + i + "/input", BlendDiagnosticCodes.ANIM_007), ap, BlendDiagnosticCodes.ANIM_007);
+                        budgetMorph(accessors.info(input).count(), ap + "/samplers/" + i);
+                    }
+                    JsonArray channels = array(required(animation, "channels", ap + "/channels", BlendDiagnosticCodes.ANIM_007), ap + "/channels", BlendDiagnosticCodes.ANIM_007);
+                    for (int c = 0; c < channels.size(); c++) {
+                        String cp = ap + "/channels/" + c;
+                        JsonObject channel = object(channels.get(c), cp, BlendDiagnosticCodes.ANIM_007);
+                        int si = integer(required(channel, "sampler", cp + "/sampler", BlendDiagnosticCodes.ANIM_007), cp, BlendDiagnosticCodes.ANIM_007);
+                        if (si < 0 || si >= samplers.size()) throw fail(BlendDiagnosticCodes.ANIM_007, cp, "Invalid animation sampler index");
+                        JsonObject sampler = object(samplers.get(si), ap + "/samplers/" + si, BlendDiagnosticCodes.ANIM_007);
+                        int input = integer(required(sampler, "input", cp, BlendDiagnosticCodes.ANIM_007), cp, BlendDiagnosticCodes.ANIM_007);
+                        int output = integer(required(sampler, "output", cp, BlendDiagnosticCodes.ANIM_007), cp, BlendDiagnosticCodes.ANIM_007);
+                        var outputInfo = accessors.info(output);
+                        // Count every channel use, even shared samplers/accessors: reads, split arrays,
+                        // immutable copies, later TRS extrema reads, and immutable channel time copies.
+                        budgetMorph(3L * outputInfo.count() * outputInfo.componentCount() + accessors.info(input).count(), cp);
+                    }
+                }
+            }
+        }
+
+        private void budgetMorph(long slots, String pointer) {
+            preparedMorphFloatSlots = addBounded(preparedMorphFloatSlots, slots, 32_000_000L, pointer,
+                    "CPU morph preparation exceeds cumulative 32 million float slots, including copies and transients");
+        }
+
+        private int targetCount(JsonObject primitive, String pointer) {
+            if (!primitive.containsKey("targets")) return 0;
+            int count = array(primitive.get("targets"), pointer + "/targets", BlendDiagnosticCodes.GLB_015).size();
+            if (count < 1 || count > 8) throw fail(BlendDiagnosticCodes.LIMIT_001, pointer + "/targets", "Morph target count must be 1..8");
+            return count;
+        }
+
+        private List<String> decodeTargetNames(JsonObject mesh, int count, String pointer) {
+            JsonObject extras = object(required(mesh, "extras", pointer + "/extras", BlendDiagnosticCodes.GLB_015), pointer + "/extras", BlendDiagnosticCodes.GLB_015);
+            JsonArray names = array(required(extras, "targetNames", pointer + "/extras/targetNames", BlendDiagnosticCodes.GLB_015), pointer + "/extras/targetNames", BlendDiagnosticCodes.GLB_015);
+            if (names.size() != count) throw fail(BlendDiagnosticCodes.GLB_015, pointer + "/extras/targetNames", "Target names must exactly match target count and order");
+            List<String> result = new ArrayList<>(); Set<String> unique = new HashSet<>();
+            for (int t = 0; t < count; t++) {
+                String name = string(names.get(t), pointer + "/extras/targetNames/" + t, BlendDiagnosticCodes.GLB_015);
+                try { MorphTargetSet.validateTargetName(name); }
+                catch (IllegalArgumentException exception) { throw fail(BlendDiagnosticCodes.GLB_015, pointer + "/extras/targetNames/" + t, "Invalid morph target name", exception); }
+                if (!unique.add(name)) throw fail(BlendDiagnosticCodes.GLB_015, pointer + "/extras/targetNames/" + t, "Morph target names must be unique");
+                result.add(name);
+            }
+            return List.copyOf(result);
+        }
+
+        private void validateTargetAccessors(JsonObject target, int vertexCount, String pointer) {
+            if (!target.values().keySet().equals(Set.of("POSITION", "NORMAL"))) throw fail(BlendDiagnosticCodes.GLB_015,
+                    pointer, "Each morph target requires exactly dense POSITION and NORMAL deltas");
+            for (String semantic : List.of("POSITION", "NORMAL")) {
+                int index = accessorIndex(target, semantic, pointer + "/" + semantic);
+                var info = accessors.requireUnnormalized(index, "Morph target " + semantic);
+                if (info.componentType() != 5126 || !"VEC3".equals(info.type()) || info.count() != vertexCount) {
+                    throw fail(BlendDiagnosticCodes.GLB_015, pointer + "/" + semantic, "Morph delta accessor must be dense FLOAT VEC3 matching base vertex count");
+                }
+            }
+        }
+
+        private MorphTargetSet decodeMorphTargets(JsonObject primitive, String pointer, List<String> names, int vertexCount) {
+            JsonArray targets = array(primitive.get("targets"), pointer + "/targets", BlendDiagnosticCodes.GLB_015);
+            float[][] positions = new float[names.size()][], normals = new float[names.size()][];
+            for (int t = 0; t < names.size(); t++) {
+                String tp = pointer + "/targets/" + t;
+                JsonObject target = object(targets.get(t), tp, BlendDiagnosticCodes.GLB_015);
+                validateTargetAccessors(target, vertexCount, tp);
+                positions[t] = accessors.readFloatElements(accessorIndex(target, "POSITION", tp + "/POSITION"), "VEC3");
+                normals[t] = accessors.readFloatElements(accessorIndex(target, "NORMAL", tp + "/NORMAL"), "VEC3");
+            }
+            return new MorphTargetSet(names, vertexCount, positions, normals);
+        }
+
+        private MorphBindingTable decodeMorphBindings(List<NodeData> nodes, SceneData scene, List<List<MeshPrimitive>> meshes) {
+            String[] paths = new String[nodes.size()];
+            Map<String, Integer> byPath = new HashMap<>(); Set<String> ambiguous = new HashSet<>();
+            ArrayDeque<Integer> pending = new ArrayDeque<>();
+            for (int rootNode : scene.rootNodes()) { paths[rootNode] = nodes.get(rootNode).name(); pending.add(rootNode); }
+            while (!pending.isEmpty()) {
+                int node = pending.removeFirst(); String path = paths[node];
+                if (byPath.putIfAbsent(path, node) != null) ambiguous.add(path);
+                for (int child : nodes.get(node).children()) { paths[child] = path + "/" + nodes.get(child).name(); pending.add(child); }
+            }
+            Map<Integer, Map<Integer, Map.Entry<BlendResourceId, com.liy.blendlib.core.descriptor.MorphControlDefinition>>> declarations = new HashMap<>();
+            for (var entry : descriptor.morphControls().entrySet()) {
+                var control = entry.getValue(); Integer node = byPath.get(control.node());
+                if (node == null || ambiguous.contains(control.node()) || nodes.get(node).meshIndex() < 0) throw fail(BlendDiagnosticCodes.SCENE_005,
+                        "/morph_controls", "Morph control path must resolve to one active mesh node");
+                List<String> names = meshTargetNames.get(nodes.get(node).meshIndex());
+                int target = names.indexOf(control.target());
+                if (target < 0 || nodes.get(node).skinIndex() < 0) throw fail(BlendDiagnosticCodes.GLB_015, "/morph_controls", "Morph control references an unbound target or unskinned node");
+                if (declarations.computeIfAbsent(node, ignored -> new HashMap<>()).putIfAbsent(target, entry) != null) {
+                    throw fail(BlendDiagnosticCodes.GLB_015, "/morph_controls", "Duplicate morph node/target declaration");
+                }
+            }
+            List<MorphBindingTable.Binding> bindings = new ArrayList<>();
+            Map<BlendResourceId, MorphBindingTable.Control> controls = new LinkedHashMap<>();
+            int offset = 0;
+            JsonArray sourceNodes = array(root.get("nodes"), "/nodes", BlendDiagnosticCodes.SCENE_005);
+            for (NodeData node : nodes) {
+                if (node.meshIndex() < 0 || meshTargetNames.get(node.meshIndex()).isEmpty()) continue;
+                List<String> names = meshTargetNames.get(node.meshIndex());
+                var declared = declarations.get(node.index());
+                if (declared == null || declared.size() != names.size()) throw fail(BlendDiagnosticCodes.GLB_015, "/morph_controls", "Each morph node/target requires exactly one declaration");
+                JsonObject source = object(sourceNodes.get(node.index()), "/nodes/" + node.index(), BlendDiagnosticCodes.SCENE_005);
+                float[] defaults = source.containsKey("weights") ? floatArray(array(source.get("weights"), "/nodes/" + node.index() + "/weights", BlendDiagnosticCodes.GLB_015),
+                        names.size(), "/nodes/" + node.index() + "/weights", BlendDiagnosticCodes.GLB_015) : meshDefaultWeights.get(node.meshIndex());
+                float[] minimum = new float[names.size()], maximum = new float[names.size()];
+                for (int t = 0; t < names.size(); t++) {
+                    var entry = declared.get(t); var control = entry.getValue();
+                    minimum[t] = control.minWeight(); maximum[t] = control.maxWeight();
+                    if (defaults[t] < minimum[t] || defaults[t] > maximum[t]) {
+                        throw fail(BlendDiagnosticCodes.GLB_015, "/nodes/" + node.index() + "/weights", "Morph default lies outside declared control interval");
+                    }
+                    controls.put(entry.getKey(), new MorphBindingTable.Control(node.index(), t, offset + t, minimum[t], maximum[t]));
+                }
+                bindings.add(new MorphBindingTable.Binding(node.index(), names, offset, defaults, minimum, maximum));
+                offset += names.size();
+            }
+            try { return new MorphBindingTable(bindings, controls); }
+            catch (IllegalArgumentException exception) { throw fail(BlendDiagnosticCodes.GLB_015, "/morph_controls", "Invalid morph binding layout", exception); }
         }
 
         private void validateAssetMetadata() {
@@ -251,7 +465,7 @@ public final class ModelAssetLoader {
                 if (material.containsKey("extensions") && !isEmptyObject(material.get("extensions"), pointer + "/extensions")) {
                     throw fail(BlendDiagnosticCodes.GLB_015, pointer + "/extensions", "Material extensions are not supported by v1");
                 }
-                if (descriptor.profile() == ModelProfile.SKINNED_CUBIC_V1) {
+                if (cubicTrsProfile()) {
                     for (String field : material.values().keySet()) {
                         if (!Set.of("name", "extras", "extensions").contains(field)) {
                             throw fail(BlendDiagnosticCodes.GLB_015, pointer + "/" + field,
@@ -284,7 +498,7 @@ public final class ModelAssetLoader {
             for (int meshIndex = 0; meshIndex < meshArray.size(); meshIndex++) {
                 String pointer = "/meshes/" + meshIndex;
                 JsonObject mesh = object(meshArray.get(meshIndex), pointer, BlendDiagnosticCodes.GLB_015);
-                if (mesh.containsKey("weights")) {
+                if (mesh.containsKey("weights") && !morphProfile()) {
                     throw fail(BlendDiagnosticCodes.GLB_015, pointer + "/weights", "Morph targets are not supported by v1");
                 }
                 JsonArray primitiveArray = array(required(mesh, "primitives", pointer + "/primitives", BlendDiagnosticCodes.GLB_015),
@@ -292,13 +506,23 @@ public final class ModelAssetLoader {
                 if (primitiveArray.size() == 0) {
                     throw fail(BlendDiagnosticCodes.GLB_015, pointer + "/primitives", "Mesh must contain a primitive");
                 }
+                int targetCount = morphProfile() ? targetCount(object(primitiveArray.get(0), pointer + "/primitives/0", BlendDiagnosticCodes.GLB_015), pointer + "/primitives/0") : 0;
+                List<String> names = targetCount > 0 ? decodeTargetNames(mesh, targetCount, pointer) : List.of();
+                meshTargetNames.add(names);
+                if (mesh.containsKey("weights") && targetCount == 0) throw fail(BlendDiagnosticCodes.GLB_015, pointer + "/weights", "Weights require morph targets");
+                meshDefaultWeights.add(mesh.containsKey("weights") ? floatArray(array(mesh.get("weights"), pointer + "/weights", BlendDiagnosticCodes.GLB_015),
+                        targetCount, pointer + "/weights", BlendDiagnosticCodes.GLB_015) : new float[targetCount]);
+                for (float weight : meshDefaultWeights.get(meshIndex)) if (weight < -2 || weight > 2) throw fail(BlendDiagnosticCodes.GLB_015,
+                        pointer + "/weights", "Mesh morph defaults must lie within [-2,2]");
                 List<MeshPrimitive> primitiveList = new ArrayList<>();
                 for (int primitiveIndex = 0; primitiveIndex < primitiveArray.size(); primitiveIndex++) {
                     String primitivePointer = pointer + "/primitives/" + primitiveIndex;
                     JsonObject primitive = object(primitiveArray.get(primitiveIndex), primitivePointer, BlendDiagnosticCodes.GLB_015);
-                    if (primitive.containsKey("targets")) {
+                    if (primitive.containsKey("targets") && !morphProfile()) {
                         throw fail(BlendDiagnosticCodes.GLB_015, primitivePointer + "/targets", "Morph targets are not supported by v1");
                     }
+                    if (morphProfile() && targetCount(primitive, primitivePointer) != targetCount) throw fail(BlendDiagnosticCodes.GLB_015,
+                            primitivePointer + "/targets", "All mesh primitives must have the same morph target count");
                     if (primitive.containsKey("extensions") && !isEmptyObject(primitive.get("extensions"), primitivePointer + "/extensions")) {
                         throw fail(BlendDiagnosticCodes.GLB_015, primitivePointer + "/extensions",
                                 "Primitive extensions are not supported by v1");
@@ -361,8 +585,9 @@ public final class ModelAssetLoader {
                         validateVertexInfluences(joints, weights, primitivePointer);
                     }
                     try {
-                        primitiveList.add(new MeshPrimitive(materialNames.get(materialIndex), positions, normals, texCoords, triangleIndices, joints,
-                                weights));
+                        MeshPrimitive geometry = new MeshPrimitive(materialNames.get(materialIndex), positions, normals, texCoords, triangleIndices, joints, weights);
+                        primitiveList.add(geometry);
+                        if (targetCount > 0) morphTargets.put(geometry, decodeMorphTargets(primitive, primitivePointer, names, vertexCount));
                     } catch (IllegalArgumentException exception) {
                         String code = descriptor.profile().skinned() ? BlendDiagnosticCodes.SKIN_001 : BlendDiagnosticCodes.GLB_015;
                         throw fail(code, primitivePointer, "Primitive data violates the strict v1 profile", exception);
@@ -458,8 +683,11 @@ public final class ModelAssetLoader {
                 boolean matrixDeclared = node.containsKey("matrix");
                 Transform transform = decodeNodeTransform(node, pointer);
                 boolean cameraOrLight = validateCameraOrLight(node, pointer);
-                if (node.containsKey("weights")) {
+                if (node.containsKey("weights") && !morphProfile()) {
                     throw fail(BlendDiagnosticCodes.GLB_015, pointer + "/weights", "Node morph weights are not supported by v1");
+                }
+                if (morphProfile() && node.containsKey("weights") && (meshIndex < 0 || meshTargetNames.get(meshIndex).isEmpty())) {
+                    throw fail(BlendDiagnosticCodes.GLB_015, pointer + "/weights", "Node weights require a morph mesh");
                 }
                 result.add(new NodeData(index, name, transform, children, meshIndex, skinIndex, cameraOrLight, matrixDeclared));
             }
@@ -798,7 +1026,7 @@ public final class ModelAssetLoader {
                     throw fail(BlendDiagnosticCodes.SCENE_005, "/meshes/" + meshIndex,
                             "Each strict v1 mesh must be bound to an active scene node");
                 }
-                if (bindings[meshIndex] > 1) {
+                if (bindings[meshIndex] > 1 && !morphProfile()) {
                     throw fail(BlendDiagnosticCodes.SCENE_005, "/meshes/" + meshIndex,
                             "Strict v1 does not permit one mesh to bind to multiple scene nodes");
                 }
@@ -920,6 +1148,11 @@ public final class ModelAssetLoader {
         private void validateInverseBindMatrices(float[] inverseBinds, String pointer) {
             for (int matrix = 0; matrix < inverseBinds.length / 16; matrix++) {
                 int offset = matrix * 16;
+                if (morphProfile() && (inverseBinds[offset + 3] != 0 || inverseBinds[offset + 7] != 0
+                        || inverseBinds[offset + 11] != 0 || inverseBinds[offset + 15] != 1)) {
+                    throw fail(BlendDiagnosticCodes.SKIN_001, pointer,
+                            "CPU morph inverse-bind matrices require exact affine fourth row [0, 0, 0, 1]");
+                }
                 if (Math.abs(inverseBinds[offset + 3]) > 1.0e-5f
                         || Math.abs(inverseBinds[offset + 7]) > 1.0e-5f
                         || Math.abs(inverseBinds[offset + 11]) > 1.0e-5f
@@ -973,6 +1206,8 @@ public final class ModelAssetLoader {
                     throw fail(BlendDiagnosticCodes.ANIM_007, pointer + "/channels", "Animation clip must have channels");
                 }
                 List<AnimationChannel> decodedChannels = new ArrayList<>();
+                List<MorphWeightChannel> morphChannels = new ArrayList<>();
+                Set<Integer> morphChannelNodes = new HashSet<>();
                 boolean[] referencedSamplers = new boolean[samplers.size()];
                 Set<AnimationTarget> targets = new HashSet<>();
                 for (int channelIndex = 0; channelIndex < channels.size(); channelIndex++) {
@@ -989,6 +1224,31 @@ public final class ModelAssetLoader {
                             channelPointer + "/target/node", BlendDiagnosticCodes.ANIM_007);
                     if (targetNode < 0 || targetNode >= nodes.size()) {
                         throw fail(BlendDiagnosticCodes.ANIM_007, channelPointer + "/target/node", "Animation target node is invalid");
+                    }
+                    String targetPath = string(required(target, "path", channelPointer + "/target/path", BlendDiagnosticCodes.ANIM_007),
+                            channelPointer + "/target/path", BlendDiagnosticCodes.ANIM_007);
+                    if (morphProfile() && "weights".equals(targetPath)) {
+                        if (!morphChannelNodes.add(targetNode)) throw fail(BlendDiagnosticCodes.ANIM_007, channelPointer, "Duplicate morph weight channel for node");
+                        referencedSamplers[samplerIndex] = true;
+                        SamplerData sampler = samplers.get(samplerIndex);
+                        MorphBindingTable.Binding binding = morphBindings.binding(targetNode);
+                        if (binding == null) throw fail(BlendDiagnosticCodes.ANIM_007, channelPointer, "Weight channel must target an active skinned morph node");
+                        var outputInfo = accessors.requireUnnormalized(sampler.outputAccessor(), "Morph output");
+                        long count = (long) sampler.times().length * binding.targetCount();
+                        if (sampler.interpolation() == Interpolation.CUBICSPLINE || outputInfo.componentType() != 5126
+                                || !"SCALAR".equals(outputInfo.type()) || outputInfo.count() != count) throw fail(BlendDiagnosticCodes.ANIM_007,
+                                channelPointer, "Morph output requires LINEAR/STEP dense FLOAT SCALAR keyCount*targetCount values");
+                        channelSamples = addBounded(channelSamples, sampler.times().length, limits.maxKeyframeSamples(), channelPointer,
+                                "Animation keyframe sample limit exceeded");
+                        float[] values = accessors.readFloatElements(sampler.outputAccessor(), "SCALAR");
+                        for (int key = 0; key < sampler.times().length; key++) for (int t = 0; t < binding.targetCount(); t++) {
+                            float value = values[key * binding.targetCount() + t];
+                            if (value < binding.minWeight(t) || value > binding.maxWeight(t)) throw fail(BlendDiagnosticCodes.ANIM_007,
+                                    channelPointer, "Morph key lies outside its declared interval");
+                        }
+                        try { morphChannels.add(new MorphWeightChannel(targetNode, binding.targetCount(), sampler.interpolation(), sampler.times(), values)); }
+                        catch (IllegalArgumentException exception) { throw fail(BlendDiagnosticCodes.ANIM_007, channelPointer, "Invalid morph channel", exception); }
+                        continue;
                     }
                     AnimationPath path;
                     try {
@@ -1018,7 +1278,7 @@ public final class ModelAssetLoader {
                     }
                     channelSamples = addBounded(channelSamples, sampler.times().length, limits.maxKeyframeSamples(), channelPointer,
                             "Animation keyframe sample limit exceeded");
-                    if (descriptor.profile() == ModelProfile.SKINNED_CUBIC_V1) {
+                    if (!morphProfile() && cubicTrsProfile()) {
                         long components = expectedCount * path.components();
                         // accessor read + split arrays + immutable copies, plus per-channel copied times.
                         budgetAnimation(3L * components + sampler.times().length, channelPointer);
@@ -1028,7 +1288,7 @@ public final class ModelAssetLoader {
                         throw fail(BlendDiagnosticCodes.ANIM_007, channelPointer, "Animation sampler output count does not match input times");
                     }
                     try {
-                        if (descriptor.profile() == ModelProfile.SKINNED_CUBIC_V1) {
+                        if (cubicTrsProfile()) {
                             int components = path.components();
                             float[] incoming = new float[cubic ? sampler.times().length * components : 0];
                             float[] outgoing = new float[incoming.length];
@@ -1063,7 +1323,7 @@ public final class ModelAssetLoader {
                     throw fail(BlendDiagnosticCodes.ANIM_007, pointer + "/name", "Animation names must be unique and non-blank");
                 }
                 try {
-                    clips.add(new AnimationClip(name, decodedChannels));
+                    clips.add(new AnimationClip(name, decodedChannels, morphChannels));
                 } catch (IllegalArgumentException exception) {
                     throw fail(BlendDiagnosticCodes.ANIM_007, pointer, "Animation clip is invalid", exception);
                 }
@@ -1091,7 +1351,7 @@ public final class ModelAssetLoader {
                         : "LINEAR";
                 Interpolation interpolation;
                 try {
-                    interpolation = descriptor.profile() == ModelProfile.SKINNED_CUBIC_V1 && "CUBICSPLINE".equals(interpolationText)
+                    interpolation = cubicTrsProfile() && "CUBICSPLINE".equals(interpolationText)
                             ? Interpolation.CUBICSPLINE : Interpolation.fromSerializedName(interpolationText);
                 } catch (IllegalArgumentException exception) {
                     throw fail(BlendDiagnosticCodes.ANIM_007, samplerPointer + "/interpolation",
@@ -1113,7 +1373,7 @@ public final class ModelAssetLoader {
                                 "Cubic output must be FLOAT VEC3/VEC4 tangent-value-tangent triplets");
                     }
                 }
-                if (descriptor.profile() == ModelProfile.SKINNED_CUBIC_V1) budgetAnimation(inputInfo.count(), samplerPointer + "/input");
+                if (!morphProfile() && cubicTrsProfile()) budgetAnimation(inputInfo.count(), samplerPointer + "/input");
                 inputSamples = addBounded(inputSamples, inputInfo.count(), limits.maxKeyframeSamples(), samplerPointer + "/input",
                         "Animation sampler input sample limit exceeded");
                 float[] times = accessors.readFloatElements(inputAccessor, "SCALAR");

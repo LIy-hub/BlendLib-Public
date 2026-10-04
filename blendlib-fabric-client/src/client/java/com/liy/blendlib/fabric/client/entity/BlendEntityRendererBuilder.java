@@ -24,6 +24,7 @@ public final class BlendEntityRendererBuilder<E extends Entity> {
     private java.util.List<com.liy.blendlib.core.animation.v2.ModelAnimationLayers.Layer> animationLayers;
     private BlendEntityLayerCommands<? super E> layerCommands;
     private BlendEntityLayerWeights<? super E> layerWeights;
+    private BlendEntityMorphControls<? super E> morphControls;
     private com.liy.blendlib.core.animation.v2.AnimationBlendSpaceSyncGroup blendSpace;
     private java.util.function.BiFunction<E, BlendEntitySnapshotRequest, com.liy.blendlib.core.animation.v2.AnimationV2LayerWeights> blendSpaceWeights;
     private BlendEntityBlendSpaceCadence<? super E> blendSpaceCadence;
@@ -333,6 +334,13 @@ public final class BlendEntityRendererBuilder<E extends Entity> {
         return this;
     }
 
+    /** Replaces named morph weights for one extracted frame. Omitted names resume clip/default values. */
+    public BlendEntityRendererBuilder<E> morphControls(BlendEntityMorphControls<? super E> controls) {
+        requireAnimated();
+        this.morphControls = Objects.requireNonNull(controls, "controls");
+        return this;
+    }
+
     /** Selects a registered named skin once per extraction, before material appearance. */
     public BlendEntityRendererBuilder<E> skin(BlendEntitySkinSelector<? super E> selector) {
         this.skinSelector = Objects.requireNonNull(selector, "selector");
@@ -375,7 +383,7 @@ public final class BlendEntityRendererBuilder<E extends Entity> {
                     skinnedAnimationVisualEventHandler,
                     poseModifier,
                     rootRotationSelector,
-                    skinnedSocketMarkerKey, animationLayers, captureLocomotionCommands(layerCommands, locomotionController, locomotionInputs), poseComponents, socketHandler, attachmentProvider, layerWeights, layerVisualEventHandler, blendSpace, blendSpaceWeights, blendSpaceCadence);
+                    skinnedSocketMarkerKey, animationLayers, captureLocomotionCommands(layerCommands, locomotionController, locomotionInputs), poseComponents, socketHandler, attachmentProvider, layerWeights, layerVisualEventHandler, blendSpace, blendSpaceWeights, blendSpaceCadence, morphControls);
         }
         if (snapshotFactory == null) {
             throw new IllegalStateException("A BlendEntityRenderer requires an extraction-only snapshotFactory");

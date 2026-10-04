@@ -1,0 +1,59 @@
+{
+  "schema_version": 1,
+  "animation": {
+    "initial_state": "cpu_morph:nod",
+    "states": {
+      "cpu_morph:nod": {
+        "clip": "Nod",
+        "loop": true,
+        "speed": 1,
+        "events": [
+          {
+            "marker": "Apex",
+            "event": "cpu_morph:nod_apex"
+          }
+        ]
+      },
+      "cpu_morph:blink": {
+        "clip": "Blink",
+        "loop": true,
+        "speed": 1
+      },
+      "cpu_morph:smile": {
+        "clip": "Smile",
+        "loop": true,
+        "speed": 1
+      },
+      "cpu_morph:breath": {
+        "clip": "Breath",
+        "loop": true,
+        "speed": 1
+      }
+    }
+  },
+  "sockets": {
+    "cpu_morph:face": {
+      "node": "MorphRoot/MorphRig/Base/Face"
+    }
+  },
+  "morph_controls": {
+    "cpu_morph:blink": {
+      "node": "MorphRoot/MorphRig/FaceBody",
+      "target": "Blink",
+      "min_weight": 0,
+      "max_weight": 1
+    },
+    "cpu_morph:smile": {
+      "node": "MorphRoot/MorphRig/FaceBody",
+      "target": "Smile",
+      "min_weight": -1,
+      "max_weight": 1
+    },
+    "cpu_morph:breath": {
+      "node": "MorphRoot/MorphRig/FaceBody",
+      "target": "Breath",
+      "min_weight": -0.5,
+      "max_weight": 1
+    }
+  }
+}

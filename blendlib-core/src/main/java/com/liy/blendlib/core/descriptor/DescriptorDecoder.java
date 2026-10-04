@@ -45,14 +45,20 @@ public final class DescriptorDecoder {
 
     /** Decodes one descriptor supplied as immutable bytes without performing resource I/O. */
     public ModelDescriptor decode(BlendResourceId modelKey, AssetBytes descriptorBytes) {
-        return decodeProfile(modelKey, descriptorBytes, false);
+        return decodeProfile(modelKey, descriptorBytes, null);
     }
 
     ModelDescriptor decodeCubic(BlendResourceId modelKey, AssetBytes descriptorBytes) {
-        return decodeProfile(modelKey, descriptorBytes, true);
+        return decodeProfile(modelKey, descriptorBytes, ModelProfile.SKINNED_CUBIC_V1);
     }
 
-    private ModelDescriptor decodeProfile(BlendResourceId modelKey, AssetBytes descriptorBytes, boolean cubic) {
+    ModelDescriptor decodeMorph(BlendResourceId modelKey, AssetBytes descriptorBytes) {
+        return decodeProfile(modelKey, descriptorBytes, ModelProfile.SKINNED_MORPH_CPU_V1);
+    }
+
+    private ModelDescriptor decodeProfile(BlendResourceId modelKey, AssetBytes descriptorBytes, ModelProfile selectedProfile) {
+        boolean cubic = selectedProfile != null;
+        boolean morph = selectedProfile == ModelProfile.SKINNED_MORPH_CPU_V1;
         Objects.requireNonNull(modelKey, "modelKey");
         Objects.requireNonNull(descriptorBytes, "descriptorBytes");
         if (descriptorBytes.size() > limits.maxGlbBytes()) {
@@ -68,7 +74,9 @@ public final class DescriptorDecoder {
             throw failure(BlendDiagnosticCodes.DESC_002, modelKey, descriptorBytes.resourceId(), "", "Invalid descriptor JSON", exception);
         }
 
-        rejectUnknown(root, TOP_LEVEL_FIELDS, modelKey, descriptorBytes.resourceId(), "");
+        Set<String> allowedFields = TOP_LEVEL_FIELDS;
+        if (morph) { allowedFields = new HashSet<>(TOP_LEVEL_FIELDS); allowedFields.add("morph_controls"); }
+        rejectUnknown(root, allowedFields, modelKey, descriptorBytes.resourceId(), "");
         int version = integer(required(root, "format_version", "/format_version", modelKey, descriptorBytes.resourceId()),
                 "/format_version", modelKey, descriptorBytes.resourceId());
         if (version != (cubic ? 2 : 1)) {
@@ -81,10 +89,10 @@ public final class DescriptorDecoder {
         ModelProfile profile;
         try {
             if (cubic) {
-                if (!ModelProfile.SKINNED_CUBIC_V1.serializedName().equals(profileText)) {
+                if (!selectedProfile.serializedName().equals(profileText)) {
                     throw new IllegalArgumentException("Version 2 supports only the native cubic profile");
                 }
-                profile = ModelProfile.SKINNED_CUBIC_V1;
+                profile = selectedProfile;
             } else {
                 profile = ModelProfile.fromSerializedName(profileText);
             }
@@ -135,8 +143,38 @@ public final class DescriptorDecoder {
             object(root.get("extensions"), "/extensions", modelKey, descriptorBytes.resourceId());
         }
 
+        Map<BlendResourceId, MorphControlDefinition> morphControls = morph
+                ? morphControls(object(required(root, "morph_controls", "/morph_controls", modelKey, descriptorBytes.resourceId()),
+                        "/morph_controls", modelKey, descriptorBytes.resourceId()), modelKey, descriptorBytes.resourceId()) : Map.of();
         return new ModelDescriptor(descriptorBytes.resourceId(), profile, meshId, unitsPerBlock, materials, animation, sockets,
-                extensionsUsed);
+                extensionsUsed, morphControls);
+    }
+
+    private Map<BlendResourceId, MorphControlDefinition> morphControls(JsonObject controls, BlendResourceId modelKey, BlendResourceId resource) {
+        if (controls.size() == 0 || controls.size() > 1024) throw failure(BlendDiagnosticCodes.LIMIT_001, modelKey, resource,
+                "/morph_controls", "Morph controls require 1..1024 declarations", null);
+        Map<BlendResourceId, MorphControlDefinition> result = new LinkedHashMap<>();
+        Set<String> pairs = new HashSet<>();
+        for (var entry : controls.values().entrySet()) {
+            String pointer = "/morph_controls/" + escape(entry.getKey());
+            if (entry.getKey().length() > 256) throw failure(BlendDiagnosticCodes.DESC_002, modelKey, resource, pointer, "Morph alias is too long", null);
+            BlendResourceId alias = resourceId(entry.getKey(), modelKey, resource, pointer);
+            JsonObject control = object(entry.getValue(), pointer, modelKey, resource);
+            rejectUnknown(control, Set.of("node", "target", "min_weight", "max_weight"), modelKey, resource, pointer);
+            String node = string(required(control, "node", pointer + "/node", modelKey, resource), pointer + "/node", modelKey, resource);
+            String target = string(required(control, "target", pointer + "/target", modelKey, resource), pointer + "/target", modelKey, resource);
+            double minimum = finiteRange(number(required(control, "min_weight", pointer + "/min_weight", modelKey, resource),
+                    pointer + "/min_weight", modelKey, resource), pointer + "/min_weight", modelKey, resource, -2, 0);
+            double maximum = finiteRange(number(required(control, "max_weight", pointer + "/max_weight", modelKey, resource),
+                    pointer + "/max_weight", modelKey, resource), pointer + "/max_weight", modelKey, resource, 0, 2);
+            try {
+                if (!pairs.add(node + "\u0000" + target)) throw new IllegalArgumentException("Duplicate node and target");
+                result.put(alias, new MorphControlDefinition(node, target, (float) minimum, (float) maximum));
+            } catch (IllegalArgumentException exception) {
+                throw failure(BlendDiagnosticCodes.DESC_002, modelKey, resource, pointer, "Invalid morph control", exception);
+            }
+        }
+        return result;
     }
 
     private Map<String, MaterialDefinition> materials(JsonObject object, BlendResourceId modelKey, BlendResourceId resourceId) {

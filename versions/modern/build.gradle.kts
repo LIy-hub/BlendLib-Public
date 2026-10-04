@@ -478,7 +478,7 @@ if (providers.gradleProperty("runnable_examples").orNull == "true") {
                         it.startsWith("com/liy/blendlib/core/") || it.startsWith("com/liy/blendlib/api/") }) {
                     "Example JAR must not embed library implementation or API classes"
                 }
-                listOf("ExampleContent", "LayeredActor", "ExampleClient", "ExampleItemCommands", "ExampleAnimationScene", "ExampleInspectionCommands", "ExampleLayerInspection", "ExampleItemInspection", "ExampleLayerVisualEvents", "ExampleMaterialAppearance", "ExampleItemMaterialAppearance", "ExampleNamedSkins", "ExampleAttachmentScene", "ExampleAttachmentOwners", "ExampleTwoBoneIkScene", "ExampleLocomotionScene", "ExampleBlendSpaceScene", "ExampleBlendSpaceMotion", "ExampleDirectionalScene", "ExampleDirectionalMotion", "ExampleNativeCubicContent", "ExampleNativeCubicClient").forEach {
+                listOf("ExampleContent", "LayeredActor", "ExampleClient", "ExampleItemCommands", "ExampleAnimationScene", "ExampleInspectionCommands", "ExampleLayerInspection", "ExampleItemInspection", "ExampleLayerVisualEvents", "ExampleMaterialAppearance", "ExampleItemMaterialAppearance", "ExampleNamedSkins", "ExampleAttachmentScene", "ExampleAttachmentOwners", "ExampleTwoBoneIkScene", "ExampleLocomotionScene", "ExampleBlendSpaceScene", "ExampleBlendSpaceMotion", "ExampleDirectionalScene", "ExampleDirectionalMotion", "ExampleNativeCubicContent", "ExampleNativeCubicClient", "CpuMorphActor", "ExampleCpuMorphContent", "ExampleCpuMorphControls", "ExampleCpuMorphOwners", "ExampleCpuMorphClient", "ExampleCpuMorphScene", "ExampleCpuMorphCommands").forEach {
                     check("com/liy/blendlib/examples/runnable/$it.class" in names) { "Missing example class: $it" }
                 }
                 val metadata = zip.getInputStream(zip.getEntry("fabric.mod.json")).reader().readText()
@@ -486,7 +486,7 @@ if (providers.gradleProperty("runnable_examples").orNull == "true") {
                 check(metadata.contains("\"minecraft\": \"26.3\""))
                 check(metadata.contains("\"blendlib\": \"${project.version}\""))
                 check(!metadata.contains("\"mixins\""))
-                listOf("ExampleContent", "LayeredActor", "ExampleLayerVisualEvents", "ExampleBlendSpaceMotion", "ExampleDirectionalMotion", "ExampleNativeCubicContent").forEach {
+                listOf("ExampleContent", "LayeredActor", "ExampleLayerVisualEvents", "ExampleBlendSpaceMotion", "ExampleDirectionalMotion", "ExampleNativeCubicContent", "CpuMorphActor", "ExampleCpuMorphContent", "ExampleCpuMorphControls", "ExampleCpuMorphOwners").forEach {
                     val bytes = zip.getInputStream(zip.getEntry("com/liy/blendlib/examples/runnable/$it.class")).readBytes()
                     check(!bytes.toString(Charsets.ISO_8859_1).contains("net/minecraft/client/")) {
                         "Common example entrypoint/entity must remain server-safe: $it"
@@ -514,6 +514,28 @@ if (providers.gradleProperty("runnable_examples").orNull == "true") {
                 val slurper = groovy.json.JsonSlurper()
                 val cubicDescriptor = slurper.parseText(zip.getInputStream(zip.getEntry(cubicNamespace + "blend_models/eased_actor.json")).reader().readText()) as Map<*, *>
                 check(cubicDescriptor["format_version"] == 2 && cubicDescriptor["profile"] == "blendlib:skinned_cubic_v1")
+                val morphNamespace = "assets/cpu_morph/"
+                listOf("blend_models/face_actor.json", "models3d/face_actor.glb",
+                        "textures/blendlib/face_actor__morphsurface.png", "textures/blendlib/face_actor__facedetails.png").forEach { asset ->
+                    val entry = zip.getEntry(morphNamespace + asset)
+                    check(entry != null) { "Missing CPU morph asset: $asset" }
+                    val exported = repository.resolve("test-assets/cpu-morph/exported/$morphNamespace$asset").readBytes()
+                    check(zip.getInputStream(entry).readBytes().contentEquals(exported)) {
+                        "CPU morph consumer must match the verified authored export: $asset"
+                    }
+                    check(repository.resolve("blendlib-showcase/src/main/resources/$morphNamespace$asset").readBytes().contentEquals(exported)) {
+                        "CPU morph showcase and runnable resources must use identical authored bytes: $asset"
+                    }
+                }
+                val morphDescriptor = slurper.parseText(zip.getInputStream(zip.getEntry(morphNamespace + "blend_models/face_actor.json")).reader().readText()) as Map<*, *>
+                check(morphDescriptor["format_version"] == 2 && morphDescriptor["profile"] == "blendlib:skinned_morph_cpu_v1")
+                check((morphDescriptor["morph_controls"] as Map<*, *>).keys == setOf("cpu_morph:blink", "cpu_morph:smile", "cpu_morph:breath"))
+                val morphAnimation = morphDescriptor["animation"] as Map<*, *>
+                check((morphAnimation["states"] as Map<*, *>).keys == setOf("cpu_morph:nod", "cpu_morph:blink", "cpu_morph:smile", "cpu_morph:breath"))
+                check((morphDescriptor["sockets"] as Map<*, *>).containsKey("cpu_morph:face"))
+                check((morphDescriptor["materials"] as Map<*, *>).keys == setOf("FaceDetails", "MorphSurface"))
+                check(metadata.contains("com.liy.blendlib.examples.runnable.ExampleCpuMorphContent")
+                        && metadata.contains("com.liy.blendlib.examples.runnable.ExampleCpuMorphClient"))
                 listOf("actor", "appearance_actor", "wand", "appearance_wand", "marker",
                         "mechanical_arm", "ik_target_marker", "ik_end_marker", "locomotion_actor", "blendspace_actor", "directional_actor").forEach { model ->
                     val path = namespace + "blend_models/$model.json"
@@ -560,7 +582,7 @@ if (providers.gradleProperty("runnable_examples").orNull == "true") {
             ZipFile(tasks.named<Jar>("jar").get().archiveFile.get().asFile).use { zip ->
                 check(zip.entries().asSequence().none {
                     it.name.startsWith("com/liy/blendlib/examples/runnable/") || it.name.startsWith(namespace) ||
-                            it.name.startsWith("data/blendlib_runnable_examples/") || it.name.startsWith("assets/native_cubic/")
+                            it.name.startsWith("data/blendlib_runnable_examples/") || it.name.startsWith("assets/native_cubic/") || it.name.startsWith("assets/cpu_morph/")
                 }) { "The normal BlendLib runtime must not include opt-in example content" }
                 val metadata = zip.getInputStream(zip.getEntry("fabric.mod.json")).reader().readText()
                 check(!metadata.contains("blendlib_runnable_examples"))

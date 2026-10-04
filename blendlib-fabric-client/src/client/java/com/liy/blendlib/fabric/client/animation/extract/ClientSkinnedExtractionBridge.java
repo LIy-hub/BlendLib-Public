@@ -2,6 +2,11 @@ package com.liy.blendlib.fabric.client.animation.extract;
 
 import com.liy.blendlib.api.BlendResourceId;
 import com.liy.blendlib.core.animation.runtime.NodePalette;
+import com.liy.blendlib.core.animation.runtime.CpuMorphSkinner;
+import com.liy.blendlib.core.animation.runtime.CpuSkinner;
+import com.liy.blendlib.core.animation.runtime.CpuSkinnedMesh;
+import com.liy.blendlib.core.animation.runtime.MorphWeights;
+import com.liy.blendlib.core.model.ModelProfile;
 import com.liy.blendlib.core.animation.runtime.SkinPalette;
 import com.liy.blendlib.core.animation.runtime.SocketWorldTransform;
 import com.liy.blendlib.core.model.ModelAsset;
@@ -67,8 +72,17 @@ public final class ClientSkinnedExtractionBridge {
         }
         NodePalette canonicalPalette = NodePalette.fromCanonicalScene(
                 checkedPose.localPose(), asset.nodes(), asset.defaultSceneRoots());
-        List<X7SkinnedFrameProvenance.SealedFrame> extracted = skinPreparedPrimitives(asset, skinnedHandle, canonicalPalette);
-        SkinnedRenderSnapshot captured = SkinnedRenderSnapshot.captureWithT4Provenance(skinnedHandle, extracted);
+        SkinnedRenderSnapshot captured;
+        if (asset.profile() == ModelProfile.SKINNED_MORPH_CPU_V1) {
+            if (checkedPose.morphWeights().bindings() != asset.morphBindings())
+                throw new IllegalArgumentException("Morph pose belongs to a different generation binding");
+            // Even all-zero morph weights remain CPU-only. Skin-only T4 provenance cannot certify these bytes.
+            captured = SkinnedRenderSnapshot.capture(skinnedHandle,
+                    morphPreparedPrimitives(asset, skinnedHandle, canonicalPalette, checkedPose.morphWeights()));
+        } else {
+            List<X7SkinnedFrameProvenance.SealedFrame> extracted = skinPreparedPrimitives(asset, skinnedHandle, canonicalPalette);
+            captured = SkinnedRenderSnapshot.captureWithT4Provenance(skinnedHandle, extracted);
+        }
         ModelRenderSnapshot renderSnapshot = ModelRenderSnapshot.skinned(
                 skinnedHandle,
                 checkedRequest.rootTransform(),
@@ -79,6 +93,19 @@ public final class ClientSkinnedExtractionBridge {
                 checkedRequest.culling(),
                 captured);
         return new ClientSkinnedExtractionFrame(renderSnapshot, socketTransforms(asset, canonicalPalette));
+    }
+
+    private static List<CpuSkinnedMesh> morphPreparedPrimitives(ModelAsset asset, SkinnedRenderHandle handle,
+            NodePalette palette, MorphWeights weights) {
+        List<CpuSkinnedMesh> outputs = new ArrayList<>(handle.skinnedPrimitives().size());
+        for (int index = 0; index < handle.skinnedPrimitives().size(); index++) {
+            var primitive = handle.skinnedPrimitives().get(index);
+            var targets = asset.morphTargets(asset.primitives().get(index));
+            var skin = SkinPalette.from(asset.skeleton().skins().get(primitive.skinIndex()), palette);
+            outputs.add(targets == null ? CpuSkinner.skin(primitive.geometry(), skin)
+                    : CpuMorphSkinner.skin(primitive.geometry(), targets, weights, primitive.nodeIndex(), skin));
+        }
+        return List.copyOf(outputs);
     }
 
     private static List<X7SkinnedFrameProvenance.SealedFrame> skinPreparedPrimitives(

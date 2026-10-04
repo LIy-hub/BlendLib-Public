@@ -9,11 +9,13 @@
   "entrypoints": {
     "main": [
       "com.liy.blendlib.examples.runnable.ExampleContent",
-      "com.liy.blendlib.examples.runnable.ExampleNativeCubicContent"
+      "com.liy.blendlib.examples.runnable.ExampleNativeCubicContent",
+      "com.liy.blendlib.examples.runnable.ExampleCpuMorphContent"
     ],
     "client": [
       "com.liy.blendlib.examples.runnable.ExampleClient",
-      "com.liy.blendlib.examples.runnable.ExampleNativeCubicClient"
+      "com.liy.blendlib.examples.runnable.ExampleNativeCubicClient",
+      "com.liy.blendlib.examples.runnable.ExampleCpuMorphClient"
     ]
   },
   "depends": {

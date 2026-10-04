@@ -51,7 +51,7 @@ def _array(value: Any, limit: int, label: str) -> list:
     return value
 
 
-def parse(text: str) -> dict:
+def parse(text: str, *, allow_morph_controls: bool = False) -> dict:
     """Bounded strict JSON; duplicate keys/NaN/Infinity are never accepted."""
     if len(text) > MAX_TEXT_BYTES or len(text.encode('utf-8')) > MAX_TEXT_BYTES:
         raise ValueError('runtime authoring Text exceeds 1 MiB')
@@ -71,9 +71,15 @@ def parse(text: str) -> dict:
         result = json.loads(text, object_pairs_hook=unique, parse_constant=constant)
     except (json.JSONDecodeError, RecursionError) as error:
         raise ValueError('runtime authoring Text is not valid bounded JSON') from error
-    root = _object(result, {'schema_version', 'animation', 'sockets', 'locomotion'}, {'schema_version', 'animation'}, 'root')
+    root = _object(result, {'schema_version', 'animation', 'sockets', 'locomotion'} | ({'morph_controls'} if allow_morph_controls else set()), {'schema_version'} if allow_morph_controls else {'schema_version', 'animation'}, 'root')
     if type(root['schema_version']) is not int or root['schema_version'] != 1:
         raise ValueError('runtime authoring schema_version must be integer 1')
+    if allow_morph_controls and 'morph_controls' in root:
+        try:
+            from . import blendlib_cpu_morph as morph
+        except ImportError:
+            import blendlib_cpu_morph as morph
+        morph.validate_controls(root['morph_controls'])
     return root
 
 
@@ -102,58 +108,62 @@ def _compile_authoring(config: dict, actions: dict, clips: dict | None,
     fps = _number(fps, 'effective FPS')
     if fps <= 0:
         raise ValueError('effective FPS must be positive')
-    animation = _object(config['animation'], {'initial_state', 'states'}, {'initial_state', 'states'}, 'animation')
-    states = animation['states']
-    if not isinstance(states, dict) or not 1 <= len(states) <= 256:
-        raise ValueError('states: expected 1..256 states')
-    output = {}
-    total_events = 0
-    for key, raw in states.items():
-        _resource(key, 'state key')
-        state = _object(raw, {'clip', 'loop', 'speed', 'next', 'blend_seconds', 'events'}, {'clip', 'loop', 'speed'}, 'state')
-        clip = _name(state['clip'], 'clip')
-        if clip not in actions or (clips is not None and clip not in clips):
-            raise ValueError(f"clip '{clip}' is not an attached Action exported to the GLB")
-        if type(state['loop']) is not bool:
-            raise ValueError('loop must be boolean')
-        speed = _number(state['speed'], 'speed', 0, 64)
-        if speed == 0:
-            raise ValueError('speed must be positive')
-        item = {'clip': clip, 'loop': state['loop'], 'speed': speed}
-        if 'next' in state:
-            target = _resource(state['next'], 'next')
-            if target not in states:
-                raise ValueError('next must name an authored state')
-            item['next'] = target
-        if 'blend_seconds' in state:
-            item['blend_seconds'] = _number(state['blend_seconds'], 'blend_seconds', 0)
-        start, end, markers = actions[clip]
-        duration = (end - start) / fps
-        first, last = clips[clip] if clips is not None else (0., duration)
-        if not math.isfinite(duration) or duration <= 0 or duration > 600 or abs(first) > 1e-6 or not math.isclose(last, duration, abs_tol=1e-5, rel_tol=1e-6):
-            raise ValueError(f"clip '{clip}' must export its full Action range at time zero (duration <=600s)")
-        if 'events' in state:
-            source_events = _array(state['events'], 4096, 'events')
-            total_events += len(source_events)
-            if total_events > 16384:
-                raise ValueError('descriptor visual-event total exceeds 16384')
-            events = []
-            for raw_event in source_events:
-                event = _object(raw_event, {'marker', 'event'}, {'marker', 'event'}, 'event')
-                marker = _name(event['marker'], 'marker')
-                matches = [frame for name, frame in markers if name == marker]
-                if len(matches) != 1:
-                    raise ValueError(f"marker '{marker}' must occur exactly once in Action '{clip}'")
-                frame = _number(matches[0], 'marker frame', start, end)
-                # Clamp only floating point end-rounding to the actual runtime duration.
-                time = min((frame - start) / fps, last)
-                events.append({'time_seconds': time, 'event': _resource(event['event'], 'event key')})
-            item['events'] = sorted(events, key=lambda value: value['time_seconds'])
-        output[key] = item
-    initial = _resource(animation['initial_state'], 'initial_state')
-    if initial not in output:
-        raise ValueError('initial_state must name an authored state')
-    descriptor = {'animation': {'initial_state': initial, 'states': output}}
+    descriptor, output = {}, {}
+    if 'animation' not in config and 'morph_controls' not in config:
+        raise ValueError('runtime authoring requires animation or opt-in morph_controls')
+    if 'animation' in config:
+        animation = _object(config['animation'], {'initial_state', 'states'}, {'initial_state', 'states'}, 'animation')
+        states = animation['states']
+        if not isinstance(states, dict) or not 1 <= len(states) <= 256:
+            raise ValueError('states: expected 1..256 states')
+        output = {}
+        total_events = 0
+        for key, raw in states.items():
+            _resource(key, 'state key')
+            state = _object(raw, {'clip', 'loop', 'speed', 'next', 'blend_seconds', 'events'}, {'clip', 'loop', 'speed'}, 'state')
+            clip = _name(state['clip'], 'clip')
+            if clip not in actions or (clips is not None and clip not in clips):
+                raise ValueError(f"clip '{clip}' is not an attached Action exported to the GLB")
+            if type(state['loop']) is not bool:
+                raise ValueError('loop must be boolean')
+            speed = _number(state['speed'], 'speed', 0, 64)
+            if speed == 0:
+                raise ValueError('speed must be positive')
+            item = {'clip': clip, 'loop': state['loop'], 'speed': speed}
+            if 'next' in state:
+                target = _resource(state['next'], 'next')
+                if target not in states:
+                    raise ValueError('next must name an authored state')
+                item['next'] = target
+            if 'blend_seconds' in state:
+                item['blend_seconds'] = _number(state['blend_seconds'], 'blend_seconds', 0)
+            start, end, markers = actions[clip]
+            duration = (end - start) / fps
+            first, last = clips[clip] if clips is not None else (0., duration)
+            if not math.isfinite(duration) or duration <= 0 or duration > 600 or abs(first) > 1e-6 or not math.isclose(last, duration, abs_tol=1e-5, rel_tol=1e-6):
+                raise ValueError(f"clip '{clip}' must export its full Action range at time zero (duration <=600s)")
+            if 'events' in state:
+                source_events = _array(state['events'], 4096, 'events')
+                total_events += len(source_events)
+                if total_events > 16384:
+                    raise ValueError('descriptor visual-event total exceeds 16384')
+                events = []
+                for raw_event in source_events:
+                    event = _object(raw_event, {'marker', 'event'}, {'marker', 'event'}, 'event')
+                    marker = _name(event['marker'], 'marker')
+                    matches = [frame for name, frame in markers if name == marker]
+                    if len(matches) != 1:
+                        raise ValueError(f"marker '{marker}' must occur exactly once in Action '{clip}'")
+                    frame = _number(matches[0], 'marker frame', start, end)
+                    # Clamp only floating point end-rounding to the actual runtime duration.
+                    time = min((frame - start) / fps, last)
+                    events.append({'time_seconds': time, 'event': _resource(event['event'], 'event key')})
+                item['events'] = sorted(events, key=lambda value: value['time_seconds'])
+            output[key] = item
+        initial = _resource(animation['initial_state'], 'initial_state')
+        if initial not in output:
+            raise ValueError('initial_state must name an authored state')
+        descriptor = {'animation': {'initial_state': initial, 'states': output}}
     if 'sockets' in config:
         sockets = config['sockets']
         if not isinstance(sockets, dict) or len(sockets) > 512:

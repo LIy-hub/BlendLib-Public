@@ -254,7 +254,7 @@ public final class ClientModelReloadListener extends SimpleReloadListener<Prepar
     private static ModelRenderHandle prepareRenderHandle(BlendModelKey modelKey, ModelAsset asset, PreparedNamedSkins skins) {
         return switch (asset.profile()) {
             case RIGID_V1 -> StaticRigidRenderHandle.prepareWithSkins(modelKey, asset, skins.valid(), skins.invalid());
-            case SKINNED_V1, SKINNED_CUBIC_V1 -> SkinnedRenderHandle.prepareWithSkins(modelKey, asset, skins.valid(), skins.invalid());
+            case SKINNED_V1, SKINNED_CUBIC_V1, SKINNED_MORPH_CPU_V1 -> SkinnedRenderHandle.prepareWithSkins(modelKey, asset, skins.valid(), skins.invalid());
         };
     }
 

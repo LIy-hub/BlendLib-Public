@@ -390,6 +390,15 @@ public final class AnimationController {
         return sampler.blend(previousPose, currentPose, smoothstep(blendProgress()));
     }
 
+    /** Samples complete morph weights with exactly the same clocks and transition as {@link #sample}. */
+    public MorphWeights sampleMorphWeights(MorphWeightSampler sampler) {
+        Objects.requireNonNull(sampler, "sampler");
+        MorphWeights currentWeights = sampler.sample(current, currentTimeSeconds);
+        if (previous == null) return currentWeights;
+        return MorphWeights.blend(sampler.sample(previous, previousTimeSeconds), currentWeights,
+                smoothstep(blendProgress()));
+    }
+
     /** v1 cross-fade easing function. */
     public static double smoothstep(double amount) {
         if (!Double.isFinite(amount) || amount < 0.0 || amount > 1.0) {
@@ -454,7 +463,9 @@ public final class AnimationController {
     }
 
     private static double firstOccurrenceAfter(double eventTime, double start, double duration) {
-        double cycles = Math.floor((start - eventTime) / duration) + 1.0;
+        // Match the inclusive upper epsilon in loopEventOccurrenceCount. Otherwise a marker
+        // emitted at 0.49999999999999994 as "0.5" can be emitted again on the next frame.
+        double cycles = Math.floor((start + EPSILON - eventTime) / duration) + 1.0;
         return eventTime + Math.max(0.0, cycles) * duration;
     }
 

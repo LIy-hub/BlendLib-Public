@@ -296,6 +296,11 @@ final class X7GenerationResourceBridge {
                 BlendModelKey modelKey,
                 ModelHandle handle,
                 ModelRenderHandle renderHandle) {
+            // Morph generations never enter the GPU skin-only ownership inventory, even at zero weights.
+            if (handle instanceof LoadedModelHandle loaded
+                    && loaded.asset().profile() == com.liy.blendlib.core.model.ModelProfile.SKINNED_MORPH_CPU_V1) return;
+            if (renderHandle instanceof com.liy.blendlib.fabric.client.render.SkinnedRenderHandle skinned
+                    && skinned.cpuMorphProfile()) return;
             List<PreparedSkinnedRenderPrimitive> primitives = Objects.requireNonNull(
                     renderHandle.skinnedPrimitives(), "generation skinned primitives");
             for (int primitiveIndex = 0; primitiveIndex < primitives.size(); primitiveIndex++) {

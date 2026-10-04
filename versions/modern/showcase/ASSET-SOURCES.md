@@ -120,3 +120,16 @@ python3 versions/modern/showcase/tools/generate_blendspace_actor.py
 
 The build consumes committed resources without running Python; packaged verification checks
 that they match and evaluates their actual decoded poses and CPU-skinned vertices headlessly.
+
+## First-party CPU shape-key preview
+
+The separate `assets/cpu_morph/` tree is copied byte-for-byte from
+`test-assets/cpu-morph/exported/assets/cpu_morph/`. It contains the explicit format-2 CPU
+morph descriptor, real Blender `face_actor.glb`, and two original material textures.
+The editable source, generator, independent key/off-key position/weight/bone oracle and
+Blender preview are in `test-assets/cpu-morph/`; the source model, evidence and exported assets
+are first-party Apache-2.0 content. Add-on generator code is GPL-3.0-or-later under
+`blender-addon/`.
+There is no build-time Blender dependency or downloaded asset. The normal runtime JAR
+excludes this namespace, while runnable verification requires exact final export bytes.
+See `examples/cpu-morph-profile/README.md` for commands and acceptance boundaries.
