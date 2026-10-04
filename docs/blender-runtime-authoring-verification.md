@@ -87,3 +87,50 @@ Review additionally exercised linked Scene cleanup, repeated panel draw callback
 without canonical Text mutation and new-Text preservation through save/reopen.
 This remains headless real-Blender operator testing, not a rendered sidebar or
 Minecraft graphics claim. No production Java/runtime API/schema changes.
+
+## Socket editor checkpoint
+
+The node-only socket editor adds seven pure test methods (25 total), genuine
+`verify_socket_editor.py` rigid/skinned fixtures, and
+`verify_socket_discovery_state.py` adversarial source-restoration checks on the
+same official Blender 5.1.2 binary. Source discovery uses the actual unchanged
+strict glTF exporter into private temporary output and shared active-scene path
+validation; no Blender hierarchy-to-GLB path guess is used.
+
+Five new `BlenderSocketAuthoringLocomotionAcceptanceTest` cases compare Java
+translation, quaternion orientation and scale against 20 evaluated Blender poses.
+The rigid fixture covers nested rotated/uniform-scaled ancestors and a transformed
+Empty offset; the supported skinned fixture covers actual bone paths and distinct
+object targets. Existing exporter bounds validation can reject transformed
+skinned ancestry, and this slice does not relax it. Bone-local axes are retained
+by the official exporter; the source oracle accounts for that instead of applying
+an object-axis correction twice. Save/reload and relocation of the source assets
+preserve byte-identical runtime exports. Java rejects offset extensions and stale
+paths against the actual fixtures.
+
+Independent critical review reproduced and verified fixes for:
+- glTF multi-Action sampling resetting unkeyed bone poses or losing an Action with
+  no slot; restore exact object/pose channels, Actions, slots and NLA settings
+- NLA solo setters clearing another solo track even when writing `False` to an
+  already-false flag; restore only changed flags
+- interrupted sampling leaving NLA tweak state changed; reject tweak mode before
+  discovery and verify source state remains intact
+- Blender reusing deleted Object/Bone addresses; IDs include session UIDs and
+  entering Armature Edit Mode or undo/redo invalidates open socket drafts across
+  scenes, including shared armature data
+- unchanged raw export visiting other scenes; restore every scene frame, view-layer
+  selection/active context and the original window scene on success and failure
+- a placeholder enum identifier colliding with the legal node name `__NONE__`;
+  use an invalid strict-path sentinel instead
+
+All review findings were independently rechecked with no remaining confirmed
+implementation defects. The committed adversarial script runs in the Blender CI
+job, alongside both old authoring scripts, P2 and X5 regression gates. Camera/light
+objects and their Actions remain excluded. Selected unknown socket fields fail
+strict validation rather than being silently dropped.
+
+Local final gates pass: 25 Python methods, 356 official 26.3 Java tests and build/
+runtime-JAR/runnable-consumer verification, root client 815/core 346, and validated
+add-on packaging. Root aggregate still has its single inherited Showcase POSIX
+symlink-policy failure (82 tests, one failed, one skipped). No native rendered
+sidebar/Minecraft graphics claim, new runtime/schema behavior, release or merge.

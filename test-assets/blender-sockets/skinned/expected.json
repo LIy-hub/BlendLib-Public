@@ -1,0 +1,263 @@
+{
+  "discovered_nodes": [
+    {
+      "kind": "OBJECT",
+      "name": "SkinRoot",
+      "owner": "SkinRoot",
+      "path": "SkinRoot"
+    },
+    {
+      "kind": "OBJECT",
+      "name": "Rig",
+      "owner": "Rig",
+      "path": "SkinRoot/Rig"
+    },
+    {
+      "kind": "BONE",
+      "name": "Arm",
+      "owner": "Rig",
+      "path": "SkinRoot/Rig/Arm"
+    },
+    {
+      "kind": "BONE",
+      "name": "Hand",
+      "owner": "Rig",
+      "path": "SkinRoot/Rig/Arm/Hand"
+    },
+    {
+      "kind": "OBJECT",
+      "name": "Body",
+      "owner": "Body",
+      "path": "SkinRoot/Rig/Body"
+    },
+    {
+      "kind": "OBJECT",
+      "name": "ObjectHand",
+      "owner": "ObjectHand",
+      "path": "SkinRoot/Rig/ObjectHand"
+    }
+  ],
+  "model": "blendlib_sockets:skinned",
+  "oracle": "Evaluated Blender matrices: C*boneWorld for joints, C*objectWorld*C^-1 for objects (glTF Y-up); not GLB-derived",
+  "profile": "blendlib:skinned_v1",
+  "samples": [
+    {
+      "sockets": {
+        "blendlib_sockets:hand_bone": {
+          "rotation": [
+            -0.7071067690849304,
+            0.0,
+            0.0,
+            0.7071067690849304
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "translation": [
+            0.0,
+            0.0,
+            -1.0
+          ]
+        },
+        "blendlib_sockets:hand_object": {
+          "rotation": [
+            0.0,
+            0.3826834559440613,
+            0.0,
+            0.9238795638084412
+          ],
+          "scale": [
+            0.7499999403953552,
+            0.75,
+            0.7499999403953552
+          ],
+          "translation": [
+            0.5,
+            0.5,
+            -0.5
+          ]
+        }
+      },
+      "state": "blendlib_sockets:wave",
+      "time_seconds": 0.0
+    },
+    {
+      "sockets": {
+        "blendlib_sockets:hand_bone": {
+          "rotation": [
+            -0.6935199499130249,
+            0.13794970512390137,
+            0.13794970512390137,
+            0.6935198903083801
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "translation": [
+            0.125,
+            0.0,
+            -1.0
+          ]
+        },
+        "blendlib_sockets:hand_object": {
+          "rotation": [
+            0.0,
+            0.3826834559440613,
+            0.0,
+            0.9238795638084412
+          ],
+          "scale": [
+            0.7499999403953552,
+            0.75,
+            0.7499999403953552
+          ],
+          "translation": [
+            0.5,
+            0.5,
+            -0.5
+          ]
+        }
+      },
+      "state": "blendlib_sockets:wave",
+      "time_seconds": 0.25
+    },
+    {
+      "sockets": {
+        "blendlib_sockets:hand_bone": {
+          "rotation": [
+            -0.6532815098762512,
+            0.27059805393218994,
+            0.27059805393218994,
+            0.6532815098762512
+          ],
+          "scale": [
+            0.9999999403953552,
+            0.9999999403953552,
+            1.0
+          ],
+          "translation": [
+            0.25,
+            0.0,
+            -1.0
+          ]
+        },
+        "blendlib_sockets:hand_object": {
+          "rotation": [
+            0.0,
+            0.3826834559440613,
+            0.0,
+            0.9238795638084412
+          ],
+          "scale": [
+            0.7499999403953552,
+            0.75,
+            0.7499999403953552
+          ],
+          "translation": [
+            0.5,
+            0.5,
+            -0.5
+          ]
+        }
+      },
+      "state": "blendlib_sockets:wave",
+      "time_seconds": 0.5
+    },
+    {
+      "sockets": {
+        "blendlib_sockets:hand_bone": {
+          "rotation": [
+            -0.5879378318786621,
+            0.3928475081920624,
+            0.3928475081920624,
+            0.5879378318786621
+          ],
+          "scale": [
+            0.9999999403953552,
+            0.9999999403953552,
+            1.0
+          ],
+          "translation": [
+            0.375,
+            0.0,
+            -1.0
+          ]
+        },
+        "blendlib_sockets:hand_object": {
+          "rotation": [
+            0.0,
+            0.3826834559440613,
+            0.0,
+            0.9238795638084412
+          ],
+          "scale": [
+            0.7499999403953552,
+            0.75,
+            0.7499999403953552
+          ],
+          "translation": [
+            0.5,
+            0.5,
+            -0.5
+          ]
+        }
+      },
+      "state": "blendlib_sockets:wave",
+      "time_seconds": 0.75
+    },
+    {
+      "sockets": {
+        "blendlib_sockets:hand_bone": {
+          "rotation": [
+            -0.5,
+            0.5,
+            0.5,
+            0.5
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "translation": [
+            0.5,
+            0.0,
+            -1.0
+          ]
+        },
+        "blendlib_sockets:hand_object": {
+          "rotation": [
+            0.0,
+            0.3826834559440613,
+            0.0,
+            0.9238795638084412
+          ],
+          "scale": [
+            0.7499999403953552,
+            0.75,
+            0.7499999403953552
+          ],
+          "translation": [
+            0.5,
+            0.5,
+            -0.5
+          ]
+        }
+      },
+      "state": "blendlib_sockets:wave",
+      "time_seconds": 1.0
+    }
+  ],
+  "sockets": {
+    "blendlib_sockets:hand_bone": {
+      "node": "SkinRoot/Rig/Arm/Hand"
+    },
+    "blendlib_sockets:hand_object": {
+      "node": "SkinRoot/Rig/ObjectHand"
+    }
+  }
+}

@@ -86,14 +86,15 @@ def compile_authoring(config: dict, actions: dict, clips: dict, node_paths: set[
     return _compile_authoring(config, actions, clips, node_paths, fps)
 
 
-def validate_source(config: dict, actions: dict, fps: float) -> None:
+def validate_source(config: dict, actions: dict, fps: float, *, node_paths: set[str] | None = None) -> None:
     """Validate authoring against source Actions, without claiming GLB verification.
 
     The editor shares every schema/state/event/rule check with the exporter.
     Actual exported clip membership, sample bounds and socket paths remain export
-    checks because source-only editing cannot establish those facts.
+    checks because source-only editing cannot establish those facts. A socket
+    editor may supply node_paths from an actual temporary export.
     """
-    _compile_authoring(config, actions, None, None, fps)
+    _compile_authoring(config, actions, None, node_paths, fps)
 
 
 def _compile_authoring(config: dict, actions: dict, clips: dict | None,

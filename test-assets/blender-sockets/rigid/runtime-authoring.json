@@ -1,0 +1,66 @@
+{
+  "schema_version": 1,
+  "animation": {
+    "initial_state": "blendlib_authoring:idle",
+    "states": {
+      "blendlib_authoring:idle": {
+        "clip": "Idle",
+        "loop": true,
+        "speed": 1
+      },
+      "blendlib_authoring:walk": {
+        "clip": "Walk",
+        "loop": true,
+        "speed": 1,
+        "events": [
+          {
+            "marker": "Footstep",
+            "event": "blendlib_authoring:footstep"
+          }
+        ]
+      },
+      "blendlib_authoring:attack": {
+        "clip": "Attack",
+        "loop": false,
+        "speed": 1,
+        "next": "blendlib_authoring:idle",
+        "blend_seconds": 0.1,
+        "events": [
+          {
+            "marker": "Impact",
+            "event": "blendlib_authoring:impact"
+          }
+        ]
+      }
+    }
+  },
+  "sockets": {
+    "blendlib_authoring:hand": {
+      "node": "Root/Hand"
+    },
+    "blendlib_sockets:held_item": {
+      "node": "Root/Pivot/Body/Grip"
+    }
+  },
+  "locomotion": {
+    "schema_version": 1,
+    "default": "blendlib_authoring:idle",
+    "minimum_interval_ticks": 0,
+    "rules": [
+      {
+        "animation": "blendlib_authoring:walk",
+        "conditions": [
+          {
+            "input": "grounded",
+            "equals": true
+          },
+          {
+            "input": "speed",
+            "enter_min": 0.1,
+            "exit_min": 0.05
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -9,7 +9,7 @@ its state/marker/socket metadata is not imported or reinterpreted.
 
 1. Save the `.blend`, use a single export-root collection and attach each Action to an object
    or an NLA strip. Unattached/fake-user-only Actions are not runtime clips.
-2. Open **Runtime State / Event Editor** under the export panel. **Start New Text**
+2. Open **Runtime State / Event / Socket Editor** under the export panel. **Start New Text**
    prepares a first-state draft. Choose a namespaced state key and attached Action, then
    **Create New Text**. This creates a uniquely named `BlendLib.runtime.json` without
    overwriting any existing Text or enabling export. Alternatively create a Text in Blender's
@@ -21,7 +21,7 @@ its state/marker/socket metadata is not imported or reinterpreted.
    replaced when authoring validation fails. This does not promise transactional filesystem
    recovery for I/O failures. Uncheck the toggle to retain historical automatic loop states.
 
-There is no automatic Text-name discovery or hidden migration. The state/event editor is a small
+There is no automatic Text-name discovery or hidden migration. The state/event/socket editor is a small
 front end for the same strict Text, not a second asset or export format.
 The Text is stored in the `.blend`; it is not a runtime resource. Selecting an absent Text fails.
 CLI uses only its explicit flag, regardless of saved sidebar settings:
@@ -54,7 +54,7 @@ new flag to X5 is rejected explicitly rather than silently discarded.
   existing initial state, including when editing that initial state itself. A new Text's first
   state is its initial state. The draft shows both the Action and state key before creation.
 - Existing `next`, `blend_seconds`, other states, sockets and locomotion remain in the Text.
-  Edit these advanced fields in the Text Editor. Apply may reformat JSON whitespace, but
+  Edit next/blend and locomotion in the Text Editor; sockets have their own draft below. Apply may reformat JSON whitespace, but
   preserves all untouched values (including double-precision numbers and absent fields).
   Unknown fields fail the same strict validation; they are never silently discarded.
 - Speed accepts a JSON number such as `1` or `1.25` in (0,64]. Text input preserves precision
@@ -70,6 +70,46 @@ new flag to X5 is rejected explicitly rather than silently discarded.
   and exact socket paths. A successful Apply is not an export-success guarantee.
 - The editor does not enable **Runtime Animation Authoring** by itself. The historical strict
   CLI opt-out and all X5 controls remain unchanged.
+
+## Socket editor and local offsets
+
+1. Prepare the scene first. For a local offset or orientation, create an ordinary
+   **Empty**, put it inside the selected export collection and parent/transform it
+   in Blender. Give it a globally unique name such as `GripSocket`. Existing
+   strict-v1 positive uniform-scale and baked-constraint rules still apply. There
+   are no socket offset/rotation fields: the exported helper's transform owns them.
+2. In **Object Mode**, choose **Add Socket** or select a socket and **Load Socket**.
+   This performs a real export to a private temporary directory using the same
+   filtered collection and glTF options as the strict exporter. It does not write
+   runtime assets or change the Text. The pass can take as long as a normal export.
+3. Pick **Exported Node**. Choices distinguish `Object: GripSocket` from
+   `Bone: Armature / Hand`; the exact active-scene GLB path is shown below. A bone's
+   exported hierarchy is read from the GLB, never inferred from Blender names.
+   The normal exporter rejects duplicate object/bone names, omitted source nodes
+   or ambiguous hierarchy. Rename conflicting source nodes before loading a draft.
+4. Set the namespaced socket key and **Apply Socket to Text**, then save the `.blend`.
+   Apply repeats discovery and validates all socket paths with the common strict
+   compiler. It preserves every other socket, animation, event and locomotion value.
+   The editor neither creates helpers nor changes object/bone transforms.
+
+State and socket editing share one working draft. Apply or Discard before switching.
+Text selection/content changes, replaced same-name source objects/bones, collection
+changes and exported path changes fail Apply without rewriting the Text. Entering
+Armature Edit Mode or undo/redo invalidates an open socket draft, even if the
+final names/transforms look unchanged, because Blender can reuse deleted bone
+addresses. Discard
+and reload after changing scene hierarchy. Loading an old socket whose path no
+longer exists leaves the node unselected so you can choose its replacement; other
+stale paths must also be repaired before the complete configuration validates.
+An existing socket key cannot be renamed, silently overwritten through Add, or
+deleted by this editor. Same-Text renames remain safe. Reload/restart discards only
+the working draft, and export still reads only applied canonical Text.
+
+For bone-relative offsets, prepare the Empty with Blender's normal bone-parenting
+and transform tools, then discover its actual exported path. No parent-tail offset,
+axis convention, or coordinate adjustment is guessed by the editor. Exported
+transforms include Blender's one-time Y-up conversion and the runtime evaluates
+that exact node hierarchy. Invalid/unexportable rigs must be fixed in the source.
 
 ## Text contract
 
@@ -128,7 +168,7 @@ impact at frame16/.25s, and a socket at `Root/Hand` with exported (1,1,0) positi
 client locomotion/layered playback. It does not claim a rendered Minecraft graphics pass.
 
 ```sh
-python3 -m unittest discover -s blender-addon/tests -v
+python3 -B -m unittest discover -s blender-addon/tests -v
 blender --background --python-exit-code 1 --python blender-addon/scripts/verify_runtime_authoring.py -- --project-root .
 blender --background --python-exit-code 1 --python blender-addon/scripts/verify_authoring_editor.py -- --project-root .
 ```
@@ -149,3 +189,18 @@ before staging (`BLENDLIB-X5-ATOMIC-001`, exact-handle publication unavailable).
 registration, preview and invalid-binding preflight can be checked here; successful X5 atomic
 publication is not claimed by this batch. The strict exporter above and its real output pass
 independently, without weakening X5's existing safety gate.
+
+The [socket fixture](../test-assets/blender-sockets/README.md) includes transformed
+Empty and armature/object examples, their portable `.blend` sources, runtime
+exports and Blender-evaluated expected poses. Reproduce socket and restoration
+checks with:
+
+```sh
+blender --background --python-exit-code 1 --python blender-addon/scripts/verify_socket_editor.py -- --project-root .
+blender --background --python-exit-code 1 --python blender-addon/scripts/verify_socket_discovery_state.py -- --project-root .
+```
+
+Discovery requires Object Mode and exits early if any source is in NLA Tweak Mode;
+leave tweak mode deliberately first. Both successful and interrupted discovery
+restore source Actions, slots, unkeyed pose channels, NLA flags, scene frames and
+window/view-layer context. All temporary files are removed after the pass.

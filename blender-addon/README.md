@@ -45,3 +45,13 @@ The **Runtime State / Event Editor** offers explicit draft/apply controls for st
 mappings and Action-pose-marker events. Other fields stay in the same Text.
 See [authoring guide and working example](../docs/blender-runtime-authoring.md).
 Legacy X5 authoring metadata is not silently reinterpreted.
+
+### Exact exported socket selection
+
+The Runtime State / Event / Socket Editor also supports **Add Socket** and **Load
+Socket**. In Object Mode it privately exports the current collection, lists typed
+object/bone choices and shows their exact GLB paths. Apply deliberately updates
+only the selected canonical Text socket. Scene identity/path or Text conflicts
+fail without writing. For offsets/orientation, create and transform an ordinary
+exported Empty first, then select it; strict-v1 sockets remain node-only.
+See [socket workflow](../docs/blender-runtime-authoring.md#socket-editor-and-local-offsets).

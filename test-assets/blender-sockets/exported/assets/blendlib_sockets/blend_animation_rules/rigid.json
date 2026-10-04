@@ -1,0 +1,21 @@
+{
+  "default": "blendlib_authoring:idle",
+  "minimum_interval_ticks": 0,
+  "rules": [
+    {
+      "animation": "blendlib_authoring:walk",
+      "conditions": [
+        {
+          "equals": true,
+          "input": "grounded"
+        },
+        {
+          "enter_min": 0.1,
+          "exit_min": 0.05,
+          "input": "speed"
+        }
+      ]
+    }
+  ],
+  "schema_version": 1
+}

@@ -50,3 +50,25 @@ def apply(text: str, *, mode: str, key: str, clip: str, loop: bool,
     result = json.dumps(config, ensure_ascii=False, indent=2, allow_nan=False) + '\n'
     authoring.parse(result)  # Enforce canonical Text size after expansion as well.
     return result
+
+
+def apply_socket(text: str, *, mode: str, key: str, node: str,
+                 node_paths: set[str], actions: dict, fps: float) -> str:
+    """Patch one node-only socket through the same strict source compiler."""
+    if mode not in {'ADD', 'EDIT'}:
+        raise ValueError('Unknown socket draft mode')
+    config = load(text, actions, fps)
+    sockets = config.setdefault('sockets', {})
+    if not isinstance(sockets, dict):
+        raise ValueError('sockets must be an object')
+    if mode == 'EDIT' and key not in sockets:
+        raise ValueError('The loaded socket no longer exists; reload the draft')
+    if mode == 'ADD' and key in sockets:
+        raise ValueError('Socket key already exists; load it to edit instead')
+    if node not in node_paths:
+        raise ValueError('Choose an exact discovered exported node')
+    sockets[key] = {'node': node}
+    authoring.validate_source(copy.deepcopy(config), actions, fps, node_paths=node_paths)
+    result = json.dumps(config, ensure_ascii=False, indent=2, allow_nan=False) + '\n'
+    authoring.parse(result)
+    return result

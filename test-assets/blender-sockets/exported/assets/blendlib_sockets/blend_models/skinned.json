@@ -1,0 +1,35 @@
+{
+  "animation": {
+    "initial_state": "blendlib_sockets:wave",
+    "states": {
+      "blendlib_sockets:wave": {
+        "clip": "Wave",
+        "loop": true,
+        "speed": 1.0
+      }
+    }
+  },
+  "extensions": {},
+  "extensions_required": [],
+  "extensions_used": [],
+  "format_version": 1,
+  "materials": {
+    "SkinMaterial": {
+      "base_color": "blendlib_sockets:textures/blendlib/skinned__skinmaterial.png",
+      "double_sided": false,
+      "emissive": false,
+      "mode": "opaque"
+    }
+  },
+  "mesh": "blendlib_sockets:models3d/skinned.glb",
+  "profile": "blendlib:skinned_v1",
+  "sockets": {
+    "blendlib_sockets:hand_bone": {
+      "node": "SkinRoot/Rig/Arm/Hand"
+    },
+    "blendlib_sockets:hand_object": {
+      "node": "SkinRoot/Rig/ObjectHand"
+    }
+  },
+  "units_per_block": 1.0
+}

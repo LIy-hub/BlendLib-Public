@@ -1,0 +1,37 @@
+{
+  "blender_version": "5.1.2",
+  "build_hash": "ec6e62d40fa9",
+  "rigid": {
+    "nested_rotated_uniform_scaled_parents": true,
+    "transformed_empty_helper": true,
+    "draft_discard_and_validation_non_mutating": true,
+    "source_text_identity_guard": true,
+    "preserves_states_events_locomotion_and_other_sockets": true,
+    "explicit_opt_in_preserved": true,
+    "renamed_and_reparented_nodes_repaired": true,
+    "two_run_byte_identical": true,
+    "sidebar_export": true,
+    "save_reload_discards_draft": true,
+    "strict_node_only_socket_json": true,
+    "invalid_offset_preserves_outputs": true,
+    "exported_sha256": {
+      "mesh_path": "2e38107371825d08aa93c704db1f4ec8e22dd114f2a604e6b2a27a618aeaa402",
+      "descriptor_path": "5deb50be48d3d625da1151fde538dd78f6d1612f0ef28a3bdaf5d89ff469f38a",
+      "locomotion_path": "8b735924322e46d74f3d90c0339e4fc4d204ade4febdb5c0a2eba60f12dba816"
+    }
+  },
+  "skinned": {
+    "bone_and_object_targets_distinguished": true,
+    "bone_paths_from_actual_exporter": true,
+    "duplicate_object_bone_name_rejected": true,
+    "two_run_byte_identical": true,
+    "sidebar_export": true,
+    "save_reload_discards_draft": true,
+    "strict_node_only_socket_json": true,
+    "invalid_offset_preserves_outputs": true,
+    "exported_sha256": {
+      "mesh_path": "37cfdd42473eef9e09bab0f29250d7c93ffd0690f81c7538ae590b27019aad7d",
+      "descriptor_path": "22e375d4a8c1458c41e6b48cc3544fa9a1c5cfd087c7773138262320c5af101b"
+    }
+  }
+}

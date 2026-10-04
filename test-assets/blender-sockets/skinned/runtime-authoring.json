@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "animation": {
+    "initial_state": "blendlib_sockets:wave",
+    "states": {
+      "blendlib_sockets:wave": {
+        "clip": "Wave",
+        "loop": true,
+        "speed": 1
+      }
+    }
+  },
+  "sockets": {
+    "blendlib_sockets:hand_bone": {
+      "node": "SkinRoot/Rig/Arm/Hand"
+    },
+    "blendlib_sockets:hand_object": {
+      "node": "SkinRoot/Rig/ObjectHand"
+    }
+  }
+}

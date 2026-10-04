@@ -1,0 +1,677 @@
+{
+  "discovered_nodes": [
+    {
+      "kind": "OBJECT",
+      "name": "Root",
+      "owner": "Root",
+      "path": "Root"
+    },
+    {
+      "kind": "OBJECT",
+      "name": "Hand",
+      "owner": "Hand",
+      "path": "Root/Hand"
+    },
+    {
+      "kind": "OBJECT",
+      "name": "Pivot",
+      "owner": "Pivot",
+      "path": "Root/Pivot"
+    },
+    {
+      "kind": "OBJECT",
+      "name": "Body",
+      "owner": "Body",
+      "path": "Root/Pivot/Body"
+    },
+    {
+      "kind": "OBJECT",
+      "name": "Grip",
+      "owner": "Grip",
+      "path": "Root/Pivot/Body/Grip"
+    }
+  ],
+  "model": "blendlib_sockets:rigid",
+  "oracle": "Evaluated Blender object world matrices conjugated into glTF Y-up; not GLB-derived",
+  "profile": "blendlib:rigid_v1",
+  "samples": [
+    {
+      "sockets": {
+        "blendlib_authoring:hand": {
+          "rotation": [
+            0.0,
+            0.7071067690849304,
+            0.0,
+            0.7071067690849304
+          ],
+          "scale": [
+            2.0,
+            2.0,
+            2.0
+          ],
+          "translation": [
+            1.9999998807907104,
+            5.0,
+            -1.0
+          ]
+        },
+        "blendlib_sockets:held_item": {
+          "rotation": [
+            1.5454309831852697e-08,
+            -0.7071067690849304,
+            0.7071067690849304,
+            4.636293127191493e-08
+          ],
+          "scale": [
+            1.25,
+            1.25,
+            1.25
+          ],
+          "translation": [
+            -1.25,
+            3.5,
+            -1.25
+          ]
+        }
+      },
+      "state": "blendlib_authoring:idle",
+      "time_seconds": 0.0
+    },
+    {
+      "sockets": {
+        "blendlib_authoring:hand": {
+          "rotation": [
+            0.0,
+            0.7071067690849304,
+            0.0,
+            0.7071067690849304
+          ],
+          "scale": [
+            2.0,
+            2.0,
+            2.0
+          ],
+          "translation": [
+            1.9999998807907104,
+            5.0,
+            -1.0
+          ]
+        },
+        "blendlib_sockets:held_item": {
+          "rotation": [
+            1.5454309831852697e-08,
+            -0.7071067690849304,
+            0.7071067690849304,
+            4.636293127191493e-08
+          ],
+          "scale": [
+            1.25,
+            1.25,
+            1.25
+          ],
+          "translation": [
+            -1.25,
+            3.5,
+            -1.2524999380111694
+          ]
+        }
+      },
+      "state": "blendlib_authoring:idle",
+      "time_seconds": 0.25
+    },
+    {
+      "sockets": {
+        "blendlib_authoring:hand": {
+          "rotation": [
+            0.0,
+            0.7071067690849304,
+            0.0,
+            0.7071067690849304
+          ],
+          "scale": [
+            2.0,
+            2.0,
+            2.0
+          ],
+          "translation": [
+            1.9999998807907104,
+            5.0,
+            -1.0
+          ]
+        },
+        "blendlib_sockets:held_item": {
+          "rotation": [
+            1.5454309831852697e-08,
+            -0.7071067690849304,
+            0.7071067690849304,
+            4.636293127191493e-08
+          ],
+          "scale": [
+            1.25,
+            1.25,
+            1.25
+          ],
+          "translation": [
+            -1.25,
+            3.5,
+            -1.2549998760223389
+          ]
+        }
+      },
+      "state": "blendlib_authoring:idle",
+      "time_seconds": 0.5
+    },
+    {
+      "sockets": {
+        "blendlib_authoring:hand": {
+          "rotation": [
+            0.0,
+            0.7071067690849304,
+            0.0,
+            0.7071067690849304
+          ],
+          "scale": [
+            2.0,
+            2.0,
+            2.0
+          ],
+          "translation": [
+            1.9999998807907104,
+            5.0,
+            -1.0
+          ]
+        },
+        "blendlib_sockets:held_item": {
+          "rotation": [
+            1.5454309831852697e-08,
+            -0.7071067690849304,
+            0.7071067690849304,
+            4.636293127191493e-08
+          ],
+          "scale": [
+            1.25,
+            1.25,
+            1.25
+          ],
+          "translation": [
+            -1.25,
+            3.5,
+            -1.2574999332427979
+          ]
+        }
+      },
+      "state": "blendlib_authoring:idle",
+      "time_seconds": 0.75
+    },
+    {
+      "sockets": {
+        "blendlib_authoring:hand": {
+          "rotation": [
+            0.0,
+            0.7071067690849304,
+            0.0,
+            0.7071067690849304
+          ],
+          "scale": [
+            2.0,
+            2.0,
+            2.0
+          ],
+          "translation": [
+            1.9999998807907104,
+            5.0,
+            -1.0
+          ]
+        },
+        "blendlib_sockets:held_item": {
+          "rotation": [
+            1.5454309831852697e-08,
+            -0.7071067690849304,
+            0.7071067690849304,
+            4.636293127191493e-08
+          ],
+          "scale": [
+            1.25,
+            1.25,
+            1.25
+          ],
+          "translation": [
+            -1.25,
+            3.5,
+            -1.2599998712539673
+          ]
+        }
+      },
+      "state": "blendlib_authoring:idle",
+      "time_seconds": 1.0
+    },
+    {
+      "sockets": {
+        "blendlib_authoring:hand": {
+          "rotation": [
+            0.0,
+            0.7071067690849304,
+            0.0,
+            0.7071067690849304
+          ],
+          "scale": [
+            2.0,
+            2.0,
+            2.0
+          ],
+          "translation": [
+            1.9999998807907104,
+            5.0,
+            -1.0
+          ]
+        },
+        "blendlib_sockets:held_item": {
+          "rotation": [
+            1.5454309831852697e-08,
+            -0.7071067690849304,
+            0.7071067690849304,
+            4.636293127191493e-08
+          ],
+          "scale": [
+            1.25,
+            1.25,
+            1.25
+          ],
+          "translation": [
+            -1.25,
+            3.5,
+            -1.25
+          ]
+        }
+      },
+      "state": "blendlib_authoring:walk",
+      "time_seconds": 0.0
+    },
+    {
+      "sockets": {
+        "blendlib_authoring:hand": {
+          "rotation": [
+            0.0,
+            0.7071067690849304,
+            0.0,
+            0.7071067690849304
+          ],
+          "scale": [
+            2.0,
+            2.0,
+            2.0
+          ],
+          "translation": [
+            1.9999998807907104,
+            5.0,
+            -1.0
+          ]
+        },
+        "blendlib_sockets:held_item": {
+          "rotation": [
+            1.5454309831852697e-08,
+            -0.7071067690849304,
+            0.7071067690849304,
+            4.636293127191493e-08
+          ],
+          "scale": [
+            1.25,
+            1.25,
+            1.25
+          ],
+          "translation": [
+            -1.25,
+            3.5,
+            -1.4999998807907104
+          ]
+        }
+      },
+      "state": "blendlib_authoring:walk",
+      "time_seconds": 0.25
+    },
+    {
+      "sockets": {
+        "blendlib_authoring:hand": {
+          "rotation": [
+            0.0,
+            0.7071067690849304,
+            0.0,
+            0.7071067690849304
+          ],
+          "scale": [
+            2.0,
+            2.0,
+            2.0
+          ],
+          "translation": [
+            1.9999998807907104,
+            5.0,
+            -1.0
+          ]
+        },
+        "blendlib_sockets:held_item": {
+          "rotation": [
+            1.5454309831852697e-08,
+            -0.7071067690849304,
+            0.7071067690849304,
+            4.636293127191493e-08
+          ],
+          "scale": [
+            1.25,
+            1.25,
+            1.25
+          ],
+          "translation": [
+            -1.25,
+            3.5,
+            -1.7499998807907104
+          ]
+        }
+      },
+      "state": "blendlib_authoring:walk",
+      "time_seconds": 0.5
+    },
+    {
+      "sockets": {
+        "blendlib_authoring:hand": {
+          "rotation": [
+            0.0,
+            0.7071067690849304,
+            0.0,
+            0.7071067690849304
+          ],
+          "scale": [
+            2.0,
+            2.0,
+            2.0
+          ],
+          "translation": [
+            1.9999998807907104,
+            5.0,
+            -1.0
+          ]
+        },
+        "blendlib_sockets:held_item": {
+          "rotation": [
+            1.5454309831852697e-08,
+            -0.7071067690849304,
+            0.7071067690849304,
+            4.636293127191493e-08
+          ],
+          "scale": [
+            1.25,
+            1.25,
+            1.25
+          ],
+          "translation": [
+            -1.25,
+            3.5,
+            -1.9999998807907104
+          ]
+        }
+      },
+      "state": "blendlib_authoring:walk",
+      "time_seconds": 0.75
+    },
+    {
+      "sockets": {
+        "blendlib_authoring:hand": {
+          "rotation": [
+            0.0,
+            0.7071067690849304,
+            0.0,
+            0.7071067690849304
+          ],
+          "scale": [
+            2.0,
+            2.0,
+            2.0
+          ],
+          "translation": [
+            1.9999998807907104,
+            5.0,
+            -1.0
+          ]
+        },
+        "blendlib_sockets:held_item": {
+          "rotation": [
+            1.5454309831852697e-08,
+            -0.7071067690849304,
+            0.7071067690849304,
+            4.636293127191493e-08
+          ],
+          "scale": [
+            1.25,
+            1.25,
+            1.25
+          ],
+          "translation": [
+            -1.25,
+            3.5,
+            -2.25
+          ]
+        }
+      },
+      "state": "blendlib_authoring:walk",
+      "time_seconds": 1.0
+    },
+    {
+      "sockets": {
+        "blendlib_authoring:hand": {
+          "rotation": [
+            0.0,
+            0.7071067690849304,
+            0.0,
+            0.7071067690849304
+          ],
+          "scale": [
+            2.0,
+            2.0,
+            2.0
+          ],
+          "translation": [
+            1.9999998807907104,
+            5.0,
+            -1.0
+          ]
+        },
+        "blendlib_sockets:held_item": {
+          "rotation": [
+            1.5454309831852697e-08,
+            -0.7071067690849304,
+            0.7071067690849304,
+            4.636293127191493e-08
+          ],
+          "scale": [
+            1.25,
+            1.25,
+            1.25
+          ],
+          "translation": [
+            -1.25,
+            3.5,
+            -1.25
+          ]
+        }
+      },
+      "state": "blendlib_authoring:attack",
+      "time_seconds": 0.0
+    },
+    {
+      "sockets": {
+        "blendlib_authoring:hand": {
+          "rotation": [
+            0.0,
+            0.7071067690849304,
+            0.0,
+            0.7071067690849304
+          ],
+          "scale": [
+            2.0,
+            2.0,
+            2.0
+          ],
+          "translation": [
+            1.9999998807907104,
+            5.0,
+            -1.0
+          ]
+        },
+        "blendlib_sockets:held_item": {
+          "rotation": [
+            1.5454309831852697e-08,
+            -0.7071067690849304,
+            0.7071067690849304,
+            4.636293127191493e-08
+          ],
+          "scale": [
+            1.25,
+            1.25,
+            1.25
+          ],
+          "translation": [
+            -1.25,
+            3.5,
+            -1.7499998807907104
+          ]
+        }
+      },
+      "state": "blendlib_authoring:attack",
+      "time_seconds": 0.25
+    },
+    {
+      "sockets": {
+        "blendlib_authoring:hand": {
+          "rotation": [
+            0.0,
+            0.7071067690849304,
+            0.0,
+            0.7071067690849304
+          ],
+          "scale": [
+            2.0,
+            2.0,
+            2.0
+          ],
+          "translation": [
+            1.9999998807907104,
+            5.0,
+            -1.0
+          ]
+        },
+        "blendlib_sockets:held_item": {
+          "rotation": [
+            1.5454309831852697e-08,
+            -0.7071067690849304,
+            0.7071067690849304,
+            4.636293127191493e-08
+          ],
+          "scale": [
+            1.25,
+            1.25,
+            1.25
+          ],
+          "translation": [
+            -1.25,
+            3.5,
+            -2.25
+          ]
+        }
+      },
+      "state": "blendlib_authoring:attack",
+      "time_seconds": 0.5
+    },
+    {
+      "sockets": {
+        "blendlib_authoring:hand": {
+          "rotation": [
+            0.0,
+            0.7071067690849304,
+            0.0,
+            0.7071067690849304
+          ],
+          "scale": [
+            2.0,
+            2.0,
+            2.0
+          ],
+          "translation": [
+            1.9999998807907104,
+            5.0,
+            -1.0
+          ]
+        },
+        "blendlib_sockets:held_item": {
+          "rotation": [
+            1.5454309831852697e-08,
+            -0.7071067690849304,
+            0.7071067690849304,
+            4.636293127191493e-08
+          ],
+          "scale": [
+            1.25,
+            1.25,
+            1.25
+          ],
+          "translation": [
+            -1.25,
+            3.5,
+            -2.75
+          ]
+        }
+      },
+      "state": "blendlib_authoring:attack",
+      "time_seconds": 0.75
+    },
+    {
+      "sockets": {
+        "blendlib_authoring:hand": {
+          "rotation": [
+            0.0,
+            0.7071067690849304,
+            0.0,
+            0.7071067690849304
+          ],
+          "scale": [
+            2.0,
+            2.0,
+            2.0
+          ],
+          "translation": [
+            1.9999998807907104,
+            5.0,
+            -1.0
+          ]
+        },
+        "blendlib_sockets:held_item": {
+          "rotation": [
+            1.5454309831852697e-08,
+            -0.7071067690849304,
+            0.7071067690849304,
+            4.636293127191493e-08
+          ],
+          "scale": [
+            1.25,
+            1.25,
+            1.25
+          ],
+          "translation": [
+            -1.25,
+            3.5,
+            -3.25
+          ]
+        }
+      },
+      "state": "blendlib_authoring:attack",
+      "time_seconds": 1.0
+    }
+  ],
+  "sockets": {
+    "blendlib_authoring:hand": {
+      "node": "Root/Hand"
+    },
+    "blendlib_sockets:held_item": {
+      "node": "Root/Pivot/Body/Grip"
+    }
+  }
+}

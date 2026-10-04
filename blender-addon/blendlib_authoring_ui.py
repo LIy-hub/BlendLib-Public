@@ -4,13 +4,19 @@
 import json
 try:
     from . import blendlib_authoring_editor as editor
+    from . import blendlib_authoring_sockets as sockets
 except ImportError:
     import blendlib_authoring_editor as editor
+    import blendlib_authoring_sockets as sockets
 
 _CLASSES = ()
 _LOAD_HANDLER = None
+_EDIT_HANDLER = None
+_UNDO_HANDLER = None
 # Blender dynamic enum strings must outlive their callback invocation.
 _STATE_ITEMS = []
+_SOCKET_ITEMS = []
+_NODE_ITEMS = {}
 
 
 def _source(scene, exporter):
@@ -22,8 +28,22 @@ def _source(scene, exporter):
     return actions, facts, scene.render.fps / scene.render.fps_base
 
 
+def _socket_source(scene, exporter):
+    return sockets.discover(scene, exporter)
+
+
+def _reset_draft(draft):
+    draft.active = False
+    draft.source = None
+    draft.source_content = ''
+    draft.source_signature = ''
+    draft.source_invalidated = False
+    draft.events.clear()
+    draft.nodes.clear()
+
+
 def register(blender, exporter):
-    global _CLASSES, _LOAD_HANDLER
+    global _CLASSES, _LOAD_HANDLER, _EDIT_HANDLER, _UNDO_HANDLER
     props = blender.props
     transient = {'SKIP_SAVE'}
 
@@ -42,6 +62,27 @@ def register(blender, exporter):
         _STATE_ITEMS = result or [('__NONE__', 'No valid states', '')]
         return _STATE_ITEMS
 
+    def socket_items(self, context):
+        global _SOCKET_ITEMS
+        result = []
+        text = context.scene.blendlib_runtime_authoring_text if context else None
+        if text:
+            try:
+                values = editor.authoring.parse(text.as_string()).get('sockets', {})
+                if isinstance(values, dict) and len(values) <= 512:
+                    result = [(key, key, 'Load this socket into an explicit draft') for key in values]
+            except (ValueError, KeyError, TypeError):
+                pass
+        _SOCKET_ITEMS = result or [('__NONE__', 'No sockets', '')]
+        return _SOCKET_ITEMS
+
+    def node_items(self, context):
+        key = self.as_pointer()
+        _NODE_ITEMS[key] = [('/', 'Choose exported object or bone', '')] + [
+            (row.path, ('Bone: ' + row.owner + ' / ' + row.name) if row.kind == 'BONE'
+             else 'Object: ' + row.name, row.path) for row in self.nodes]
+        return _NODE_ITEMS[key]
+
     def action_poll(self, action):
         try:
             return action in _source(blender.context.scene, exporter)[0]
@@ -52,9 +93,20 @@ def register(blender, exporter):
         marker: props.StringProperty(name='Action Marker', options=transient)
         event: props.StringProperty(name='Event Key', options=transient)
 
+    class BLENDLIB_PG_authoring_node(blender.types.PropertyGroup):
+        path: props.StringProperty(options=transient)
+        kind: props.StringProperty(options=transient)
+        name: props.StringProperty(options=transient)
+        owner: props.StringProperty(options=transient)
+
     class BLENDLIB_PG_authoring_draft(blender.types.PropertyGroup):
         active: props.BoolProperty(default=False, options=transient)
+        kind: props.StringProperty(default='STATE', options=transient)
         mode: props.StringProperty(options=transient)
+        source_signature: props.StringProperty(options=transient)
+        source_invalidated: props.BoolProperty(default=False, options=transient)
+        nodes: props.CollectionProperty(type=BLENDLIB_PG_authoring_node, options=transient)
+        socket_node: props.EnumProperty(name='Exported Node', items=node_items, options=transient)
         source: props.PointerProperty(type=blender.types.Text, options=transient)
         source_content: props.StringProperty(options=transient)
         key: props.StringProperty(name='State Key', options=transient)
@@ -91,6 +143,10 @@ def register(blender, exporter):
                 state = config['animation']['states'][key] if self.mode == 'EDIT' else {'clip': actions[0].name, 'loop': True, 'speed': 1}
                 draft.source = text
                 draft.source_content = content
+                draft.source_invalidated = False
+                draft.kind = 'STATE'
+                draft.nodes.clear()
+                draft.source_signature = ''
                 draft.mode = self.mode
                 draft.key = key
                 draft.loaded_key = key
@@ -109,6 +165,44 @@ def register(blender, exporter):
                 self.report({'ERROR'}, str(error)[:300])
                 return {'CANCELLED'}
 
+    class BLENDLIB_OT_authoring_socket_begin(blender.types.Operator):
+        bl_idname = 'blendlib.authoring_socket_begin'
+        bl_label = 'Start Socket Draft'
+        bl_description = 'Discover actual exported nodes in temporary output; never writes Text or resources'
+        mode: props.EnumProperty(items=[('EDIT', 'Load Socket', ''), ('ADD', 'Add Socket', '')])
+
+        def execute(self, context):
+            scene, draft = context.scene, context.scene.blendlib_authoring_draft
+            if draft.active:
+                self.report({'ERROR'}, 'Apply or discard the current draft first')
+                return {'CANCELLED'}
+            try:
+                text = scene.blendlib_runtime_authoring_text
+                if text is None or text.library is not None:
+                    raise ValueError('Select a local editable Text datablock')
+                content = text.as_string()
+                _, facts, fps = _source(scene, exporter)
+                config = editor.load(content, facts, fps)
+                key = scene.blendlib_authoring_socket if self.mode == 'EDIT' else scene.blendlib_namespace + ':new_socket'
+                node = config.get('sockets', {})[key]['node'] if self.mode == 'EDIT' else '/'
+                rows, signature = _socket_source(scene, exporter)
+                draft.nodes.clear()
+                for raw in rows:
+                    row = draft.nodes.add()
+                    row.path, row.kind, row.name, row.owner = raw['path'], raw['kind'], raw['name'], raw['owner']
+                draft.source_invalidated = False
+                draft.kind, draft.mode = 'SOCKET', self.mode
+                draft.source, draft.source_content = text, content
+                draft.key = draft.loaded_key = key
+                draft.source_signature = signature
+                draft.socket_node = node if any(row['path'] == node for row in rows) else '/'
+                draft.events.clear()
+                draft.active = True
+                return {'FINISHED'}
+            except (ValueError, KeyError, TypeError, OverflowError, OSError, RuntimeError, exporter.ExportError) as error:
+                self.report({'ERROR'}, str(error)[:300])
+                return {'CANCELLED'}
+
     class BLENDLIB_OT_authoring_discard(blender.types.Operator):
         bl_idname = 'blendlib.authoring_discard'
         bl_label = 'Discard Draft'
@@ -116,10 +210,7 @@ def register(blender, exporter):
 
         def execute(self, context):
             draft = context.scene.blendlib_authoring_draft
-            draft.active = False
-            draft.source = None
-            draft.source_content = ''
-            draft.events.clear()
+            _reset_draft(draft)
             return {'FINISHED'}
 
     class BLENDLIB_OT_authoring_event(blender.types.Operator):
@@ -129,7 +220,7 @@ def register(blender, exporter):
 
         def execute(self, context):
             draft = context.scene.blendlib_authoring_draft
-            if not draft.active:
+            if not draft.active or draft.kind != 'STATE':
                 return {'CANCELLED'}
             index, size = draft.event_index, len(draft.events)
             if self.operation == 'ADD':
@@ -163,7 +254,7 @@ def register(blender, exporter):
                 if not draft.active:
                     raise ValueError('Load or create a draft first')
                 if draft.mode == 'EDIT' and draft.key != draft.loaded_key:
-                    raise ValueError('Renaming an existing state is not supported; reload the draft')
+                    raise ValueError('Renaming an existing ' + draft.kind.lower() + ' is not supported; reload the draft')
                 text = scene.blendlib_runtime_authoring_text
                 # Pointer identity deliberately permits rename but rejects a switched
                 # datablock, including another Text with byte-identical content.
@@ -175,23 +266,31 @@ def register(blender, exporter):
                 if draft.mode != 'CREATE' and (text is None or text.library is not None):
                     raise ValueError('Select a local editable Text datablock')
                 actions, facts, fps = _source(scene, exporter)
-                replacement = editor.apply(content, mode=draft.mode, key=draft.key,
-                    clip=draft.action.name if draft.action else '', loop=draft.loop,
-                    speed=draft.speed, events=[{'marker': row.marker, 'event': row.event} for row in draft.events],
-                    make_initial=draft.make_initial, actions=facts, fps=fps)
+                if draft.kind == 'SOCKET':
+                    if draft.source_invalidated:
+                        raise ValueError('Armature Edit Mode or undo changed source identity; discard and reload the draft')
+                    rows, signature = _socket_source(scene, exporter)
+                    if signature != draft.source_signature:
+                        raise ValueError('Export source identity or node paths changed; discard and reload the draft')
+                    replacement = editor.apply_socket(content, mode=draft.mode, key=draft.key,
+                        node=draft.socket_node, node_paths={row['path'] for row in rows}, actions=facts, fps=fps)
+                elif draft.kind == 'STATE':
+                    replacement = editor.apply(content, mode=draft.mode, key=draft.key,
+                        clip=draft.action.name if draft.action else '', loop=draft.loop,
+                        speed=draft.speed, events=[{'marker': row.marker, 'event': row.event} for row in draft.events],
+                        make_initial=draft.make_initial, actions=facts, fps=fps)
+                else:
+                    raise ValueError('Unknown authoring draft kind; discard and reload')
                 if draft.mode == 'CREATE':
                     text = blender.data.texts.new('BlendLib.runtime.json')
                     text.write(replacement)
                     scene.blendlib_runtime_authoring_text = text
                 else:
                     text.from_string(replacement)
-                draft.active = False
-                draft.source = None
-                draft.source_content = ''
-                draft.events.clear()
+                _reset_draft(draft)
                 self.report({'INFO'}, 'Applied to Text; save the .blend to persist. Export still validates GLB bounds and socket paths')
                 return {'FINISHED'}
-            except (ValueError, TypeError, KeyError, OverflowError, exporter.ExportError) as error:
+            except (ValueError, TypeError, KeyError, OverflowError, OSError, RuntimeError, exporter.ExportError) as error:
                 self.report({'ERROR'}, str(error)[:300])
                 return {'CANCELLED'}
 
@@ -201,7 +300,7 @@ def register(blender, exporter):
             layout.label(text=item.event or '(event key)')
 
     class VIEW3D_PT_blendlib_authoring(blender.types.Panel):
-        bl_label = 'Runtime State / Event Editor'
+        bl_label = 'Runtime State / Event / Socket Editor'
         bl_idname = 'VIEW3D_PT_blendlib_authoring'
         bl_space_type = 'VIEW_3D'
         bl_region_type = 'UI'
@@ -221,11 +320,28 @@ def register(blender, exporter):
                     row.operator('blendlib.authoring_begin', text='Load State').mode = 'EDIT'
                     row.operator('blendlib.authoring_begin', text='Add State').mode = 'ADD'
                 layout.operator('blendlib.authoring_begin', text='Start New Text').mode = 'CREATE'
+                if scene.blendlib_runtime_authoring_text:
+                    layout.prop(scene, 'blendlib_authoring_socket', text='Socket')
+                    row = layout.row(align=True)
+                    row.operator('blendlib.authoring_socket_begin', text='Load Socket').mode = 'EDIT'
+                    row.operator('blendlib.authoring_socket_begin', text='Add Socket').mode = 'ADD'
+                    layout.label(text='Socket nodes are discovered by a temporary export')
                 return
             layout.label(text='New Text draft' if draft.mode == 'CREATE' else 'Draft for ' + (draft.source.name if draft.source else '(missing Text)'))
             key_row = layout.row()
             key_row.enabled = draft.mode != 'EDIT'
             key_row.prop(draft, 'key')
+            if draft.kind == 'SOCKET':
+                if draft.source_invalidated:
+                    layout.label(text='Scene edited: discard and reload this draft', icon='ERROR')
+                layout.prop(draft, 'socket_node')
+                layout.label(text='Path: ' + draft.socket_node)
+                layout.label(text='Offset / rotation: transform an exported Empty')
+                layout.label(text='Create or move helpers before loading this draft')
+                row = layout.row(align=True)
+                row.operator('blendlib.authoring_apply', text='Apply Socket to Text')
+                row.operator('blendlib.authoring_discard', text='Discard')
+                return
             layout.prop(draft, 'action')
             row = layout.row(align=True)
             row.prop(draft, 'loop')
@@ -245,18 +361,19 @@ def register(blender, exporter):
                 else:
                     layout.prop(event, 'marker')
                 layout.prop(event, 'event')
-            layout.label(text='Next/blend, sockets and rules stay in Text')
+            layout.label(text='Next/blend and rules stay in Text')
             row = layout.row(align=True)
             row.operator('blendlib.authoring_apply', text='Create New Text' if draft.mode == 'CREATE' else 'Apply to Selected Text')
             row.operator('blendlib.authoring_discard', text='Discard')
 
-    _CLASSES = (BLENDLIB_PG_authoring_event, BLENDLIB_PG_authoring_draft,
-                BLENDLIB_OT_authoring_begin, BLENDLIB_OT_authoring_discard,
+    _CLASSES = (BLENDLIB_PG_authoring_event, BLENDLIB_PG_authoring_node, BLENDLIB_PG_authoring_draft,
+                BLENDLIB_OT_authoring_begin, BLENDLIB_OT_authoring_socket_begin, BLENDLIB_OT_authoring_discard,
                 BLENDLIB_OT_authoring_event, BLENDLIB_OT_authoring_apply,
                 BLENDLIB_UL_authoring_events, VIEW3D_PT_blendlib_authoring)
     for cls in _CLASSES:
         blender.utils.register_class(cls)
     blender.types.Scene.blendlib_authoring_state = props.EnumProperty(name='State', items=state_items, options=transient)
+    blender.types.Scene.blendlib_authoring_socket = props.EnumProperty(name='Socket', items=socket_items, options=transient)
     blender.types.Scene.blendlib_authoring_draft = props.PointerProperty(type=BLENDLIB_PG_authoring_draft, options=transient)
 
     # SKIP_SAVE does not suppress Scene ID-property serialization in Blender.
@@ -266,6 +383,28 @@ def register(blender, exporter):
     def clear_loaded_drafts(_):
         _clear_drafts(blender)
 
+    @blender.app.handlers.persistent
+    def invalidate_bone_edits(scene, _depsgraph):
+        # Bone RNA addresses can be reused after delete/recreate with identical
+        # names/transforms. Seeing Edit Mode is the conservative identity boundary;
+        # a pointer or retained Bone wrapper alone cannot detect that replacement.
+        if any(obj.type == 'ARMATURE' and obj.mode == 'EDIT' for obj in blender.data.objects):
+            for owner_scene in blender.data.scenes:
+                draft = owner_scene.blendlib_authoring_draft
+                if draft.active and draft.kind == 'SOCKET':
+                    draft.source_invalidated = True
+
+    @blender.app.handlers.persistent
+    def invalidate_undo(_):
+        for scene in blender.data.scenes:
+            draft = scene.blendlib_authoring_draft
+            if draft.active and draft.kind == 'SOCKET':
+                draft.source_invalidated = True
+
+    _EDIT_HANDLER, _UNDO_HANDLER = invalidate_bone_edits, invalidate_undo
+    blender.app.handlers.depsgraph_update_post.append(_EDIT_HANDLER)
+    blender.app.handlers.undo_post.append(_UNDO_HANDLER)
+    blender.app.handlers.redo_post.append(_UNDO_HANDLER)
     _LOAD_HANDLER = clear_loaded_drafts
     blender.app.handlers.load_post.append(_LOAD_HANDLER)
     _clear_drafts(blender)
@@ -275,22 +414,27 @@ def _clear_drafts(blender):
     for scene in blender.data.scenes:
         if hasattr(scene, 'blendlib_authoring_draft'):
             draft = scene.blendlib_authoring_draft
-            draft.active = False
-            draft.source = None
-            draft.source_content = ''
-            draft.events.clear()
+            _reset_draft(draft)
 
 
 def unregister(blender):
-    global _CLASSES, _STATE_ITEMS, _LOAD_HANDLER
+    global _CLASSES, _STATE_ITEMS, _SOCKET_ITEMS, _LOAD_HANDLER, _EDIT_HANDLER, _UNDO_HANDLER
     if _LOAD_HANDLER in blender.app.handlers.load_post:
         blender.app.handlers.load_post.remove(_LOAD_HANDLER)
     _LOAD_HANDLER = None
+    for handlers, handler in ((blender.app.handlers.depsgraph_update_post, _EDIT_HANDLER),
+                              (blender.app.handlers.undo_post, _UNDO_HANDLER),
+                              (blender.app.handlers.redo_post, _UNDO_HANDLER)):
+        if handler in handlers:
+            handlers.remove(handler)
+    _EDIT_HANDLER = _UNDO_HANDLER = None
     _clear_drafts(blender)
-    for name in ('blendlib_authoring_state', 'blendlib_authoring_draft'):
+    for name in ('blendlib_authoring_state', 'blendlib_authoring_socket', 'blendlib_authoring_draft'):
         if hasattr(blender.types.Scene, name):
             delattr(blender.types.Scene, name)
     for cls in reversed(_CLASSES):
         blender.utils.unregister_class(cls)
     _CLASSES = ()
     _STATE_ITEMS = []
+    _SOCKET_ITEMS = []
+    _NODE_ITEMS.clear()

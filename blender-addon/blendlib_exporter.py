@@ -407,23 +407,37 @@ def _compile_runtime_authoring(config: dict | None, objects: Sequence[Any], gltf
                  for row in _read_accessor(gltf, binary, sampler["input"])["values"]]
         if times:
             clips[clip["name"]] = (min(times), max(times))
-    nodes = gltf.get("nodes", [])
-    roots = gltf.get("scenes", [{}])[gltf.get("scene", 0)].get("nodes", [])
-    paths = set()
-    stack = [(index, nodes[index]["name"]) for index in roots]
-    visited = set()
-    while stack:
-        index, path = stack.pop()
-        if index in visited or path in paths:
-            raise ExportError("BLENDLIB-AUTHOR-001", "Exported node paths must be unique and acyclic.")
-        visited.add(index)
-        paths.add(path)
-        stack.extend((child, path + "/" + nodes[child]["name"]) for child in nodes[index].get("children", []))
+    paths = set(_exported_node_paths(gltf).values())
     try:
         return _runtime_authoring_module().compile_authoring(
             config, actions, clips, paths, blender.context.scene.render.fps / blender.context.scene.render.fps_base)
     except (ValueError, OverflowError) as error:
         raise ExportError("BLENDLIB-AUTHOR-001", str(error)[:300]) from error
+
+
+def _exported_node_paths(gltf: dict) -> dict[int, str]:
+    """Exact active-scene paths shared by authoring discovery and compilation."""
+    nodes = gltf.get("nodes", [])
+    if not isinstance(nodes, list) or not 0 < len(nodes) <= MAX_NODES:
+        raise ExportError("BLENDLIB-AUTHOR-001", "Exported nodes must contain 1..4096 entries.")
+    roots = gltf.get("scenes", [{}])[gltf.get("scene", 0)].get("nodes", [])
+    paths, names = {}, set()
+    stack = [(index, "") for index in roots]
+    while stack:
+        index, parent = stack.pop()
+        if type(index) is not int or not 0 <= index < len(nodes) or index in paths:
+            raise ExportError("BLENDLIB-AUTHOR-001", "Exported node paths must be unique and acyclic.")
+        node = nodes[index]
+        name = node.get("name")
+        if not isinstance(name, str) or not name.strip() or name in names:
+            raise ExportError("BLENDLIB-AUTHOR-001", "Exported node names must be nonblank and unique.")
+        names.add(name)
+        path = parent + "/" + name if parent else name
+        if path in paths.values():
+            raise ExportError("BLENDLIB-AUTHOR-001", "Exported node paths must be unique and acyclic.")
+        paths[index] = path
+        stack.extend((child, path) for child in node.get("children", []))
+    return paths
 
 
 def _select_collection(name: str | None) -> Any:
