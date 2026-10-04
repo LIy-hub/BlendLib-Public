@@ -18,6 +18,7 @@ _STATE_ITEMS = []
 _SOCKET_ITEMS = []
 _NODE_ITEMS = {}
 _LOOP_ITEMS = {}
+_NEXT_ITEMS = {}
 
 
 def _source(scene, exporter):
@@ -99,6 +100,22 @@ def register(blender, exporter):
         _LOOP_ITEMS[self.as_pointer()] = result
         return result
 
+    def next_items(self, context):
+        # Snapshot-backed IDs cannot silently retarget when canonical Text changes.
+        # The explicit self sentinel also survives editing a new state's key.
+        result = [('/', 'None', 'Non-loop holds its end pose; loop keeps repeating'),
+                  ('//SELF', 'This State', 'Non-loop restarts this state on completion')]
+        if self.mode != 'CREATE':
+            try:
+                config = editor.authoring.parse(self.source_content)
+                result += [(key, key, 'Enter this state when a non-loop finishes')
+                           for key in config['animation']['states']
+                           if self.mode != 'EDIT' or key != self.loaded_key]
+            except (ValueError, KeyError, TypeError):
+                pass
+        _NEXT_ITEMS[self.as_pointer()] = result
+        return result
+
     def action_poll(self, action):
         try:
             return action in _source(blender.context.scene, exporter)[0]
@@ -152,6 +169,11 @@ def register(blender, exporter):
         loop: props.BoolProperty(name='Loop', default=True, options=transient)
         speed: props.StringProperty(name='Speed', default='1', options=transient,
             description='Finite JSON number in (0, 64]; kept as text to preserve double precision')
+        next_state: props.EnumProperty(name='Next State', items=next_items, options=transient)
+        use_blend: props.BoolProperty(name='Set Blend In', default=False, options=transient,
+            description='Store an explicit blend duration; unchecked omits the field (default zero)')
+        blend_seconds: props.StringProperty(name='Blend In (seconds)', default='0', options=transient,
+            description='Finite JSON number >= 0; cross-fade duration when entering this state')
         make_initial: props.BoolProperty(name='Make Initial State', default=False, options=transient,
             description='Explicitly choose this state as the initial state on Apply')
         events: props.CollectionProperty(type=BLENDLIB_PG_authoring_event, options=transient)
@@ -190,6 +212,9 @@ def register(blender, exporter):
                 draft.action = blender.data.actions.get(state['clip'])
                 draft.loop = state['loop']
                 draft.speed = json.dumps(state['speed'])
+                draft.next_state = '//SELF' if state.get('next') == key else state.get('next', '/')
+                draft.use_blend = 'blend_seconds' in state
+                draft.blend_seconds = json.dumps(state.get('blend_seconds', 0))
                 draft.make_initial = self.mode == 'CREATE'
                 draft.events.clear()
                 for raw in state.get('events', []):
@@ -404,7 +429,9 @@ def register(blender, exporter):
                     replacement = editor.apply(content, mode=draft.mode, key=draft.key,
                         clip=draft.action.name if draft.action else '', loop=draft.loop,
                         speed=draft.speed, events=[{'marker': row.marker, 'event': row.event} for row in draft.events],
-                        make_initial=draft.make_initial, actions=facts, fps=fps)
+                        make_initial=draft.make_initial, actions=facts, fps=fps,
+                        next_state=None if draft.next_state == '/' else draft.key if draft.next_state == '//SELF' else draft.next_state,
+                        blend_seconds=draft.blend_seconds if draft.use_blend else None)
                 else:
                     raise ValueError('Unknown authoring draft kind; discard and reload')
                 if draft.mode == 'CREATE':
@@ -535,7 +562,18 @@ def register(blender, exporter):
                 else:
                     layout.prop(event, 'marker')
                 layout.prop(event, 'event')
-            layout.label(text='Next/blend stay in Text; rules have their own draft')
+            layout.prop(draft, 'next_state')
+            if draft.loop:
+                layout.label(text='Loop repeats; Next is not followed', icon='INFO')
+            else:
+                layout.label(text='No Next: hold end pose; otherwise enter Next')
+            layout.prop(draft, 'use_blend')
+            if draft.use_blend:
+                layout.prop(draft, 'blend_seconds')
+            else:
+                layout.label(text='Blend In default: 0 seconds (field absent)')
+            layout.label(text='Blend In applies when entering this state')
+            layout.label(text='Locomotion targets require Loop and no Next')
             row = layout.row(align=True)
             row.operator('blendlib.authoring_apply', text='Create New Text' if draft.mode == 'CREATE' else 'Apply to Selected Text')
             row.operator('blendlib.authoring_discard', text='Discard')
@@ -614,3 +652,4 @@ def unregister(blender):
     _SOCKET_ITEMS = []
     _NODE_ITEMS.clear()
     _LOOP_ITEMS.clear()
+    _NEXT_ITEMS.clear()

@@ -1,0 +1,26 @@
+{
+  "default": "blendlib_transitions:idle",
+  "rules": [
+    {
+      "animation": "blendlib_transitions:run",
+      "conditions": [
+        {
+          "enter_min": 2.0,
+          "exit_min": 1.5,
+          "input": "speed"
+        }
+      ]
+    },
+    {
+      "animation": "blendlib_transitions:walk",
+      "conditions": [
+        {
+          "enter_min": 0.1,
+          "exit_min": 0.05,
+          "input": "speed"
+        }
+      ]
+    }
+  ],
+  "schema_version": 1
+}

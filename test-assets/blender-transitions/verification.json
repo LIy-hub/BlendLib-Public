@@ -1,0 +1,19 @@
+{
+  "blender_version": "5.1.2",
+  "build_hash": "ec6e62d40fa9",
+  "all_fields_created_through_state_event_socket_rule_operators": true,
+  "explicit_none_self_and_existing_target_choices": true,
+  "precision_absent_zero_preserved": true,
+  "loop_next_and_positive_duration_cycles_follow_existing_contract": true,
+  "rule_target_next_and_loop_invalidations_rejected_atomically": true,
+  "renamed_deleted_target_and_text_identity_guards": true,
+  "repeat_discard_error_recovery_save_reload_restart": true,
+  "export_ignores_unapplied_draft": true,
+  "two_run_and_reload_byte_identical": true,
+  "exported_sha256": {
+    "assets/blendlib_transitions/blend_animation_rules/actor.json": "a17579838697c28249716a5676da0e327a18c9288a7181e6fbe64d6666883c42",
+    "assets/blendlib_transitions/models3d/actor.glb": "1e9fd4608ec62652527fc045f97344b28d8ce648770cadef4ed9903800545060",
+    "assets/blendlib_transitions/blend_models/actor.json": "5f48e1d947fa171c58cee6870c982ede9cb6ae824b542b46ba851fb71fe33073",
+    "assets/blendlib_transitions/textures/blendlib/actor__bodymaterial.png": "e54ecb84259db45e5619b7e88b948d4e09176aec0e01f281a57dc5d6f2d68d07"
+  }
+}

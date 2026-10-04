@@ -1,0 +1,146 @@
+{
+  "schema_version": 1,
+  "animation": {
+    "initial_state": "blendlib_transitions:idle",
+    "states": {
+      "blendlib_transitions:idle": {
+        "clip": "Idle",
+        "loop": true,
+        "speed": 1,
+        "blend_seconds": 0.4
+      },
+      "blendlib_transitions:walk": {
+        "clip": "Walk",
+        "loop": true,
+        "speed": 1,
+        "blend_seconds": 0,
+        "events": [
+          {
+            "marker": "Footstep",
+            "event": "blendlib_transitions:footstep"
+          }
+        ]
+      },
+      "blendlib_transitions:run": {
+        "clip": "Run",
+        "loop": true,
+        "speed": 1,
+        "events": [
+          {
+            "marker": "Footstep",
+            "event": "blendlib_transitions:footstep"
+          }
+        ]
+      },
+      "blendlib_transitions:attack": {
+        "clip": "Attack",
+        "loop": false,
+        "speed": 2,
+        "next": "blendlib_transitions:idle",
+        "blend_seconds": 0.2,
+        "events": [
+          {
+            "marker": "Impact",
+            "event": "blendlib_transitions:impact"
+          }
+        ]
+      },
+      "blendlib_transitions:hold": {
+        "clip": "Attack",
+        "loop": false,
+        "speed": 1,
+        "events": [
+          {
+            "marker": "Impact",
+            "event": "blendlib_transitions:impact"
+          }
+        ]
+      },
+      "blendlib_transitions:self": {
+        "clip": "Walk",
+        "loop": false,
+        "speed": 1,
+        "next": "blendlib_transitions:self",
+        "events": [
+          {
+            "marker": "Footstep",
+            "event": "blendlib_transitions:footstep"
+          }
+        ]
+      },
+      "blendlib_transitions:cycle_a": {
+        "clip": "Walk",
+        "loop": false,
+        "speed": 1,
+        "events": [
+          {
+            "marker": "Footstep",
+            "event": "blendlib_transitions:footstep"
+          }
+        ],
+        "next": "blendlib_transitions:cycle_b"
+      },
+      "blendlib_transitions:cycle_b": {
+        "clip": "Run",
+        "loop": false,
+        "speed": 1,
+        "next": "blendlib_transitions:cycle_a",
+        "events": [
+          {
+            "marker": "Footstep",
+            "event": "blendlib_transitions:footstep"
+          }
+        ]
+      },
+      "blendlib_transitions:loop_next": {
+        "clip": "Run",
+        "loop": true,
+        "speed": 1,
+        "next": "blendlib_transitions:attack",
+        "events": [
+          {
+            "marker": "Footstep",
+            "event": "blendlib_transitions:footstep"
+          }
+        ]
+      },
+      "blendlib_transitions:precise": {
+        "clip": "Idle",
+        "loop": false,
+        "speed": 1,
+        "blend_seconds": 0.12345678912345678
+      }
+    }
+  },
+  "sockets": {
+    "blendlib_transitions:hand": {
+      "node": "Root/Hand"
+    }
+  },
+  "locomotion": {
+    "schema_version": 1,
+    "default": "blendlib_transitions:idle",
+    "rules": [
+      {
+        "animation": "blendlib_transitions:run",
+        "conditions": [
+          {
+            "input": "speed",
+            "enter_min": 2,
+            "exit_min": 1.5
+          }
+        ]
+      },
+      {
+        "animation": "blendlib_transitions:walk",
+        "conditions": [
+          {
+            "input": "speed",
+            "enter_min": 0.1,
+            "exit_min": 0.05
+          }
+        ]
+      }
+    ]
+  }
+}

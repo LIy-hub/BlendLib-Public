@@ -166,3 +166,45 @@ case (82 tests, one failure, one skipped). The existing local selector-provider
 shim/quiet JVM setup remains test-only. CI runs the new genuine Blender script and
 asserts its committed export bytes. There is no Java production/runtime API/schema
 change, new Minecraft graphics run, main merge, release/tag or security change.
+
+## Structured state transitions checkpoint
+
+The state/event draft now authors Next State and optional Blend In through exact
+string-backed numeric controls. Nine additional pure methods (42 total) preserve
+absent versus explicit zero, finite double precision, untouched sections, valid
+self/cycles and the existing loop-next behavior. Locomotion default/rule targets
+cannot gain next or lose loop: complete-source validation rejects those edits
+before replacing Text. Snapshot targets never silently remap after source edits.
+
+`verify_transition_editor.py` uses actual Blender 5.1.2 operators for every field
+in a new first-party fixture: state/event/transition/socket/rule creation, explicit
+none/self, clear/re-add, invalid numbers, source-key immutability, target deletion/
+rename and Text identity/content conflicts. It verifies discarded/repeated drafts,
+exporting while an invalid draft is open, save/reopen and add-on restart. Repeated
+export and fresh CLI reopen produce the same four runtime files byte-for-byte.
+The packaged add-on also passes real register/load/apply/precision/restart checks.
+
+Six new `BlenderTransitionAuthoringLocomotionAcceptanceTest` cases consume those
+exact exported bytes on root 26.1.2 and official 26.3. They verify a speed-2 Attack
+reaches next after 0.5 real seconds, destination Idle's 0.4-second blend rather than
+Attack's outgoing 0.2-second value, actual sampled poses at zero/half/full blend,
+explicit-zero/absent cuts, no-next hold, loop ignoring next, valid self/two-state
+cycles, exact blend doubles and a fresh controller built from a reloaded asset. No runtime, parser or
+schema production code changes were required.
+
+Independent critical review reproduced one picker defect: ADD omitted an existing
+state using the default `:new_state` key. The picker now excludes the loaded key
+only in EDIT mode; a committed real-Blender regression and the reviewer recheck
+both pass. Additional independent probes pass for deleted Text/Action, reordered
+source guards, repeated Apply, disabled malformed blend omission, negative zero,
+subnormal values and the maximum finite double. No remaining review findings.
+
+Final local gates: 42 Python methods; 367 official 26.3 Java tests plus full build,
+runtime-JAR and runnable-example checks; root client 826/core 346; genuine strict
+exporter, old state/event, socket/discovery, rule, P2 and X5 registration regression
+scripts; validated add-on packaging. Root `clean check --continue` retains only
+the inherited Showcase POSIX symlink-policy failure (82 tests, one failure, one
+skipped). The existing selector-provider/quiet-JVM shim remains local test support.
+Headless Blender operators and Java timing/pose checks do not claim interactive
+panel rendering or a new Minecraft graphics pass. No merge, release/tag or security
+change was performed.

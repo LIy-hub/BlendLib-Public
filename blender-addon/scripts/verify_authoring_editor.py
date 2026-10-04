@@ -157,11 +157,12 @@ def main(root):
         draft.key, draft.action, draft.loop = 'blendlib_authoring:'+key, bpy.data.actions[action], loop
         assert bpy.ops.blendlib.authoring_event(operation='ADD') == {'FINISHED'}
         draft.events[0].marker, draft.events[0].event = marker, 'blendlib_authoring:'+event
+        if key == 'attack':
+            draft.next_state, draft.use_blend, draft.blend_seconds = 'blendlib_authoring:idle', True, '0.1'
         assert bpy.ops.blendlib.authoring_apply() == {'FINISHED'}
     authored = json.loads(created.as_string())
-    # Advanced fields retain their existing Text-only authoring contract.
+    # This older state-focused fixture imports unrelated socket/rule values.
     authored['sockets'], authored['locomotion'] = config['sockets'], config['locomotion']
-    authored['animation']['states']['blendlib_authoring:attack'].update(next='blendlib_authoring:idle', blend_seconds=.1)
     created.from_string(json.dumps(authored, indent=2))
     assert authored == config
     for state in ('idle', 'walk', 'attack'):

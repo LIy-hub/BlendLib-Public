@@ -14,6 +14,9 @@ except ImportError:
     import blendlib_runtime_authoring as authoring
 
 
+_UNCHANGED = object()
+
+
 def load(text: str, actions: dict, fps: float) -> dict:
     config = authoring.parse(text)
     authoring.validate_source(copy.deepcopy(config), actions, fps)
@@ -21,7 +24,8 @@ def load(text: str, actions: dict, fps: float) -> dict:
 
 
 def apply(text: str, *, mode: str, key: str, clip: str, loop: bool,
-          speed: str, events: list, make_initial: bool, actions: dict, fps: float) -> str:
+          speed: str, events: list, make_initial: bool, actions: dict, fps: float,
+          next_state=_UNCHANGED, blend_seconds=_UNCHANGED) -> str:
     """Return validated replacement bytes; callers own identity/conflict checks."""
     if mode not in {'EDIT', 'ADD', 'CREATE'}:
         raise ValueError('Unknown authoring draft mode')
@@ -40,6 +44,21 @@ def apply(text: str, *, mode: str, key: str, clip: str, loop: bool,
         raise ValueError('Speed must be a finite JSON number in (0, 64]') from error
     state = copy.deepcopy(states[key]) if mode == 'EDIT' else {}
     state.update(clip=clip, loop=loop, speed=number)
+    # None explicitly removes an optional field. Unspecified parameters preserve
+    # older editor callers; the sidebar always supplies its deliberate selection.
+    if next_state is not _UNCHANGED:
+        if next_state is None:
+            state.pop('next', None)
+        else:
+            state['next'] = next_state
+    if blend_seconds is not _UNCHANGED:
+        if blend_seconds is None:
+            state.pop('blend_seconds', None)
+        else:
+            try:
+                state['blend_seconds'] = json.loads(blend_seconds)
+            except (ValueError, RecursionError) as error:
+                raise ValueError('Blend In must be a finite JSON number >= 0') from error
     # Preserve absence vs an explicitly empty event list on a no-op edit.
     if events or 'events' in state:
         state['events'] = copy.deepcopy(events)

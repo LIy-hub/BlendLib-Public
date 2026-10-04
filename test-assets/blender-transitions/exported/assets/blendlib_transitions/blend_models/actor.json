@@ -1,0 +1,134 @@
+{
+  "animation": {
+    "initial_state": "blendlib_transitions:idle",
+    "states": {
+      "blendlib_transitions:attack": {
+        "blend_seconds": 0.2,
+        "clip": "Attack",
+        "events": [
+          {
+            "event": "blendlib_transitions:impact",
+            "time_seconds": 0.5
+          }
+        ],
+        "loop": false,
+        "next": "blendlib_transitions:idle",
+        "speed": 2.0
+      },
+      "blendlib_transitions:cycle_a": {
+        "clip": "Walk",
+        "events": [
+          {
+            "event": "blendlib_transitions:footstep",
+            "time_seconds": 0.5
+          }
+        ],
+        "loop": false,
+        "next": "blendlib_transitions:cycle_b",
+        "speed": 1.0
+      },
+      "blendlib_transitions:cycle_b": {
+        "clip": "Run",
+        "events": [
+          {
+            "event": "blendlib_transitions:footstep",
+            "time_seconds": 0.5
+          }
+        ],
+        "loop": false,
+        "next": "blendlib_transitions:cycle_a",
+        "speed": 1.0
+      },
+      "blendlib_transitions:hold": {
+        "clip": "Attack",
+        "events": [
+          {
+            "event": "blendlib_transitions:impact",
+            "time_seconds": 0.5
+          }
+        ],
+        "loop": false,
+        "speed": 1.0
+      },
+      "blendlib_transitions:idle": {
+        "blend_seconds": 0.4,
+        "clip": "Idle",
+        "loop": true,
+        "speed": 1.0
+      },
+      "blendlib_transitions:loop_next": {
+        "clip": "Run",
+        "events": [
+          {
+            "event": "blendlib_transitions:footstep",
+            "time_seconds": 0.5
+          }
+        ],
+        "loop": true,
+        "next": "blendlib_transitions:attack",
+        "speed": 1.0
+      },
+      "blendlib_transitions:precise": {
+        "blend_seconds": 0.12345678912345678,
+        "clip": "Idle",
+        "loop": false,
+        "speed": 1.0
+      },
+      "blendlib_transitions:run": {
+        "clip": "Run",
+        "events": [
+          {
+            "event": "blendlib_transitions:footstep",
+            "time_seconds": 0.5
+          }
+        ],
+        "loop": true,
+        "speed": 1.0
+      },
+      "blendlib_transitions:self": {
+        "clip": "Walk",
+        "events": [
+          {
+            "event": "blendlib_transitions:footstep",
+            "time_seconds": 0.5
+          }
+        ],
+        "loop": false,
+        "next": "blendlib_transitions:self",
+        "speed": 1.0
+      },
+      "blendlib_transitions:walk": {
+        "blend_seconds": 0.0,
+        "clip": "Walk",
+        "events": [
+          {
+            "event": "blendlib_transitions:footstep",
+            "time_seconds": 0.5
+          }
+        ],
+        "loop": true,
+        "speed": 1.0
+      }
+    }
+  },
+  "extensions": {},
+  "extensions_required": [],
+  "extensions_used": [],
+  "format_version": 1,
+  "materials": {
+    "BodyMaterial": {
+      "base_color": "blendlib_transitions:textures/blendlib/actor__bodymaterial.png",
+      "double_sided": false,
+      "emissive": false,
+      "mode": "opaque"
+    }
+  },
+  "mesh": "blendlib_transitions:models3d/actor.glb",
+  "profile": "blendlib:rigid_v1",
+  "sockets": {
+    "blendlib_transitions:hand": {
+      "node": "Root/Hand"
+    }
+  },
+  "units_per_block": 1.0
+}

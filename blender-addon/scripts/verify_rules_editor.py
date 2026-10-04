@@ -66,11 +66,12 @@ def main(root):
             assert bpy.ops.blendlib.authoring_event(operation='ADD') == {'FINISHED'}
             draft.events[0].marker = 'Impact' if name == 'Attack' else 'Footstep'
             draft.events[0].event = 'blendlib_rules:'+('impact' if name == 'Attack' else 'footstep')
+        if name == 'Attack':
+            draft.next_state, draft.use_blend, draft.blend_seconds = 'blendlib_rules:idle', True, '0.123456789123456'
         assert bpy.ops.blendlib.authoring_apply() == {'FINISHED'}
     text = scene.blendlib_runtime_authoring_text
     config = json.loads(text.as_string())
     config['sockets'] = {'blendlib_rules:hand': {'node': 'Root/Hand'}}
-    config['animation']['states']['blendlib_rules:attack'].update(next='blendlib_rules:idle', blend_seconds=.123456789123456)
     text.from_string(json.dumps(config, indent=2))
     preserved = json.loads(text.as_string())
 

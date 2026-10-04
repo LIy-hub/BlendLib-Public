@@ -41,7 +41,7 @@ new flag to X5 is rejected explicitly rather than silently discarded.
 
 ## State and event editor
 
-- Choose a Text, select a **State**, then **Load State**. Changes to Action, Loop, Speed
+- Choose a Text, select a **State**, then **Load State**. Changes to Action, Loop, Speed, Next State, Blend In
   and event rows are drafts until **Apply to Selected Text**. **Add State** creates a draft
   with a new key; an existing state key cannot be renamed or overwritten through that flow.
 - Action choices use exactly the exporter's supported object set and attached/NLA Actions.
@@ -53,8 +53,8 @@ new flag to X5 is rejected explicitly rather than silently discarded.
 - **Make Initial State** explicitly chooses the edited/added state. Unchecked means keep the
   existing initial state, including when editing that initial state itself. A new Text's first
   state is its initial state. The draft shows both the Action and state key before creation.
-- Existing `next`, `blend_seconds`, other states, sockets and locomotion remain in the Text.
-  Edit next/blend in the Text Editor; sockets and locomotion have their own drafts below. Apply may reformat JSON whitespace, but
+- **Next State** and **Set Blend In** edit the selected state as described below.
+  Other states, sockets and locomotion keep their own authored values. Apply may reformat JSON whitespace, but
   preserves all untouched values (including double-precision numbers and absent fields).
   Unknown fields fail the same strict validation; they are never silently discarded.
 - Speed accepts a JSON number such as `1` or `1.25` in (0,64]. Text input preserves precision
@@ -70,6 +70,57 @@ new flag to X5 is rejected explicitly rather than silently discarded.
   and exact socket paths. A successful Apply is not an export-success guarantee.
 - The editor does not enable **Runtime Animation Authoring** by itself. The historical strict
   CLI opt-out and all X5 controls remain unchanged.
+
+## Transitions and blend controls
+
+**Next State** offers **None**, **This State**, and existing states from the loaded
+Text snapshot. For a new Text, only None/self exist until more states are added.
+Create destination states first, then Load the source to choose its next state.
+**This State** intentionally restarts a non-loop state when it finishes, and stays
+bound to that draft's state key if a new-state key is edited before Apply.
+
+- With **Loop** on, playback repeats; an authored Next is preserved but is not
+  followed. Turn Loop off for an automatic completion transition. **None** omits
+  `next`: a non-loop holds its final pose. The existing contract permits self and
+  multi-state cycles with the exporter's positive-duration clips; the editor adds
+  no new graph restrictions. Locomotion defaults and rule targets must still have
+  Loop on and Next None. Attempting to change either incompatibly fails Apply.
+- Enable **Set Blend In** and enter seconds such as `0.2`. This is the cross-fade
+  duration when entering this state, whether by an explicit trigger or automatic
+  next transition. For Attack→Idle, Idle's Blend In controls the return to Idle;
+  Attack's controls entering Attack. It is not a wait before following Next.
+- Blend accepts finite nonnegative JSON-number text, including precise doubles.
+  An explicit `0` cuts immediately. Unchecking Set Blend In removes the field and
+  uses the same zero runtime default; unchanged absent/explicit-zero values stay
+  distinct in Text. Text input avoids Blender float-slider rounding.
+- Apply validates the entire config before writing. Missing next references,
+  invalid numbers and rule-invalidating edits leave canonical Text and the draft
+  intact. External target rename/deletion or any Text edit requires Discard/reload;
+  choices are never silently remapped. The editor does not rename/delete states.
+
+### Complete common setup without editing JSON
+
+1. Prepare Idle, Walk, Run and Attack Actions on the exported object/NLA, plus
+   Footstep and Impact **Action pose markers**. Prepare a child Empty such as Hand
+   for a socket. These are normal Blender source assets, not Text configuration.
+2. Start New Text: key `demo:idle`, Idle Action, Loop on, Next None, Set Blend In
+   on and `0.4`. Create New Text. Add Walk and Run with corresponding Actions,
+   Loop on and Next None. Add Footstep event rows mapped to `demo:footstep`.
+3. Add `demo:attack`, choose Attack, Loop off, Next `demo:idle`, Set Blend In on
+   and `0.2`; map Impact to `demo:impact`. Set Speed to `2` only if twice-speed
+   playback is desired. Apply. A one-second Attack clip then finishes in 0.5 real
+   seconds and cross-fades into Idle over Idle's 0.4 seconds.
+4. Add Socket, choose the discovered Hand node, set `demo:hand`, Apply. Load / Add
+   Locomotion Rules: default Idle; add Run first with Number >= speed enter `2`,
+   exit `1.5`, then Walk with enter `0.1`, exit `0.05`. Apply Rules to Text.
+5. Save the `.blend`, enable Runtime Animation Authoring, and export. The existing
+   runtime integration supplies the typed speed input and triggers Attack; the
+   editor does not invent gameplay inputs or event authority.
+
+The [transition fixture](../test-assets/blender-transitions/README.md) performs all
+these configuration steps through real Blender operators, including socket/rule
+creation. It also demonstrates non-loop hold, self/cycles and loop-with-next
+semantics, then verifies actual exported next traversal and blend poses in Java.
 
 ## Socket editor and local offsets
 
@@ -118,7 +169,9 @@ Unknown/duplicate fields and non-finite JSON numbers fail. Text is limited to 1 
 
 - `animation` contains `initial_state` and `states` (1..256). State keys are resource IDs.
   Each state requires exact attached Action `clip`, boolean `loop`, and `speed` in (0,64].
-  Optional `next` names another authored state; `blend_seconds` is finite and nonnegative.
+  Optional `next` names an authored state (including itself); `blend_seconds` is finite and nonnegative.
+  Loop repeats instead of following next; non-loop follows next at completion or holds its last pose.
+  Blend is the entered state's cross-fade duration in wall-clock seconds, independently of playback speed.
   A subset of attached clips may be exposed, or multiple states may reference one clip.
 - A state's optional `events` contains up to 4096 `{ "marker": "Footstep", "event": "demo:footstep" }`
   entries (16,384 total across the descriptor). `marker` is an **Action pose marker**, not a scene timeline marker. Create it in
