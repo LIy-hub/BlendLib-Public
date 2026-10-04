@@ -2,7 +2,7 @@ name: Minecraft 26.3 verification
 
 on:
   push:
-    branches: ["mc/26.3"]
+    branches: ["mc/26.3", "fix/26.3-runtime-compat"]
   workflow_dispatch:
 
 permissions:
