@@ -1,7 +1,9 @@
 # Fixed-cycle synchronized 1D blendspaces
 
 `AnimationBlendSpace1D` is an opt-in code API for smoothly mixing neighboring animation
-samples. It reuses the existing layered evaluator. The default renderer, discrete resource-pack
+samples. It reuses the existing layered evaluator. Optional
+[positive dynamic cadence](dynamic-blendspace-cadence.md) is configured separately; this guide
+describes the unchanged fixed-cycle default. The default renderer, discrete resource-pack
 locomotion rules, descriptors and synchronization protocol are unchanged.
 
 ## Standard entity renderer
@@ -93,8 +95,9 @@ tests separately verify reloaded assets whose raw clip durations change.
 
 These are headless checks. No native graphics or visual gait-quality acceptance is implied.
 A separate [bounded directional 2D API](directional-blendspace-2d.md) now reuses this scheduler.
-There is no dynamic tempo, stride matching, root motion, foot locking, automatic phase inference,
-new Blender schema/editor or network authority in these slices.
+An additive [positive dynamic cadence API](dynamic-blendspace-cadence.md) can now opt into tempo
+changes; this fixed-cycle API retains cadence one. There is no stride matching, root motion, foot
+locking, automatic phase inference, new Blender schema/editor or network authority in these slices.
 
 ## Released baseline and preview packaging
 

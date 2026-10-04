@@ -11,13 +11,13 @@ import net.minecraft.network.chat.Component;
 final class ExampleInspectionCommands {
     private ExampleInspectionCommands() { }
 
-    static void register(boolean locomotionRules, boolean blendSpace, boolean directional) {
+    static void register(boolean locomotionRules, boolean blendSpace, boolean directional, boolean cadence) {
         ClientCommandRegistrationCallback.EVENT.register((dispatcher, registry) -> dispatcher.register(
                 ClientCommands.literal("blendlib_example").then(ClientCommands.literal("inspect")
                         .executes(context -> listActors(context.getSource()))
                         .then(ClientCommands.argument("entity-id", IntegerArgumentType.integer(0))
                                 .executes(context -> inspect(context.getSource(),
-                                        IntegerArgumentType.getInteger(context, "entity-id"), locomotionRules, blendSpace, directional))))));
+                                        IntegerArgumentType.getInteger(context, "entity-id"), locomotionRules, blendSpace, directional, cadence))))));
     }
 
     private static int listActors(FabricClientCommandSource source) {
@@ -31,7 +31,7 @@ final class ExampleInspectionCommands {
         return ids.isEmpty() ? 0 : 1;
     }
 
-    private static int inspect(FabricClientCommandSource source, int id, boolean locomotionRules, boolean blendSpace, boolean directional) {
+    private static int inspect(FabricClientCommandSource source, int id, boolean locomotionRules, boolean blendSpace, boolean directional, boolean cadence) {
         var client = source.getClient();
         var entity = client.level == null ? null : client.level.getEntity(id);
         if (!(entity instanceof LayeredActor actor)) {
@@ -57,6 +57,10 @@ final class ExampleInspectionCommands {
         if (locomotionRules || blendSpace || directional) source.sendFeedback(Component.literal(String.format(java.util.Locale.ROOT,
                 "Received locomotion grounded=%s speed=%.4f blocks/tick (may be newer than sampled layers)",
                 actor.locomotionGrounded(), actor.locomotionSpeed())));
+        if ((blendSpace || directional) && cadence) source.sendFeedback(Component.literal(String.format(java.util.Locale.ROOT,
+                "Requested cadence=%.3fx (received speed / %.3f, clamped [%.1f, %.1f]; may be newer than sampled playback)",
+                ExampleBlendSpaceCadence.multiplier(actor.locomotionSpeed()), ExampleBlendSpaceCadence.REFERENCE_SPEED,
+                ExampleBlendSpaceCadence.MIN_MULTIPLIER, ExampleBlendSpaceCadence.MAX_MULTIPLIER)));
         ExampleLayerInspection.format(directional ? ExampleDirectionalScene.layers() : blendSpace ? ExampleBlendSpaceScene.layers() : locomotionRules
                         ? ExampleLocomotionScene.layers() : ExampleAnimationScene.layers(),
                 sampled.orElseThrow())

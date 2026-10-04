@@ -266,6 +266,7 @@ if (minecraftVersion == "26.3") {
             "**/EntityLayerCueCacheTest.java",
             "**/*Locomotion*Test.java",
             "**/*BlendSpace*.java",
+            "**/*DynamicCadence*.java",
             "**/entity/consumer/BlendSpaceConsumerSample.java",
             "**/entity/consumer/LocomotionRulesConsumerSample.java",
             "**/MaterialAppearanceSubmissionTest.java",

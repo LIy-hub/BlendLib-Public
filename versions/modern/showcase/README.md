@@ -7,7 +7,9 @@ source sets and launch profile; it does not put the consumer classes into the li
 
 Preview packages built with `-Pblendlib_preview=blendspace-preview` add
 `-blendspace-preview` to the library/example version and JAR names. They are development
-builds, distinct from the published beta.4 release. Install one matching pair only.
+builds, distinct from the published beta.4 release. The cumulative positive-cadence preview uses
+`-Pblendlib_preview=cadence-preview` and version `1.0.0-beta.4+26.3-cadence-preview`.
+Install one matching runtime/example pair only.
 
 ## Build and run
 
@@ -863,3 +865,64 @@ phase continuity; remove/re-summon the tagged actor and check fresh activation. 
 with `/kill @e[type=blendlib_runnable_examples:layered_actor,tag=blendlib_directional]` and remove
 the JVM property to return to the prior mode. Headless packaged tests verify final poses and
 CPU vertices; native visual acceptance is still deferred.
+
+
+## Opt-in positive dynamic blendspace cadence
+
+The original 1D and 2D examples above retain their fixed `0.8` second cycle. To additionally
+change shared playback cadence with measured motion, enable the separate client JVM property:
+
+```sh
+JAVA_TOOL_OPTIONS="-Dblendlib.examples.blendspace1d=true -Dblendlib.examples.blendspaceCadence=true" ./gradlew -p versions/modern -Pminecraft_version=26.3 -Prunnable_examples=true -Pblendlib_preview=cadence-preview runRunnableExamplesClient
+```
+
+For directional motion use `-Dblendlib.examples.blendspace2d=true` instead of the 1D flag,
+retaining `-Dblendlib.examples.blendspaceCadence=true`. For a packaged install, put these two
+flags in the launcher's Java arguments and restart. Install matching runtime and example JARs
+of version `1.0.0-beta.4+26.3-cadence-preview`. They are development artifacts, not a new release.
+The cadence flag alone selects no renderer and does not move an actor. Two-bone IK still takes
+precedence, and default/discrete modes are unchanged.
+
+Use the existing matching movement tag on an open, level floor:
+
+```mcfunction
+/summon blendlib_runnable_examples:layered_actor ~ ~ ~3 {Tags:["blendlib_blendspace"]}
+/summon blendlib_runnable_examples:layered_actor ~ ~ ~3 {Tags:["blendlib_directional"],Rotation:[45f,0f]}
+```
+
+Choose the first command for the 1D mode or the second for 2D. `ExampleBlendSpaceCadence` divides
+the tracked collision-resolved horizontal speed by the fixture's authored reference `0.06`
+blocks/tick and clamps the multiplier to `[0.5, 2]`. This uses the same actual server displacement
+as the mixture input, not a requested trajectory or client interpolation. A wall slows both
+measured mixture and cadence. Idle and untagged stationary actors intentionally retain `0.5x`
+cadence; this feature has no pause or reverse. At held multipliers `0.5x / 1x / 2x`, normalized
+cycle lengths are `1.6 / 0.8 / 0.4` seconds. The fixtures' unequal raw clip durations and non-unit
+descriptor speeds are unchanged, and the entire consumer multiplier range is validated.
+
+At each extraction the previous committed cadence advances the elapsed interval; the newly
+captured multiplier applies going forward. Changing it does not seek, restart, issue member
+commands or change accepted sequences. Mixture weights remain independent. All members continue
+advancing at idle or zero weight, and the most recently committed cadence is held while culled.
+This is a simple authored visual policy, not automatic stride matching or a foot-sliding fix.
+
+`/blendlib_example inspect <entity-id>` shows the requested multiplier derived from currently
+received speed and the existing sampled member weights, normalized phases and sequences. The
+requested value can be newer than the latest sampled publication. Upper attacks/markers/fades,
+procedural tip pose, final socket, weapon and independently animated ornament still coexist.
+Resource reload keeps integrated phase and rebinds fresh durations/speeds; unload/re-summon or
+reconnect starts a fresh activation. Removing just the cadence flag returns to the exact old
+fixed-cycle example. Remove the movement tag separately to stop consumer-owned movement.
+
+`verifyRunnableExamples` retains both fixed suites and adds a packaged cadence proof for 1D and
+2D. It samples actual raw GLB tracks at hand-calculated piecewise phases, compares independently
+positioned ordinary layered frames against all layered transforms, final procedural sockets and
+CPU-skinned vertices across multiple speed changes, and checks authored upper marker/clock/fade
+independence and real nested attachments. It also covers duplicate/backward timestamps, idle and
+zero-weight members, actor isolation, changed-descriptor-speed reload, immutable old geometry,
+silent long-gap recovery, unload/retirement/reconnect and no extraction resource reads.
+
+Native graphics and gait-quality acceptance remain deferred. When resumed, compare each mode
+with cadence off/on, watch smooth acceleration/deceleration and idle, stop against a wall, cross
+2D sectors, trigger upper attacks, inspect stable member sequences, reload, and unload/reconnect.
+No exporter or private Blender project changes are needed. See the complete
+[dynamic cadence contract](../../../docs/dynamic-blendspace-cadence.md) for bounds and timing.

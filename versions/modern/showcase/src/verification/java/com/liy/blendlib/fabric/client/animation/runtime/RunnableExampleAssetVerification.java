@@ -33,6 +33,7 @@ public final class RunnableExampleAssetVerification {
         com.liy.blendlib.fabric.client.reload.RunnableLocomotionVerification.verify();
         com.liy.blendlib.fabric.client.reload.RunnableBlendSpaceVerification.verify();
         com.liy.blendlib.fabric.client.reload.RunnableDirectionalBlendSpaceVerification.verify();
+        com.liy.blendlib.fabric.client.reload.RunnableBlendSpaceCadenceVerification.verify();
         ModelAsset actor = load("actor");
         ModelAsset wand = load("wand");
         ModelAsset marker = load("marker");

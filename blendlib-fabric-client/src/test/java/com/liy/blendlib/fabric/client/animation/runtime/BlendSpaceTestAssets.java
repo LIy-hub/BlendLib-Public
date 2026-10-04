@@ -23,8 +23,11 @@ public final class BlendSpaceTestAssets {
     static BlendAnimationKey key(String name) { return BlendAnimationKey.parse("space:"+name); }
     public static ModelRegistryGeneration generation(long generation) { return generation(generation,1,true); }
     public static ModelRegistryGeneration generation(long generation,float durationScale,boolean loops) {
+        return generation(generation,durationScale,loops,1);
+    }
+    public static ModelRegistryGeneration generation(long generation,float durationScale,boolean loops,double speedScale) {
         var definition=new AnimationDefinition(IDLE.resourceId(),Map.of(
-                IDLE.resourceId(),state("idle",loops,.5,2*durationScale),WALK.resourceId(),state("walk",loops,2,durationScale),RUN.resourceId(),state("run",loops,1.5,.5*durationScale)));
+                IDLE.resourceId(),state("idle",loops,.5*speedScale,2*durationScale),WALK.resourceId(),state("walk",loops,2*speedScale,durationScale),RUN.resourceId(),state("run",loops,1.5*speedScale,.5*durationScale)));
         var geometry=new MeshPrimitive("Skin",new float[]{0,0,0,1,0,0,0,1,0},new float[]{0,0,1,0,0,1,0,0,1},new float[]{0,0,1,0,0,1},new int[]{0,1,2},new int[12],new float[]{1,0,0,0,1,0,0,0,1,0,0,0});
         var asset=new ModelAsset(MODEL.resourceId(),MODEL.descriptorResourceId(),generation,ModelProfile.SKINNED_V1,1,
                 Map.of("Skin",new MaterialDefinition(id("textures/skin.png"),MaterialDefinition.Mode.OPAQUE,false,false,null)),definition,

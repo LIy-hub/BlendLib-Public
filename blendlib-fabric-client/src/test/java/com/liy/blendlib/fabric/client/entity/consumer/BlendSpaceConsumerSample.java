@@ -14,6 +14,7 @@ public final class BlendSpaceConsumerSample {
         return builder.skinnedAnimation((e,r)->idle).animationLayerCues(List.of(
                 new ModelAnimationLayers.Layer(a,0,AnimationV2LayerMode.OVERRIDE,1,List.of(),idle),
                 new ModelAnimationLayers.Layer(b,0,AnimationV2LayerMode.OVERRIDE,1,List.of(),walk)),(e,r)->List.of())
-                .animationBlendSpace1D(new AnimationBlendSpace1D(List.of(new AnimationBlendSpace1D.Sample(0,a),new AnimationBlendSpace1D.Sample(1,b)),1),(e,r)->0.5);
+                .animationBlendSpace1D(new AnimationBlendSpace1D(List.of(new AnimationBlendSpace1D.Sample(0,a),new AnimationBlendSpace1D.Sample(1,b)),1),(e,r)->0.5)
+                .animationBlendSpaceCadence((e,r)->1.25);
     }
 }

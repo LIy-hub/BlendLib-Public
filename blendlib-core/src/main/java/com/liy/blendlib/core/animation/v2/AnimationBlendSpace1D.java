@@ -4,7 +4,7 @@ import com.liy.blendlib.api.BlendResourceId;
 import java.util.*;
 
 /**
- * Immutable, bounded, fixed-cadence one-dimensional blendspace over existing model layers.
+ * Immutable, bounded one-dimensional blendspace over existing model layers.
  * Samples must already share authored gait phase. This does not infer stride, root motion or
  * event leadership. Inactive members explicitly receive zero; unrelated weights are untouched.
  */
@@ -70,7 +70,7 @@ public final class AnimationBlendSpace1D {
         return new AnimationV2LayerWeights(result);
     }
 
-    /** Stable immutable fixed-cycle group; ordinary frames only change solver weights. */
+    /** Stable immutable group; its binding supports positive frame-boundary cadence updates. */
     public AnimationBlendSpaceSyncGroup syncGroup() { return syncGroup; }
     public void validateExternalWeights(AnimationV2LayerWeights weights) { syncGroup.validateExternalWeights(weights); }
     public void validateExternalCommands(List<AnimationV2Command> commands) { syncGroup.validateExternalCommands(commands); }
@@ -82,5 +82,6 @@ public final class AnimationBlendSpace1D {
         private final AnimationBlendSpaceSyncGroup.Binding binding;
         private Binding(AnimationBlendSpaceSyncGroup.Binding binding) { this.binding = binding; }
         public List<AnimationV2Command> commands(double phase, long sequence) { return binding.commands(phase, sequence); }
+        public AnimationBlendSpaceSyncGroup.RateUpdate rateUpdate(double multiplier) { return binding.rateUpdate(multiplier); }
     }
 }

@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased: positive dynamic blendspace cadence
+
+- Add bounded extraction-only cadence to both 1D and 2D spaces while preserving fixed-cadence APIs
+- Stage complete exact-plan rate vectors after elapsed old-rate advancement, without new commands or seeks
+- Retain integrated phase and held cadence across reload and bounded recovery, with lifecycle and invalid-input preflight
+- Add opt-in measured-speed gait frequency, unequal real GLB pose/CPU-vertex verification and additive ABI pins
+- Preserve beta.4 alignment; distinct cadence-preview artifacts remain headless and native graphics remains deferred
+
 ## Unreleased: fixed-cycle directional 2D blendspaces
 
 - Add bounded immutable center/ring directional definitions, adjacent-sector interpolation and explicit inactive zeros

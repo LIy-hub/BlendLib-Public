@@ -25,6 +25,7 @@ public final class ExampleClient implements ClientModInitializer {
         boolean itemAppearance = Boolean.getBoolean("blendlib.examples.itemAppearance");
         boolean namedSkins = Boolean.getBoolean("blendlib.examples.namedSkins");
         boolean directional = ExampleDirectionalScene.enabled();
+        boolean cadence = ExampleBlendSpaceCadence.enabled();
         boolean blendSpace = !directional && ExampleBlendSpaceScene.enabled();
         boolean locomotionRules = !directional && !blendSpace && ExampleLocomotionScene.enabled();
         if (namedSkins) ExampleNamedSkins.register();
@@ -65,6 +66,8 @@ public final class ExampleClient implements ClientModInitializer {
                             (entity, request) -> ExampleDirectionalScene.localVelocity(entity.directionalDx(), entity.directionalDz(), entity.getYRot()));
                     if (blendSpace) builder.animationBlendSpace1D(ExampleBlendSpaceScene.definition(),
                             (entity, request) -> entity.locomotionSpeed());
+                    if ((directional || blendSpace) && cadence) builder.animationBlendSpaceCadence(
+                            (entity, request) -> ExampleBlendSpaceCadence.multiplier(entity.locomotionSpeed()));
                     if (locomotionRules) builder.animationLocomotionRules(ExampleAnimationScene.BASE,
                             (entity, request) -> ExampleLocomotionScene.inputs(
                                     entity.locomotionGrounded(), entity.locomotionSpeed()));
@@ -83,7 +86,7 @@ public final class ExampleClient implements ClientModInitializer {
                 });
         ExampleItemCommands.register(ITEM_VISUAL_EVENTS_ENABLED, ITEM_VISUAL_EVENTS);
         ExampleInspectionCommands.register(locomotionRules && !ExampleTwoBoneIkScene.enabled(),
-                blendSpace && !ExampleTwoBoneIkScene.enabled(), directional && !ExampleTwoBoneIkScene.enabled());
+                blendSpace && !ExampleTwoBoneIkScene.enabled(), directional && !ExampleTwoBoneIkScene.enabled(), cadence);
     }
 
     private static String appearanceName(LayeredActor entity, boolean namedSkins) {

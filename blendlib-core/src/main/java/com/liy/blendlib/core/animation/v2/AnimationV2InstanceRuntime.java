@@ -151,6 +151,39 @@ public final class AnimationV2InstanceRuntime {
             List<AnimationV2Command> frameCommands,
             List<AnimationV2SequenceRejection> frameRejections,
             AnimationV2LayerWeights weights) {
+        return advanceFrame(deltaSeconds, frameCommands, frameRejections, weights, null);
+    }
+
+    /**
+     * Advances the interval using the previously committed rates, applies ordinary commands, then installs a
+     * complete blendspace rate update for future intervals. Rates never seek, issue commands, or restart a
+     * transition; a transition's previous source retains its original rate. The whole frame is atomic.
+     */
+    public AnimationV2EvaluationSnapshot advanceBlendSpaceAtFrame(
+            double deltaSeconds,
+            List<AnimationV2Command> frameCommands,
+            AnimationV2LayerWeights weights,
+            AnimationBlendSpaceSyncGroup.RateUpdate rateUpdate) {
+        return advanceBlendSpaceAtFrame(deltaSeconds, frameCommands, List.of(), weights, rateUpdate);
+    }
+
+    /** Blendspace frame evaluation with explicit fail-closed sequence revocations before the rate update. */
+    public AnimationV2EvaluationSnapshot advanceBlendSpaceAtFrame(
+            double deltaSeconds,
+            List<AnimationV2Command> frameCommands,
+            List<AnimationV2SequenceRejection> frameRejections,
+            AnimationV2LayerWeights weights,
+            AnimationBlendSpaceSyncGroup.RateUpdate rateUpdate) {
+        requireRateUpdatePlan(rateUpdate);
+        return advanceFrame(deltaSeconds, frameCommands, frameRejections, weights, rateUpdate);
+    }
+
+    private AnimationV2EvaluationSnapshot advanceFrame(
+            double deltaSeconds,
+            List<AnimationV2Command> frameCommands,
+            List<AnimationV2SequenceRejection> frameRejections,
+            AnimationV2LayerWeights weights,
+            AnimationBlendSpaceSyncGroup.RateUpdate rateUpdate) {
         validateLayerWeights(weights);
         claimOwner();
         if (!Double.isFinite(deltaSeconds) || deltaSeconds < 0.0D) {
@@ -190,6 +223,14 @@ public final class AnimationV2InstanceRuntime {
             collectCommands(stage, diagnostics, capturedIngressCount, overflow);
             applyFrameRejections(stage, checkedRejections, diagnostics);
             applyCollectedCommands(stage, diagnostics);
+            if (rateUpdate != null) {
+                // Prove every member before changing even staged rates. Incompatible late members cannot publish
+                // earlier members, consume commands, or advance any live controller in this prospective frame.
+                validateRateUpdateMembers(rateUpdate, stage.controllersInEvaluationOrder);
+                for (var entry : rateUpdate.commandRates().entrySet()) {
+                    stage.controllersById.get(entry.getKey()).playbackSpeed = entry.getValue();
+                }
+            }
             for (AnimationV2Diagnostic diagnostic : plan.staticDiagnostics()) {
                 diagnostics.add(diagnostic.code(), diagnostic.controllerId(), diagnostic.layerId(), diagnostic.boneIndex(), diagnostic.detail());
             }
@@ -239,6 +280,45 @@ public final class AnimationV2InstanceRuntime {
                 throw new IllegalArgumentException("undeclared v2 layer target: " + key);
             }
         }
+    }
+
+    /**
+     * Non-mutating preflight of the exact bound plan and complete member-rate vector. This does not claim ownership,
+     * drain commands, or inspect mutable playback. Initialization/recovery commands may restore member states, so
+     * compatibility with actual states is checked inside the prospective frame after commands and rejections.
+     */
+    public void validateRateUpdate(AnimationBlendSpaceSyncGroup.RateUpdate rateUpdate) {
+        requireRateUpdatePlan(rateUpdate);
+        for (AnimationV2ControllerDefinition member : rateUpdate.controllers()) {
+            validateMemberRate(member.initialStateDefinition(), rateUpdate.commandRates().get(member.id()));
+        }
+    }
+
+    private void requireRateUpdatePlan(AnimationBlendSpaceSyncGroup.RateUpdate rateUpdate) {
+        if (Objects.requireNonNull(rateUpdate, "rateUpdate").plan() != plan)
+            throw new IllegalArgumentException("blendspace rate update belongs to a different instance plan");
+    }
+
+    private static void validateRateUpdateMembers(
+            AnimationBlendSpaceSyncGroup.RateUpdate rateUpdate, ControllerRuntime[] controllers) {
+        for (AnimationV2ControllerDefinition member : rateUpdate.controllers()) {
+            ControllerRuntime runtime = null;
+            for (ControllerRuntime candidate : controllers) {
+                if (candidate.definition == member) {
+                    runtime = candidate;
+                    break;
+                }
+            }
+            if (runtime == null || runtime.current != member.initialStateDefinition())
+                throw new IllegalArgumentException("blendspace member is not in its bound continuous loop: " + member.id());
+            validateMemberRate(runtime.current, rateUpdate.commandRates().get(member.id()));
+        }
+    }
+
+    private static void validateMemberRate(AnimationV2ControllerState state, double rate) {
+        AnimationV2Limits.requireSpeed(rate, "blendspace command rate");
+        if (!AnimationV2Limits.isValidEffectivePlaybackSpeed(state.speed(), rate))
+            throw new IllegalArgumentException("blendspace member effective rate exceeds v2 bounds");
     }
 
     private List<AnimationV2Command> checkedFrameCommands(List<AnimationV2Command> frameCommands) {

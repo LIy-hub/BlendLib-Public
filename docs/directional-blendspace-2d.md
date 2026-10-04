@@ -4,7 +4,9 @@
 [1D fixed-cycle scheduler and ownership/lifecycle contract](synchronized-blendspace-1d.md),
 including explicit inactive zeros, unequal clip lengths, descriptor-speed compensation,
 zero-weight clock progression, monotonic time, reload phase retention and silent large-gap
-recovery. Existing 1D APIs and default/discrete locomotion remain unchanged.
+recovery. Existing 1D APIs and default/discrete locomotion remain unchanged. The separately
+configured [positive dynamic cadence API](dynamic-blendspace-cadence.md) can augment either
+dimension; this guide describes the unchanged fixed-cycle default.
 
 ## Definition and input
 
@@ -96,7 +98,8 @@ verification independently samples raw GLB clips and compares manual fixed-pose 
 final poses and CPU-skinned vertices, including upper/procedural/attachment coexistence.
 
 This is headless verification, not native visual or gait-quality acceptance. Native graphics
-remains deferred. No exporter/private project changes, schema/editor, dynamic cadence or release.
+remains deferred. No exporter/private project changes, schema/editor or release. Dynamic cadence
+is an explicit [additive opt-in](dynamic-blendspace-cadence.md), not part of this fixed default.
 
 ## Preview build
 
