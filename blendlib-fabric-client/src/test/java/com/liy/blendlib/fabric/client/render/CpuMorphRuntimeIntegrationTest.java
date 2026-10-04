@@ -122,7 +122,8 @@ class CpuMorphRuntimeIntegrationTest {
             BlendInstanceKey.BlockEntity owner, MorphFrameOverrides overrides) {
         long revision = runtime.captureExtractionLifecycleRevision();
         return runtime.extractStaticMorph(MODEL, models.current().generationId(), owner, revision,
-                overrides, input(42,0,IDLE).extractionRequest());
+                overrides, new SkinnedExtractionRequest(Transform.IDENTITY, 0xA000B, 7, 0xFFFFFFFF,
+                        RenderVisibility.VISIBLE, new CullingMetadata(handle().bounds(), true)));
     }
 
     private Optional<com.liy.blendlib.fabric.client.animation.extract.ClientSkinnedExtractionFrame> staticFrame(MorphFrameOverrides overrides) {
