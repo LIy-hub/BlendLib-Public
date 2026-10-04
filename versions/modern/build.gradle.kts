@@ -257,6 +257,8 @@ tasks.withType<ProcessResources>().configureEach {
         filter { line -> line.replace("JAVA_25", "JAVA_$javaVersion") }
     }
     if (minecraftVersion == "26.3") {
+        // Filters alone are not tracked as task inputs; invalidate previously processed pre-26.3 shaders.
+        inputs.property("minecraft263ShaderInterfaceVersion", 1)
         // 26.3 compiles both backends through ShaderC/SPIR-V. Keep earlier targets' resources unchanged.
         // See https://www.minecraft.net/en-us/article/minecraft-java-edition-26-3#shader-compilation-changes
         filesMatching("assets/blendlib/shaders/core/x7_*") {
