@@ -38,6 +38,28 @@ public final class ClientSkinnedExtractionBridge {
     private ClientSkinnedExtractionBridge() {
     }
 
+    /** Captures authored rest transforms and frame-local morph weights without any animation state. */
+    public static ClientSkinnedExtractionFrame extractStaticMorph(
+            LoadedModelHandle loaded, com.liy.blendlib.core.animation.runtime.MorphFrameOverrides overrides,
+            SkinnedExtractionRequest request) {
+        Objects.requireNonNull(loaded, "loaded");
+        Objects.requireNonNull(request, "request");
+        ModelAsset asset = loaded.asset();
+        if (asset.profile() != ModelProfile.SKINNED_MORPH_CPU_V1
+                || !(loaded.renderHandle() instanceof SkinnedRenderHandle handle)) {
+            throw new IllegalArgumentException("staticMorph requires the CPU morph profile");
+        }
+        MorphWeights weights = MorphWeights.defaults(asset.morphBindings()).overridden(overrides);
+        Map<Integer, Transform> transforms = new LinkedHashMap<>();
+        asset.nodes().forEach(node -> transforms.put(node.index(), node.localTransform()));
+        NodePalette palette = NodePalette.fromCanonicalScene(
+                new com.liy.blendlib.core.animation.runtime.LocalPose(transforms), asset.nodes(), asset.defaultSceneRoots());
+        var captured = SkinnedRenderSnapshot.capture(handle, morphPreparedPrimitives(asset, handle, palette, weights));
+        return new ClientSkinnedExtractionFrame(ModelRenderSnapshot.skinned(handle, request.rootTransform(),
+                request.packedLight(), request.packedOverlay(), request.tintArgb(), request.visibility(),
+                request.culling(), captured), socketTransforms(asset, palette));
+    }
+
     /**
      * Builds one immutable frame from a current instance pose and one already-published strict-v1
      * animated handle.
@@ -93,28 +115,6 @@ public final class ClientSkinnedExtractionBridge {
                 checkedRequest.culling(),
                 captured);
         return new ClientSkinnedExtractionFrame(renderSnapshot, socketTransforms(asset, canonicalPalette));
-    }
-
-    /** Captures authored rest transforms and frame-local morph weights without any animation state. */
-    public static ClientSkinnedExtractionFrame extractStaticMorph(
-            LoadedModelHandle loaded, com.liy.blendlib.core.animation.runtime.MorphFrameOverrides overrides,
-            SkinnedExtractionRequest request) {
-        Objects.requireNonNull(loaded, "loaded");
-        Objects.requireNonNull(request, "request");
-        ModelAsset asset = loaded.asset();
-        if (asset.profile() != ModelProfile.SKINNED_MORPH_CPU_V1
-                || !(loaded.renderHandle() instanceof SkinnedRenderHandle handle)) {
-            throw new IllegalArgumentException("staticMorph requires the CPU morph profile");
-        }
-        MorphWeights weights = MorphWeights.defaults(asset.morphBindings()).overridden(overrides);
-        Map<Integer, Transform> transforms = new LinkedHashMap<>();
-        asset.nodes().forEach(node -> transforms.put(node.index(), node.localTransform()));
-        NodePalette palette = NodePalette.fromCanonicalScene(
-                new com.liy.blendlib.core.animation.runtime.LocalPose(transforms), asset.nodes(), asset.defaultSceneRoots());
-        var captured = SkinnedRenderSnapshot.capture(handle, morphPreparedPrimitives(asset, handle, palette, weights));
-        return new ClientSkinnedExtractionFrame(ModelRenderSnapshot.skinned(handle, request.rootTransform(),
-                request.packedLight(), request.packedOverlay(), request.tintArgb(), request.visibility(),
-                request.culling(), captured), socketTransforms(asset, palette));
     }
 
     private static List<CpuSkinnedMesh> morphPreparedPrimitives(ModelAsset asset, SkinnedRenderHandle handle,
