@@ -1,5 +1,13 @@
 # Changelog
 
+## Batch morph authoring preview
+
+- Add explicit missing-control and new-complete-Text drafts to the Blender CPU morph editor
+- Generate deterministic unique namespaced aliases for exact exported mesh/target pairs, with editable default-containing bounded ranges
+- Preserve existing controls and unrelated authoring content; reject conflicts and stale drafts atomically, with explicit Apply/Discard
+- Add focused Python contracts and official Blender 5.1.2 multi-mesh/operator/export/reopen acceptance; no runtime or schema expansion
+
+
 ## Blender morph authoring editor preview
 
 - Add CPU-profile-only exact exported mesh/shape-key discovery and explicit control alias / weight-interval drafts

@@ -2,7 +2,7 @@ name: Minecraft 26.3 verification
 
 on:
   push:
-    branches: ["mc/26.3", "feature/mc26.3-animation-capabilities", "feature/mc26.3-sync-recovery-showcase", "feature/mc26.3-entity-layer-cues", "feature/mc26.3-runtime-inspection", "feature/mc26.3-item-observation", "fix/mc26.3-item-animation-reload", "feat/mc26.3-weighted-procedural-pose", "feat/mc26.3-dynamic-layer-weights", "feat/mc26.3-layer-visual-events", "feat/mc26.3-material-appearance", "feat/mc26.3-nested-attachments", "feat/mc26.3-attachment-showcase", "feat/mc26.3-assembly-culling-envelope", "feat/mc26.3-item-material-appearance", "feat/mc26.3-item-visual-events", "feat/mc26.3-named-texture-skins", "feat/mc26.3-standard-two-bone-ik", "feat/mc26.3-locomotion-rules", "feat/mc26.3-blender-animation-authoring", "feat/mc26.3-blender-state-editor", "feat/mc26.3-blender-socket-editor", "feat/mc26.3-blender-rule-editor", "feat/mc26.3-blender-transition-editor", "feat/mc26.3-synchronized-blendspace-1d", "feat/mc26.3-directional-blendspace-2d", "feat/mc26.3-dynamic-blendspace-cadence", "feat/mc26.3-native-cubic-profile", "feat/mc26.3-cpu-morph-profile", "feat/mc26.3-static-cpu-morph", "feat/mc26.3-static-morph-accessories", "feat/mc26.3-block-entity-morphs", "feat/mc26.3-static-item-morphs", "feat/mc26.3-blender-morph-editor"]
+    branches: ["mc/26.3", "feature/mc26.3-animation-capabilities", "feature/mc26.3-sync-recovery-showcase", "feature/mc26.3-entity-layer-cues", "feature/mc26.3-runtime-inspection", "feature/mc26.3-item-observation", "fix/mc26.3-item-animation-reload", "feat/mc26.3-weighted-procedural-pose", "feat/mc26.3-dynamic-layer-weights", "feat/mc26.3-layer-visual-events", "feat/mc26.3-material-appearance", "feat/mc26.3-nested-attachments", "feat/mc26.3-attachment-showcase", "feat/mc26.3-assembly-culling-envelope", "feat/mc26.3-item-material-appearance", "feat/mc26.3-item-visual-events", "feat/mc26.3-named-texture-skins", "feat/mc26.3-standard-two-bone-ik", "feat/mc26.3-locomotion-rules", "feat/mc26.3-blender-animation-authoring", "feat/mc26.3-blender-state-editor", "feat/mc26.3-blender-socket-editor", "feat/mc26.3-blender-rule-editor", "feat/mc26.3-blender-transition-editor", "feat/mc26.3-synchronized-blendspace-1d", "feat/mc26.3-directional-blendspace-2d", "feat/mc26.3-dynamic-blendspace-cadence", "feat/mc26.3-native-cubic-profile", "feat/mc26.3-cpu-morph-profile", "feat/mc26.3-static-cpu-morph", "feat/mc26.3-static-morph-accessories", "feat/mc26.3-block-entity-morphs", "feat/mc26.3-static-item-morphs", "feat/mc26.3-blender-morph-editor", "feat/mc26.3-batch-morph-authoring"]
   workflow_dispatch:
 
 permissions:
@@ -21,7 +21,7 @@ jobs:
       - uses: gradle/actions/wrapper-validation@v4
       - uses: gradle/actions/setup-gradle@v4
       - name: Build and verify Minecraft 26.3 and opt-in consumer
-        run: bash gradlew -p versions/modern -Pminecraft_version=26.3 -Pblendlib_preview=blender-morph-editor -Prunnable_examples=true --no-daemon --max-workers=2 build verifyRuntimeJar verifyRunnableExamples --stacktrace --console=plain
+        run: bash gradlew -p versions/modern -Pminecraft_version=26.3 -Pblendlib_preview=batch-morph-authoring -Prunnable_examples=true --no-daemon --max-workers=2 build verifyRuntimeJar verifyRunnableExamples --stacktrace --console=plain
       - uses: actions/upload-artifact@v4
         if: always()
         with:

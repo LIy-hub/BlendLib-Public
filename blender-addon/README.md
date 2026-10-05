@@ -194,3 +194,5 @@ export-discovered mesh/shape-key pair, a namespaced alias, and a finite interval
 within [-2, 2] containing zero and the authored default. Only **Apply** writes Text;
 **Discard** leaves it untouched. Add every target before exporting. Drafts never
 change shape-key values or create Actions. See the [face/squeeze walkthrough](../docs/blender-morph-editor-walkthrough.md).
+
+The CPU morph editor also offers **Draft Missing Controls** and **Draft All Controls in New Text**. Review generated exact-target aliases and default-containing ranges, then explicitly Apply or Discard the whole batch. Existing controls are preserved. See the [walkthrough](../docs/blender-morph-editor-walkthrough.md#batch-setup-for-a-model-with-many-targets).

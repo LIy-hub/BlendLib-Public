@@ -155,3 +155,93 @@ def apply_morph(text: str, *, mode: str, key: str, node: str, target: str,
     result = json.dumps(config, ensure_ascii=False, indent=2, allow_nan=False) + '\n'
     authoring.parse(result, allow_morph_controls=True)
     return result
+
+
+def missing_morph_controls(text: str, *, mode: str, namespace: str, targets: list,
+                           actions: dict, fps: float) -> list:
+    """Plan a deterministic batch. Existing controls are never rewritten or renamed."""
+    import hashlib
+    import re
+    if mode not in {'CREATE', 'ADD'}:
+        raise ValueError('Unknown batch morph draft mode')
+    if not isinstance(namespace, str) or not re.fullmatch(r'[a-z0-9._-]{1,128}', namespace):
+        raise ValueError('Batch namespace must be 1..128 lowercase resource-ID characters')
+    config = {'schema_version': 1} if mode == 'CREATE' else load(text, actions, fps, allow_morph_controls=True)
+    controls = config.get('morph_controls', {})
+    discovered = {}
+    for row in targets:
+        pair = (row['node'], row['target'])
+        if pair in discovered:
+            raise ValueError('Ambiguous discovered mesh / target: ' + repr(pair))
+        if not morph.finite(row['default']) or not -2 <= row['default'] <= 2:
+            raise ValueError('Authored default outside [-2,2] for ' + repr(pair))
+        discovered[pair] = row['default']
+    for alias, control in controls.items():
+        pair = (control['node'], control['target'])
+        if pair not in discovered:
+            raise ValueError('Existing control ' + alias + ' has no exported mesh / target; edit it first')
+        if not control['min_weight'] <= discovered[pair] <= control['max_weight']:
+            raise ValueError('Existing control ' + alias + ' excludes its authored default; edit its interval first')
+    occupied = set(controls)
+    bound = {(c['node'], c['target']) for c in controls.values()}
+    result = []
+    for node, target in sorted(set(discovered) - bound):
+        # A bounded readable slug plus an exact-pair digest handles Unicode,
+        # punctuation, equal names on different meshes and slug collisions.
+        slug = re.sub('[^a-z0-9_-]+', '_', target.lower()).strip('_')[:40] or 'target'
+        digest = hashlib.sha256(json.dumps([node, target], ensure_ascii=False).encode()).hexdigest()[:16]
+        stem = namespace + ':' + slug + '_' + digest
+        alias, number = stem, 2
+        while alias in occupied:
+            alias = stem + '_' + str(number)
+            number += 1
+        occupied.add(alias)
+        default = discovered[(node, target)]
+        result.append({'key': alias, 'node': node, 'target': target,
+                       'min_weight': min(-1, default), 'max_weight': max(1, default)})
+    if len(controls) + len(result) > morph.MAX_CONTROLS:
+        raise ValueError('Batch would exceed 1024 morph controls')
+    if result:
+        morph.validate_controls({**controls, **{row['key']: {k: v for k, v in row.items() if k != 'key'}
+                                               for row in result}})
+    return result
+
+
+def apply_morph_batch(text: str, *, mode: str, controls: list, targets: list,
+                      actions: dict, fps: float) -> str:
+    """Atomically add exactly the missing targets; validate editable draft rows."""
+    if mode not in {'CREATE', 'ADD'}:
+        raise ValueError('Unknown batch morph draft mode')
+    config = {'schema_version': 1} if mode == 'CREATE' else load(text, actions, fps, allow_morph_controls=True)
+    existing = config.get('morph_controls', {})
+    discovered = {(row['node'], row['target']): row['default'] for row in targets}
+    if len(discovered) != len(targets):
+        raise ValueError('Ambiguous discovered mesh / target')
+    for alias, control in existing.items():
+        pair = (control['node'], control['target'])
+        if pair not in discovered or not control['min_weight'] <= discovered[pair] <= control['max_weight']:
+            raise ValueError('Existing control ' + alias + ' conflicts with discovered targets/defaults; edit it first')
+    missing = set(discovered) - {(c['node'], c['target']) for c in existing.values()}
+    pairs = [(row['node'], row['target']) for row in controls]
+    if not controls or len(pairs) != len(set(pairs)) or set(pairs) != missing:
+        raise ValueError('Batch must contain exactly one control for every missing exported target')
+    merged = copy.deepcopy(existing)
+    for row in controls:
+        alias = row['key']
+        if alias in merged:
+            raise ValueError('Control alias already exists: ' + alias)
+        try:
+            low, high = json.loads(row['min_weight']), json.loads(row['max_weight'])
+        except (ValueError, RecursionError) as error:
+            raise ValueError('Declared weights must be finite JSON numbers for ' + alias) from error
+        merged[alias] = {'node': row['node'], 'target': row['target'], 'min_weight': low, 'max_weight': high}
+    morph.validate_controls(merged)
+    for alias, control in merged.items():
+        default = discovered[(control['node'], control['target'])]
+        if not morph.finite(default) or not control['min_weight'] <= default <= control['max_weight']:
+            raise ValueError('Declared interval must contain the authored shape-key default for ' + alias)
+    config['morph_controls'] = merged
+    authoring.validate_source(copy.deepcopy(config), actions, fps)
+    result = json.dumps(config, ensure_ascii=False, indent=2, allow_nan=False) + '\n'
+    authoring.parse(result, allow_morph_controls=True)
+    return result

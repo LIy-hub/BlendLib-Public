@@ -123,3 +123,4 @@ jobs:
           blender --background --python-exit-code 1 --python blender-addon/scripts/verify_cpu_morph_edge_cases.py -- --project-root .
           blender --background --python-exit-code 1 --python blender-addon/scripts/verify_morph_editor.py -- --project-root .
           git diff --exit-code -- test-assets/blender-morph-authoring/exported
+          blender --background --python-exit-code 1 --python blender-addon/scripts/verify_morph_batch.py -- --project-root .

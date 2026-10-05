@@ -6,9 +6,9 @@ with four relative shape keys: **Blink**, **Smile**, **Breath**, and **Squeeze**
 It has no Actions, animation clips, or placeholder animation state. Breath's
 authored default is **0.15**; the other target defaults are zero.
 
-For the packaged preview, use `BlendLib-26.3-beta4-blender-morph-editor-preview.zip`
-and its matching add-on/JAR set with the `blender-morph-editor` qualifier, built
-from branch `feat/mc26.3-blender-morph-editor`.
+For the packaged preview, use `BlendLib-26.3-beta4-batch-morph-authoring-preview.zip`
+and its matching add-on/JAR set with the `batch-morph-authoring` qualifier, built
+from branch `feat/mc26.3-batch-morph-authoring`.
 
 ## Open the prepared example
 
@@ -64,6 +64,39 @@ Each selects the same exact exported mesh path,
 Incomplete drafts can be applied one control at a time, but final export requires
 exactly one alias for every exported node/target pair.
 
+## Batch setup for a model with many targets
+
+Use **Draft Missing Controls** to fill every currently unbound exported mesh / shape-key
+pair in the selected Text. The existing controls, aliases, ranges, states, events,
+sockets and locomotion settings are preserved. A complete Text reports "No missing
+morph controls" without opening a draft or rewriting Text, including its formatting.
+
+For a new Text, choose **Draft All Controls in New Text**. This discovers all targets,
+including the same target name on different meshes. The currently selected Text is
+left intact, even if it is unrelated or invalid JSON. Only **Apply All Missing Controls
+to Text** creates and selects the new Text. **Discard** creates nothing.
+
+The draft list shows each proposed control. Select each row to inspect its full exact
+mesh path and shape-key name, edit its alias or range, then Apply once for the complete
+batch. Target bindings are fixed by discovery. Aliases use the scene namespace,
+a readable normalized target slug and a deterministic exact-pair digest; Unicode,
+punctuation, repeated target names and existing aliases cannot silently collide.
+Existing alias collisions get a numeric suffix. The same unchanged source generates
+the same proposals regardless of discovery order.
+
+Ranges start at `[-1, 1]` and expand only as needed to include the authored default,
+within `[-2, 2]`. For example, default `1.5` proposes `[-1, 1.5]`, while default `-1.5`
+proposes `[-1.5, 1]`. Review ranges for the intended animation; this does not inspect
+all animated extremes or change shape-key values. Full export still validates those
+extremes. Out-of-bound defaults block setup instead of clamping source data.
+
+Apply validates the whole batch before writing. Duplicate/invalid aliases, invalid
+ranges, missing rows or stale source/Text reject the batch without a partial write.
+An existing control pointing to a missing target or excluding its current default
+reports that alias and asks you to edit it first; batch setup never replaces it.
+Apply or Discard the active draft before starting another. Changing namespace after
+starting does not rename already drafted aliases; edit them or discard and restart.
+
 ## Validation and recovery
 
 - Aliases are namespaced resource IDs, such as `morph_editor:squeeze`. Existing
@@ -95,7 +128,19 @@ blender --background --python-exit-code 1 \
   --python blender-addon/scripts/verify_morph_editor.py -- --project-root .
 ```
 
-The second command regenerates the editable source, textures, strict exports,
+For the batch contracts and disposable real-Blender acceptance:
+
+```sh
+python -B -m unittest discover -s blender-addon/tests -p test_authoring_morph_batch.py -v
+blender --background --python-exit-code 1 \
+  --python blender-addon/scripts/verify_morph_batch.py -- --project-root .
+```
+
+Batch verification uses `build/morph-batch-acceptance` and does not rewrite the source
+fixture. It covers two genuine meshes, Unicode/repeated target names, non-unit defaults,
+editable atomic drafts, conflicts, Discard, export isolation, and save/reopen.
+
+The single-control verification command regenerates the editable source, textures, strict exports,
 canonical JSON, and `verification.json` under `test-assets/blender-morph-authoring`.
 It also uses the existing animated CPU fixture to prove states/events/sockets/rules
 are preserved. Reopen scratch output is isolated under `build/morph-editor-reopen`.

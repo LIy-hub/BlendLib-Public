@@ -49,6 +49,7 @@ def _reset_draft(draft):
     draft.events.clear()
     draft.nodes.clear()
     draft.targets.clear()
+    draft.batch_controls.clear()
     draft.rules.clear()
 
 
@@ -159,6 +160,13 @@ def register(blender, exporter):
         owner: props.StringProperty(options=transient)
         default_weight: props.StringProperty(options=transient)
 
+    class BLENDLIB_PG_authoring_morph_control(blender.types.PropertyGroup):
+        key: props.StringProperty(name='Control Alias', options=transient)
+        node: props.StringProperty(options=transient)
+        target: props.StringProperty(options=transient)
+        min_weight: props.StringProperty(name='Minimum Weight', options=transient)
+        max_weight: props.StringProperty(name='Maximum Weight', options=transient)
+
     class BLENDLIB_PG_authoring_condition(blender.types.PropertyGroup):
         input_name: props.StringProperty(name='Input Name', options=transient)
         kind: props.EnumProperty(name='Condition Type', items=[
@@ -188,6 +196,8 @@ def register(blender, exporter):
         source_invalidated: props.BoolProperty(default=False, options=transient)
         nodes: props.CollectionProperty(type=BLENDLIB_PG_authoring_node, options=transient)
         targets: props.CollectionProperty(type=BLENDLIB_PG_authoring_node, options=transient)
+        batch_controls: props.CollectionProperty(type=BLENDLIB_PG_authoring_morph_control, options=transient)
+        batch_index: props.IntProperty(default=0, min=0, options=transient)
         morph_target: props.EnumProperty(name='Exported Mesh / Target', items=target_items, options=transient)
         min_weight: props.StringProperty(name='Minimum Weight', default='0', options=transient)
         max_weight: props.StringProperty(name='Maximum Weight', default='1', options=transient)
@@ -341,6 +351,46 @@ def register(blender, exporter):
                 self.report({'ERROR'}, str(error)[:300])
                 return {'CANCELLED'}
 
+    class BLENDLIB_OT_authoring_morph_batch_begin(blender.types.Operator):
+        bl_idname = 'blendlib.authoring_morph_batch_begin'
+        bl_label = 'Draft Missing Morph Controls'
+        bl_description = 'Discover every missing exact mesh / target and draft aliases and safe ranges; only Apply writes Text'
+        mode: props.EnumProperty(items=[('ADD', 'Add Missing Controls', ''), ('CREATE', 'New Complete Morph Text', '')])
+
+        def execute(self, context):
+            scene, draft = context.scene, context.scene.blendlib_authoring_draft
+            if draft.active:
+                self.report({'ERROR'}, 'Apply or discard the current draft first')
+                return {'CANCELLED'}
+            try:
+                if not _morph(scene):
+                    raise ValueError('Select the CPU morph profile first')
+                text = scene.blendlib_runtime_authoring_text
+                if self.mode != 'CREATE' and (text is None or text.library is not None):
+                    raise ValueError('Select a local editable Text datablock')
+                content = text.as_string() if text else ''
+                _, facts, fps = _source(scene, exporter)
+                rows, signature = sockets.discover(scene, exporter, morph_targets=True)
+                controls = editor.missing_morph_controls(content, mode=self.mode,
+                    namespace=scene.blendlib_namespace, targets=rows, actions=facts, fps=fps)
+                if not controls:
+                    self.report({'INFO'}, 'No missing morph controls; Text unchanged')
+                    return {'FINISHED'}
+                _reset_draft(draft)
+                for raw in controls:
+                    row = draft.batch_controls.add()
+                    row.key, row.node, row.target = raw['key'], raw['node'], raw['target']
+                    row.min_weight, row.max_weight = json.dumps(raw['min_weight']), json.dumps(raw['max_weight'])
+                draft.source, draft.source_content = text, content
+                draft.source_signature, draft.source_invalidated = signature, False
+                draft.kind, draft.mode = 'MORPH_BATCH', self.mode
+                draft.batch_index = 0
+                draft.active = True
+                return {'FINISHED'}
+            except (ValueError, KeyError, TypeError, OverflowError, OSError, RuntimeError, exporter.ExportError) as error:
+                self.report({'ERROR'}, str(error)[:300])
+                return {'CANCELLED'}
+
     class BLENDLIB_OT_authoring_rules_begin(blender.types.Operator):
         bl_idname = 'blendlib.authoring_rules_begin'
         bl_label = 'Load / Add Locomotion Rules'
@@ -487,7 +537,7 @@ def register(blender, exporter):
                 if draft.mode != 'CREATE' and (text is None or text.library is not None):
                     raise ValueError('Select a local editable Text datablock')
                 actions, facts, fps = _source(scene, exporter)
-                if draft.kind == 'MORPH':
+                if draft.kind in {'MORPH', 'MORPH_BATCH'}:
                     if not _morph(scene):
                         raise ValueError('Morph controls require the CPU morph profile; discard and reload')
                     if draft.source_invalidated:
@@ -495,12 +545,18 @@ def register(blender, exporter):
                     rows, signature = sockets.discover(scene, exporter, morph_targets=True)
                     if signature != draft.source_signature:
                         raise ValueError('Export source or morph targets changed; discard and reload the draft')
-                    if draft.morph_target == '/':
-                        raise ValueError('Choose an exact exported mesh / target')
-                    node, target = json.loads(draft.morph_target)
-                    replacement = editor.apply_morph(content, mode=draft.mode, key=draft.key,
-                        node=node, target=target, min_weight=draft.min_weight, max_weight=draft.max_weight,
-                        targets=rows, actions=facts, fps=fps)
+                    if draft.kind == 'MORPH_BATCH':
+                        replacement = editor.apply_morph_batch(content, mode=draft.mode,
+                            controls=[{'key': row.key, 'node': row.node, 'target': row.target,
+                                'min_weight': row.min_weight, 'max_weight': row.max_weight}
+                                for row in draft.batch_controls], targets=rows, actions=facts, fps=fps)
+                    else:
+                        if draft.morph_target == '/':
+                            raise ValueError('Choose an exact exported mesh / target')
+                        node, target = json.loads(draft.morph_target)
+                        replacement = editor.apply_morph(content, mode=draft.mode, key=draft.key,
+                            node=node, target=target, min_weight=draft.min_weight, max_weight=draft.max_weight,
+                            targets=rows, actions=facts, fps=fps)
                 elif draft.kind == 'SOCKET':
                     if draft.source_invalidated:
                         raise ValueError('Armature Edit Mode or undo changed source identity; discard and reload the draft')
@@ -536,6 +592,11 @@ def register(blender, exporter):
             except (ValueError, TypeError, KeyError, OverflowError, OSError, RuntimeError, exporter.ExportError) as error:
                 self.report({'ERROR'}, str(error)[:300])
                 return {'CANCELLED'}
+
+    class BLENDLIB_UL_authoring_morph_batch(blender.types.UIList):
+        def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
+            layout.label(text=item.target)
+            layout.label(text=item.key)
 
     class BLENDLIB_UL_authoring_events(blender.types.UIList):
         def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
@@ -607,7 +668,9 @@ def register(blender, exporter):
                         row = layout.row(align=True)
                         row.operator('blendlib.authoring_morph_begin', text='Load Control').mode = 'EDIT'
                         row.operator('blendlib.authoring_morph_begin', text='Add Control').mode = 'ADD'
+                        layout.operator('blendlib.authoring_morph_batch_begin', text='Draft Missing Controls').mode = 'ADD'
                     layout.operator('blendlib.authoring_morph_begin', text='Start Morph-only Text').mode = 'CREATE'
+                    layout.operator('blendlib.authoring_morph_batch_begin', text='Draft All Controls in New Text').mode = 'CREATE'
                     layout.label(text='Discover exact mesh / shape key; no live preview')
                 if scene.blendlib_runtime_authoring_text:
                     layout.prop(scene, 'blendlib_authoring_state', text='State')
@@ -626,6 +689,25 @@ def register(blender, exporter):
             layout.label(text='New Text draft' if draft.mode == 'CREATE' else 'Draft for ' + (draft.source.name if draft.source else '(missing Text)'))
             if draft.kind == 'RULES':
                 draw_rules(layout, draft)
+                return
+            if draft.kind == 'MORPH_BATCH':
+                if draft.source_invalidated:
+                    layout.label(text='Scene edited: discard and reload this draft', icon='ERROR')
+                layout.label(text=str(len(draft.batch_controls)) + ' missing controls; existing controls preserved')
+                layout.template_list('BLENDLIB_UL_authoring_morph_batch', '', draft, 'batch_controls', draft, 'batch_index', rows=5)
+                if 0 <= draft.batch_index < len(draft.batch_controls):
+                    control = draft.batch_controls[draft.batch_index]
+                    layout.label(text='Mesh: ' + control.node)
+                    layout.label(text='Target: ' + control.target)
+                    layout.prop(control, 'key')
+                    layout.prop(control, 'min_weight')
+                    layout.prop(control, 'max_weight')
+                layout.label(text='Review each alias and range before Apply')
+                layout.label(text='Defaults are preserved; ranges start at [-1,1]')
+                layout.label(text='Ranges expand to include defaults within [-2,2]')
+                row = layout.row(align=True)
+                row.operator('blendlib.authoring_apply', text='Apply All Missing Controls to Text')
+                row.operator('blendlib.authoring_discard', text='Discard')
                 return
             key_row = layout.row()
             key_row.enabled = draft.mode != 'EDIT'
@@ -689,11 +771,11 @@ def register(blender, exporter):
             row.operator('blendlib.authoring_apply', text='Create New Text' if draft.mode == 'CREATE' else 'Apply to Selected Text')
             row.operator('blendlib.authoring_discard', text='Discard')
 
-    _CLASSES = (BLENDLIB_PG_authoring_event, BLENDLIB_PG_authoring_node,
+    _CLASSES = (BLENDLIB_PG_authoring_event, BLENDLIB_PG_authoring_node, BLENDLIB_PG_authoring_morph_control,
                 BLENDLIB_PG_authoring_condition, BLENDLIB_PG_authoring_rule, BLENDLIB_PG_authoring_draft,
-                BLENDLIB_OT_authoring_begin, BLENDLIB_OT_authoring_morph_begin, BLENDLIB_OT_authoring_socket_begin, BLENDLIB_OT_authoring_discard,
+                BLENDLIB_OT_authoring_begin, BLENDLIB_OT_authoring_morph_begin, BLENDLIB_OT_authoring_morph_batch_begin, BLENDLIB_OT_authoring_socket_begin, BLENDLIB_OT_authoring_discard,
                 BLENDLIB_OT_authoring_event, BLENDLIB_OT_authoring_rules_begin, BLENDLIB_OT_authoring_rules_row, BLENDLIB_OT_authoring_apply,
-                BLENDLIB_UL_authoring_events, BLENDLIB_UL_authoring_rules, BLENDLIB_UL_authoring_conditions, VIEW3D_PT_blendlib_authoring)
+                BLENDLIB_UL_authoring_morph_batch, BLENDLIB_UL_authoring_events, BLENDLIB_UL_authoring_rules, BLENDLIB_UL_authoring_conditions, VIEW3D_PT_blendlib_authoring)
     for cls in _CLASSES:
         blender.utils.register_class(cls)
     blender.types.Scene.blendlib_authoring_state = props.EnumProperty(name='State', items=state_items, options=transient)
@@ -716,14 +798,14 @@ def register(blender, exporter):
         if any(obj.type in {'ARMATURE', 'MESH'} and obj.mode == 'EDIT' for obj in blender.data.objects):
             for owner_scene in blender.data.scenes:
                 draft = owner_scene.blendlib_authoring_draft
-                if draft.active and draft.kind in {'SOCKET', 'MORPH'}:
+                if draft.active and draft.kind in {'SOCKET', 'MORPH', 'MORPH_BATCH'}:
                     draft.source_invalidated = True
 
     @blender.app.handlers.persistent
     def invalidate_undo(_):
         for scene in blender.data.scenes:
             draft = scene.blendlib_authoring_draft
-            if draft.active and draft.kind in {'SOCKET', 'MORPH'}:
+            if draft.active and draft.kind in {'SOCKET', 'MORPH', 'MORPH_BATCH'}:
                 draft.source_invalidated = True
 
     _EDIT_HANDLER, _UNDO_HANDLER = invalidate_bone_edits, invalidate_undo
